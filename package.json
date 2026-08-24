@@ -1,0 +1,47 @@
+{
+  "name": "forensic",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3036 --strictPort --host",
+    "api": "node serve.mjs",
+    "build": "vite build",
+    "start": "NODE_ENV=production node serve.mjs",
+    "prod": "vite build && NODE_ENV=production node serve.mjs",
+    "migrate": "node db/migrate.mjs",
+    "lint": "eslint .",
+    "preview": "vite preview --port 3036",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource/space-mono": "^5.1.0",
+    "@xyflow/react": "^12.10.2",
+    "canvas-confetti": "^1.9.4",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "html-to-image": "^1.11.13",
+    "pg": "^8.20.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^2.1.9",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.4.0",
+    "jsdom": "^30.0.1",
+    "vite": "^8.0.4",
+    "vitest": "^2.1.9"
+  }
+}

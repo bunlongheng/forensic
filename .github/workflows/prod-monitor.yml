@@ -1,0 +1,46 @@
+name: Prod monitor
+
+# Uptime + auth monitor. Hits prod every 15 min and asserts the artifact API is
+# healthy and auth-gated. A failed run emails the repo owner (GitHub's default
+# scheduled-job notification). Also runs on every push to main as a post-deploy
+# smoke test.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: prod-monitor
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE_URL: https://forensic-bheng.vercel.app
+    steps:
+      - name: Health endpoint is 200 + ok:true (API secret + owner + DB)
+        run: |
+          set -euo pipefail
+          out=$(curl -sS --max-time 20 -w '\n%{http_code}' "$BASE_URL/api/health")
+          code=$(printf '%s' "$out" | tail -n1)
+          body=$(printf '%s' "$out" | sed '$d')
+          echo "$body"
+          [ "$code" = "200" ] || { echo "::error::/api/health HTTP $code"; exit 1; }
+          printf '%s' "$body" | grep -q '"ok":true' || { echo "::error::/api/health not ok"; exit 1; }
+
+      - name: Artifact API is up and auth-gated (side-effect-free)
+        run: |
+          set -euo pipefail
+          # POST with a deliberately BAD token: proves the route is alive AND the
+          # Bearer gate rejects unauthorized callers. The bad token guarantees it
+          # NEVER creates a row (no artifact spam).
+          code=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' \
+            -X POST "$BASE_URL/api/ai/boards" \
+            -H "Authorization: Bearer monitor-not-a-real-token" \
+            -H "Content-Type: application/json" \
+            -d '{"title":"monitor","nodes":[{"id":"user","position":{"x":0,"y":0}}]}')
+          [ "$code" = "401" ] || { echo "::error::/api/ai/boards did not 401 a bad token (got $code) - route down or auth broken"; exit 1; }

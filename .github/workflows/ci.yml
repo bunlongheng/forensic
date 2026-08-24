@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: forensic
+          # Trust auth: no password, so nothing credential-shaped is committed.
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Non-secret e2e boot config. NOTE: NODE_ENV is intentionally NOT set to
+      # production here - that would make `npm ci` skip devDependencies (vitest,
+      # playwright). The `npm run start` script sets NODE_ENV=production itself
+      # for the server process, so the local auth bypass is still gated OFF and
+      # the e2e specs exercise the real Bearer/owner gates.
+      DATABASE_URL: postgres://postgres@localhost:5432/forensic
+      DATABASE_SSL: "false"
+      OWNER_USER_ID: 00000000-0000-0000-0000-000000000001
+      FORENSIC_APP_URL: https://forensic-bheng.vercel.app
+      # Non-secret auth config so /api/health reports ok:true (the webServer
+      # readiness probe). Google OAuth is never actually called in e2e - the
+      # specs exercise unauthenticated/Bearer paths only.
+      GOOGLE_CLIENT_ID: e2e-dummy-client-id
+      OWNER_EMAIL: owner@example.com
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Throwaway secrets, generated fresh each run - never real credentials.
+      - name: Generate throwaway e2e secrets
+        run: |
+          {
+            echo "FORENSIC_API_SECRET=e2e-$(openssl rand -hex 16)"
+            echo "AUTH_SECRET=e2e-$(openssl rand -hex 16)"
+            echo "GOOGLE_CLIENT_SECRET=e2e-$(openssl rand -hex 8)"
+          } >> "$GITHUB_ENV"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Apply database migrations
+        run: npm run migrate
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (API + browser render, against a production build)
+        run: npm run test:e2e
