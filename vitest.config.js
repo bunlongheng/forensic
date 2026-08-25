@@ -11,10 +11,11 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text"],
       include: ["lib/**", "src/**"],
-      // Ratchet: set just below current (lines/statements ~56.9%, branches
-      // ~75.6%, functions ~65.3%) so coverage can only go up. Raise these as
-      // more of App.jsx/Board.jsx/Gallery.jsx gets covered.
-      thresholds: { lines: 56, statements: 56, branches: 65, functions: 35 },
+      // Ratchet: set just below current (lines ~60%, statements ~54%, branches
+      // ~51%, functions ~41% under vitest 4's v8 counting) so coverage can only
+      // go up. Raise these as more of App/Board/Gallery gets covered. The canvas
+      // views resist jsdom unit tests; the Playwright e2e suite covers them live.
+      thresholds: { lines: 58, statements: 53, branches: 50, functions: 40 },
     },
   },
 });

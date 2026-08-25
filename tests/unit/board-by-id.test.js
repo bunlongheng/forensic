@@ -26,7 +26,7 @@ function mockRes() {
   };
 }
 
-const ID = "731ace87-64e5-44db-bf2a-82265f06f4d9";
+const ID = "00000000-0000-0000-0000-000000000001";
 
 function localReq(method, id, body, overrides = {}) {
   return { method, query: { id }, headers: {}, socket: { remoteAddress: "127.0.0.1" }, body, ...overrides };

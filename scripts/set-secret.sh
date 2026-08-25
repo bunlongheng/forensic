@@ -4,8 +4,8 @@
 # line for the same key is replaced (no duplicates).
 #
 # Usage:
-#   scripts/set-secret.sh ANTHROPIC_API_KEY        # then paste value + Enter
-#   echo "$KEY" | scripts/set-secret.sh ANTHROPIC_API_KEY
+#   scripts/set-secret.sh FORENSIC_API_SECRET        # then paste value + Enter
+#   echo "$KEY" | scripts/set-secret.sh FORENSIC_API_SECRET
 set -euo pipefail
 
 NAME="${1:?usage: set-secret.sh KEY_NAME  (value read from stdin)}"

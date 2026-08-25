@@ -35,7 +35,7 @@ describe("GET /api/boards (listBoards)", () => {
   beforeEach(() => {
     delete process.env.NODE_ENV;
     delete process.env.LOCAL_DEV;
-    process.env.OWNER_USER_ID = "731ace87-64e5-44db-bf2a-82265f06f4d9";
+    process.env.OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
     query.mockReset();
   });
   afterEach(() => {
@@ -69,7 +69,7 @@ describe("GET /api/boards (listBoards)", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual(rows);
     expect(query).toHaveBeenCalledWith(expect.stringMatching(/ORDER BY updated_at DESC/), [
-      "731ace87-64e5-44db-bf2a-82265f06f4d9",
+      "00000000-0000-0000-0000-000000000001",
     ]);
   });
 

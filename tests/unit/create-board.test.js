@@ -37,7 +37,7 @@ function remoteReq(body, overrides = {}) {
 }
 
 const ROW = {
-  id: "731ace87-64e5-44db-bf2a-82265f06f4d9",
+  id: "00000000-0000-0000-0000-000000000001",
   title: "Untitled Board",
   slug: "untitled-board",
   nodes: [],
@@ -53,7 +53,7 @@ describe("POST /api/boards (createBoard)", () => {
   beforeEach(() => {
     delete process.env.NODE_ENV;
     delete process.env.LOCAL_DEV;
-    process.env.OWNER_USER_ID = "731ace87-64e5-44db-bf2a-82265f06f4d9";
+    process.env.OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
     query.mockReset();
   });
   afterEach(() => {
@@ -93,7 +93,7 @@ describe("POST /api/boards (createBoard)", () => {
     expect(res.statusCode).toBe(201);
     const insertCall = query.mock.calls[1];
     expect(insertCall[1]).toEqual([
-      "731ace87-64e5-44db-bf2a-82265f06f4d9",
+      "00000000-0000-0000-0000-000000000001",
       "Untitled Board",
       "untitled-board",
       "[]",

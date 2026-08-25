@@ -34,7 +34,7 @@ describe("GET /api/health", () => {
   beforeEach(() => {
     // All non-DB checks configured so only the DB check drives ok/not-ok.
     process.env.FORENSIC_API_SECRET = "test-secret-abc123";
-    process.env.OWNER_USER_ID = "731ace87-64e5-44db-bf2a-82265f06f4d9";
+    process.env.OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
     process.env.GOOGLE_CLIENT_ID = "test-client-id";
     process.env.GOOGLE_CLIENT_SECRET = "test-client-secret";
     process.env.AUTH_SECRET = "test-auth-secret-0123456789";

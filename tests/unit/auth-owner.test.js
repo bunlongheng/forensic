@@ -62,8 +62,8 @@ describe("authorizeOwner", () => {
 describe("ownerId", () => {
   it("returns the trimmed OWNER_USER_ID or null", () => {
     const orig = process.env.OWNER_USER_ID;
-    process.env.OWNER_USER_ID = "  731ace87-64e5-44db-bf2a-82265f06f4d9  ";
-    expect(ownerId()).toBe("731ace87-64e5-44db-bf2a-82265f06f4d9");
+    process.env.OWNER_USER_ID = "  00000000-0000-0000-0000-000000000001  ";
+    expect(ownerId()).toBe("00000000-0000-0000-0000-000000000001");
     delete process.env.OWNER_USER_ID;
     expect(ownerId()).toBe(null);
     process.env.OWNER_USER_ID = orig;

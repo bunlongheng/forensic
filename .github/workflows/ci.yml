@@ -32,7 +32,8 @@ jobs:
       # playwright). The `npm run start` script sets NODE_ENV=production itself
       # for the server process, so the local auth bypass is still gated OFF and
       # the e2e specs exercise the real Bearer/owner gates.
-      DATABASE_URL: postgres://postgres@localhost:5432/forensic
+      DATABASE_URL: postgres://localhost:5432/forensic
+      PGUSER: postgres
       DATABASE_SSL: "false"
       OWNER_USER_ID: 00000000-0000-0000-0000-000000000001
       FORENSIC_APP_URL: https://forensic-bheng.vercel.app

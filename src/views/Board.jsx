@@ -141,9 +141,11 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     addNote(screenToFlowPosition({ x: e.clientX, y: e.clientY }))
   }, [canEdit, addNote, screenToFlowPosition])
 
-  // Theme edges + arrowheads live (color follows the current palette).
+  // Theme edges + arrowheads live (color follows the current palette). Straight
+  // routing - a direct line from source to target (no bezier curve).
   const styledEdges = edges.map((e) => ({
     ...e,
+    type: 'straight',
     style: { stroke: theme.accent, strokeWidth: 2.4, ...e.style },
     markerEnd: { type: MarkerType.ArrowClosed, color: theme.accent, width: 18, height: 18 },
   }))
@@ -178,6 +180,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         onMove={(_, vp) => setZoomPct(Math.round(vp.zoom * 100))}
         colorMode={themeName}
         connectionMode="loose"
+        connectionLineType="straight"
         connectionLineStyle={{ stroke: theme.accent, strokeWidth: 2.4 }}
         connectionRadius={34}
         zoomOnDoubleClick={false}

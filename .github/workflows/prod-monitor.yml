@@ -40,7 +40,7 @@ jobs:
           # NEVER creates a row (no artifact spam).
           code=$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' \
             -X POST "$BASE_URL/api/ai/boards" \
-            -H "Authorization: Bearer monitor-not-a-real-token" \
+            --oauth2-bearer "probe-401" \
             -H "Content-Type: application/json" \
             -d '{"title":"monitor","nodes":[{"id":"user","position":{"x":0,"y":0}}]}')
           [ "$code" = "401" ] || { echo "::error::/api/ai/boards did not 401 a bad token (got $code) - route down or auth broken"; exit 1; }
