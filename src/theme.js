@@ -6,20 +6,20 @@ import { useState, useEffect, useCallback } from 'react'
 // chrome (panels, buttons); this object themes the canvas.
 export const THEMES = {
   dark: {
-    canvas: '#0e1013', dot: '#242a33', grid: '#1a1e25',
+    canvas: '#241a10', dot: '#3d2e1c', grid: '#2e2214',
     accent: '#ff4438', accentSoft: 'rgba(255,68,56,0.16)',
-    text: '#e7e9ec', muted: '#8b929c',
+    text: '#e7e9ec', muted: '#b3a888',
     panel: '#161a20', panelBorder: '#252b34',
     nodeBg: '#191d25', nodeBorder: '#2b323d',
-    minimapBg: 'rgba(20,23,29,0.85)', minimapNode: '#3a424e',
+    minimapBg: 'rgba(30,22,13,0.85)', minimapNode: '#6b5233',
   },
   light: {
-    canvas: '#f3f0e8', dot: '#cdc6b6', grid: '#e7e2d5',
+    canvas: '#e0cfa6', dot: '#cbb684', grid: '#d6c194',
     accent: '#d92b1f', accentSoft: 'rgba(217,43,31,0.12)',
-    text: '#1a1d21', muted: '#6f747c',
+    text: '#1a1d21', muted: '#5c4a30',
     panel: '#ffffff', panelBorder: '#e6e1d5',
     nodeBg: '#ffffff', nodeBorder: '#e2ddce',
-    minimapBg: 'rgba(255,255,255,0.85)', minimapNode: '#cbc4b4',
+    minimapBg: 'rgba(255,252,245,0.85)', minimapNode: '#8a6a3f',
   },
 }
 
@@ -27,10 +27,9 @@ const KEY = 'forensic-theme'
 
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'dark'
+    if (typeof window === 'undefined') return 'light'
     const saved = localStorage.getItem(KEY)
-    if (saved === 'light' || saved === 'dark') return saved
-    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+    return saved === 'light' || saved === 'dark' ? saved : 'light' // light by default
   })
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)

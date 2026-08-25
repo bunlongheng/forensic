@@ -3,7 +3,7 @@
 // else PNG) so a board packed with photos stays light in Postgres and fast to
 // pan/zoom. Returns { src, width, height } - width/height are the natural pixels
 // used to seed the node's on-canvas size while preserving aspect ratio.
-const MAX = 1600
+const MAX = 2800 // long-edge cap: high enough to zoom in a long way before raster blur
 const RECODE_OVER = 350_000 // bytes: recode anything bigger even if it fits MAX
 
 const readAsDataURL = (file) =>

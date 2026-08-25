@@ -25,6 +25,10 @@ export default function Gallery({ boards, accent, themeName, onToggleTheme, onOp
               style={{ padding: '9px 12px 9px 32px', width: 200, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, outline: 'none' }}
             />
           </div>
+          <button onClick={onCreate} disabled={creating} title="New board"
+            style={{ ...ghost, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: creating ? 'wait' : 'pointer' }}>
+            <Icon name="plus" size={20} />
+          </button>
           <button onClick={onToggleTheme} title="Toggle theme" style={ghost}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} /></button>
           <button onClick={onSignOut} title="Sign out" style={ghost}><Icon name="logout" /></button>
         </div>
@@ -37,21 +41,6 @@ export default function Gallery({ boards, accent, themeName, onToggleTheme, onOp
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 18 }}>
-          {/* New board tile */}
-          <button
-            onClick={onCreate} disabled={creating}
-            style={{
-              minHeight: 213, borderRadius: 14, border: '1.5px dashed var(--border)', background: 'var(--panel)',
-              cursor: creating ? 'wait' : 'pointer', color: 'var(--accent)', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 10, fontSize: 14, fontWeight: 700,
-            }}
-          >
-            <div style={{ width: 46, height: 46, borderRadius: 12, background: 'var(--accent)', color: 'var(--accent-ink)', display: 'grid', placeItems: 'center' }}>
-              <Icon name="plus" size={22} />
-            </div>
-            {creating ? 'Creating…' : 'New board'}
-          </button>
-
           {filtered.map((b) => (
             <BoardCard key={b.id} board={b} accent={accent} onOpen={onOpen} onDelete={onDelete} />
           ))}

@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, Controls, MiniMap,
-  useNodesState, useEdgesState, addEdge, useReactFlow, MarkerType,
+  useNodesState, useEdgesState, addEdge, useReactFlow,
 } from '@xyflow/react'
 import ImageNode from '../components/ImageNode.jsx'
 import NoteNode from '../components/NoteNode.jsx'
+import { FloatingEdge } from '../components/FloatingEdge.jsx'
+import { Inspector } from '../components/Inspector.jsx'
+import { Decorations } from '../components/Decorations.jsx'
 import { NOTE_TINTS } from '../lib/constants.js'
 import { updateBoard } from '../lib/api.js'
 import { fileToImage } from '../lib/image.js'
 import { Icon } from '../components/Icon.jsx'
 
 const NODE_TYPES = { image: ImageNode, note: NoteNode }
+const EDGE_TYPES = { floating: FloatingEdge }
 let SEQ = 0
 const uid = (p) => `${p}-${Date.now().toString(36)}-${(SEQ++).toString(36)}`
 
@@ -41,24 +45,32 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [title, setTitle] = useState(board.title || 'Untitled Board')
   const [save, setSave] = useState('idle') // idle | saving | saved | error
   const [zoomPct, setZoomPct] = useState(100)
-  const { screenToFlowPosition, fitView } = useReactFlow()
+  const { screenToFlowPosition, fitView, updateNodeData } = useReactFlow()
+  const [sel, setSel] = useState(null) // { kind:'note'|'image'|'edge', id }
+  const [decor, setDecor] = useState(true) // show board frame + lamps
   const wrapRef = useRef(null)
   const fileRef = useRef(null)
-  const firstSave = useRef(true)
+  const savedSnap = useRef(null)
 
   // ── Persistence: debounced autosave (owner only) ──────────────────────────
+  // Persist only when the DURABLE content changes. sanitize strips selection /
+  // drag / hover state, so merely opening or clicking a board never re-saves and
+  // never bumps its gallery order.
+  const snapshot = JSON.stringify({ title, nodes: sanitizeNodes(nodes), edges: sanitizeEdges(edges) })
   useEffect(() => {
     if (!canEdit || !board.id) return
-    if (firstSave.current) { firstSave.current = false; return }
+    if (savedSnap.current === null) { savedSnap.current = snapshot; return } // initial load - never save
+    if (snapshot === savedSnap.current) return                              // no real change
     setSave('saving')
     const h = setTimeout(async () => {
       try {
-        await updateBoard(board.id, { title, nodes: sanitizeNodes(nodes), edges: sanitizeEdges(edges) })
+        await updateBoard(board.id, JSON.parse(snapshot))
+        savedSnap.current = snapshot
         setSave('saved')
       } catch { setSave('error') }
     }, 1100)
     return () => clearTimeout(h)
-  }, [nodes, edges, title, canEdit, board.id])
+  }, [snapshot, canEdit, board.id])
 
   // Cmd/Ctrl+S -> force an immediate save (still debounced follow-up is harmless).
   useEffect(() => {
@@ -68,13 +80,20 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         e.preventDefault()
         if (!board.id) return
         setSave('saving')
-        try { await updateBoard(board.id, { title, nodes: sanitizeNodes(nodes), edges: sanitizeEdges(edges) }); setSave('saved'); showToast('Board saved') }
+        try { await updateBoard(board.id, JSON.parse(snapshot)); savedSnap.current = snapshot; setSave('saved'); showToast('Board saved') }
         catch { setSave('error') }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, board.id, title, nodes, edges, showToast])
+  }, [canEdit, board.id, snapshot, showToast])
+
+  // Auto-hide the "Saved" pill 3s after a save settles.
+  useEffect(() => {
+    if (save !== 'saved') return
+    const t = setTimeout(() => setSave('idle'), 3000)
+    return () => clearTimeout(t)
+  }, [save])
 
   const fit = useCallback(() => fitView({ padding: 0.2, duration: 400 }), [fitView])
   useEffect(() => { const t = setTimeout(fit, 80); return () => clearTimeout(t) }, [fit])
@@ -138,23 +157,44 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   const onPaneDoubleClick = useCallback((e) => {
     if (!canEdit) return
+    // Only add a note on the EMPTY board - never when double-clicking on/over a
+    // node (that gesture is for editing the node's caption/text).
+    if (e.target.closest?.('.react-flow__node')) return
     addNote(screenToFlowPosition({ x: e.clientX, y: e.clientY }))
   }, [canEdit, addNote, screenToFlowPosition])
 
-  // Theme edges + arrowheads live (color follows the current palette). Straight
-  // routing - a direct line from source to target (no bezier curve).
-  const styledEdges = edges.map((e) => ({
-    ...e,
-    type: 'straight',
-    style: { stroke: theme.accent, strokeWidth: 2.4, ...e.style },
-    markerEnd: { type: MarkerType.ArrowClosed, color: theme.accent, width: 18, height: 18 },
-  }))
+  // Theme edges + arrowheads live. Straight routing. When a node is selected, its
+  // connections LIGHT UP (thicker, glowing, animated) and the rest dim - so you
+  // can trace what an object touches at a glance.
+  const selNodeId = sel && sel.kind !== 'edge' ? sel.id : null
+  const styledEdges = edges.map((e) => {
+    const stroke = e.data?.color || theme.accent
+    const lit = selNodeId && (e.source === selNodeId || e.target === selNodeId)
+    const dim = selNodeId && !lit
+    return {
+      ...e,
+      type: 'floating', // auto-connect at the nearest point on each node's boundary
+      animated: lit || e.animated,
+      zIndex: 1001, // thread lies ON TOP of the pinned photos/notes (realistic string)
+      style: {
+        ...e.style, stroke,
+        strokeWidth: lit ? 3.8 : 2.4,
+        opacity: dim ? 0.25 : 1,
+        filter: lit ? `drop-shadow(0 0 5px ${stroke})` : undefined,
+      },
+    }
+  })
 
   function exportPng() {
-    const el = wrapRef.current?.querySelector('.react-flow__viewport')?.parentElement
+    // Capture the whole board window - frame, lamps and all - minus the UI chrome.
+    const el = wrapRef.current
     if (!el) return
+    const hide = (n) => {
+      const c = n.classList
+      return !c || (!c.contains('react-flow__minimap') && !c.contains('react-flow__controls') && !c.contains('fx-noexport'))
+    }
     import('html-to-image').then(({ toPng }) =>
-      toPng(el, { backgroundColor: theme.canvas, pixelRatio: 2, filter: (n) => !n.classList?.contains('react-flow__minimap') && !n.classList?.contains('react-flow__controls') })
+      toPng(el, { backgroundColor: theme.canvas, pixelRatio: 2, filter: hide })
         .then((url) => { const a = document.createElement('a'); a.href = url; a.download = `${(title || 'board').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`; a.click() })
     ).catch(() => showToast('Export failed'))
   }
@@ -173,9 +213,18 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         nodes={nodes}
         edges={styledEdges}
         nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
         onNodesChange={canEdit ? onNodesChange : undefined}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
         onConnect={onConnect}
+        onSelectionChange={({ nodes: ns, edges: es }) => {
+          const next = ns.length === 1
+            ? { kind: ns[0].type === 'image' ? 'image' : 'note', id: ns[0].id }
+            : es.length === 1 ? { kind: 'edge', id: es[0].id } : null
+          // Return the SAME reference when unchanged so React bails out - otherwise
+          // a fresh object every fire loops against the glow re-render.
+          setSel((prev) => (prev?.id === next?.id && prev?.kind === next?.kind ? prev : next))
+        }}
         onDoubleClick={onPaneDoubleClick}
         onMove={(_, vp) => setZoomPct(Math.round(vp.zoom * 100))}
         colorMode={themeName}
@@ -196,11 +245,11 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         fitView
       >
         <Background variant={BackgroundVariant.Dots} gap={26} size={1.6} color={theme.dot} />
-        <Controls showInteractive={false} position="bottom-left" />
+        <Controls showInteractive={false} position="bottom-left" style={{ left: 42, bottom: 42 }} />
         <MiniMap
           pannable zoomable position="bottom-right"
           maskColor={themeName === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)'}
-          style={{ background: theme.minimapBg, border: `1px solid ${theme.panelBorder}` }}
+          style={{ background: theme.minimapBg, border: `2px solid ${theme.panelBorder}`, right: 42, bottom: 42 }}
           nodeColor={theme.minimapNode}
           nodeStrokeColor={theme.accent}
         />
@@ -219,10 +268,9 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       )}
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
-      <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
+      <div className="fx-noexport" style={{ position: 'absolute', top: 42, left: 42, right: 42, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 12, padding: '7px 10px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
           <button onClick={onBack} title="Back to boards" style={iconBtn}><Icon name="back" /></button>
-          <img src="/icon.png" alt="" width={22} height={22} style={{ borderRadius: 6 }} />
           {canEdit ? (
             <input
               value={title}
@@ -243,19 +291,30 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <button onClick={fit} title="Fit to view" style={iconBtn}><Icon name="fit" /></button>
           <button onClick={exportPng} title="Export PNG" style={iconBtn}><Icon name="download" /></button>
           {board.id && <button onClick={share} title="Copy share link" style={iconBtn}><Icon name="share" /></button>}
+          {canEdit && <button onClick={() => fileRef.current?.click()} title="Add image" style={iconBtn}><Icon name="image" /></button>}
+          <button onClick={() => setDecor((d) => !d)} title={decor ? 'Hide frame & lamps' : 'Show frame & lamps'} style={{ ...iconBtn, color: decor ? 'var(--accent)' : 'var(--muted)' }}><Icon name="bulb" /></button>
           <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} /></button>
+          {canEdit && <input ref={fileRef} type="file" accept="image/*" multiple hidden
+            onChange={(e) => { if (e.target.files?.length) addImageFiles(e.target.files, centerPos()); e.target.value = '' }} />}
         </div>
       </div>
 
-      {/* ── Insert dock ─────────────────────────────────────────────────────── */}
-      {canEdit && (
-        <div style={{ position: 'absolute', bottom: 22, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14, padding: 6, boxShadow: 'var(--shadow)' }}>
-          <button onClick={() => fileRef.current?.click()} style={dockBtn}><Icon name="image" /> Image</button>
-          <button onClick={() => addNote(centerPos())} style={dockBtn}><Icon name="note" /> Note</button>
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden
-            onChange={(e) => { if (e.target.files?.length) addImageFiles(e.target.files, centerPos()); e.target.value = '' }} />
-        </div>
-      )}
+      {/* ── Inspector (right panel) ─────────────────────────────────────────── */}
+      {canEdit && sel && (() => {
+        const el = sel.kind === 'edge' ? edges.find((e) => e.id === sel.id) : nodes.find((n) => n.id === sel.id)
+        if (!el) return null
+        return (
+          <Inspector
+            kind={sel.kind} data={el.data || {}}
+            onNode={(patch) => updateNodeData(sel.id, patch)}
+            onEdge={(patch) => setEdges((eds) => eds.map((x) => (x.id === sel.id ? { ...x, data: { ...x.data, ...patch } } : x)))}
+          />
+        )
+      })()}
+
+      {/* Fixed board frame + lamps (toggleable). Window-anchored, pointer-events
+          off, so the corkboard still pans/zooms inside. */}
+      {decor && <Decorations />}
     </div>
   )
 }
@@ -263,11 +322,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 const iconBtn = {
   display: 'grid', placeItems: 'center', width: 32, height: 32, borderRadius: 8,
   background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text)',
-}
-const dockBtn = {
-  display: 'flex', alignItems: 'center', gap: 7, padding: '9px 14px', borderRadius: 10,
-  background: 'var(--panel-2)', border: '1px solid var(--border)', cursor: 'pointer',
-  fontSize: 13, fontWeight: 600, color: 'var(--text)',
 }
 
 export default function Board(props) {
