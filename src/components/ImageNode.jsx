@@ -41,7 +41,7 @@ function ImageNode({ id, data, selected }) {
       }}>
         <img
           src={data.src} alt={data.label || 'evidence'} draggable={false}
-          style={{ width: '100%', flex: 1, minHeight: 0, objectFit: 'cover', display: 'block', borderRadius: 1, filter: gray ? 'grayscale(1)' : 'none' }}
+          style={{ width: '100%', flex: 1, minHeight: 0, objectFit: 'contain', display: 'block', borderRadius: 1, filter: gray ? 'grayscale(1)' : 'none' }}
         />
         {showCap && (
           <div
