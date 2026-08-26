@@ -8,6 +8,7 @@ import NoteNode from '../components/NoteNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
+import { ReportModal } from '../components/ReportModal.jsx'
 import { NOTE_TINTS } from '../lib/constants.js'
 import { updateBoard } from '../lib/api.js'
 import { fileToImage } from '../lib/image.js'
@@ -48,6 +49,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const { screenToFlowPosition, fitView, updateNodeData } = useReactFlow()
   const [sel, setSel] = useState(null) // { kind:'note'|'image'|'edge', id }
   const [decor, setDecor] = useState(true) // show board frame + lamps
+  const [showReport, setShowReport] = useState(false)
   const wrapRef = useRef(null)
   const fileRef = useRef(null)
   const savedSnap = useRef(null)
@@ -178,9 +180,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       zIndex: 1001, // thread lies ON TOP of the pinned photos/notes (realistic string)
       style: {
         ...e.style, stroke,
-        strokeWidth: lit ? 3.8 : 2.4,
+        strokeWidth: lit ? 3.8 : 2.7,
         opacity: dim ? 0.25 : 1,
-        filter: lit ? `drop-shadow(0 0 5px ${stroke})` : undefined,
+        // Cast shadow so the thread reads as a physical string lying on the board.
+        filter: lit ? `drop-shadow(0 0 5px ${stroke})` : 'drop-shadow(0.5px 1.6px 1px rgba(0,0,0,0.42))',
       },
     }
   })
@@ -291,6 +294,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <button onClick={fit} title="Fit to view" style={iconBtn}><Icon name="fit" /></button>
           <button onClick={exportPng} title="Export PNG" style={iconBtn}><Icon name="download" /></button>
           {board.id && <button onClick={share} title="Copy share link" style={iconBtn}><Icon name="share" /></button>}
+          <button onClick={() => setShowReport(true)} title="Case report" style={iconBtn}><Icon name="report" /></button>
           {canEdit && <button onClick={() => fileRef.current?.click()} title="Add image" style={iconBtn}><Icon name="image" /></button>}
           <button onClick={() => setDecor((d) => !d)} title={decor ? 'Hide frame & lamps' : 'Show frame & lamps'} style={{ ...iconBtn, color: decor ? 'var(--accent)' : 'var(--muted)' }}><Icon name="bulb" /></button>
           <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} /></button>
@@ -315,6 +319,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       {/* Fixed board frame + lamps (toggleable). Window-anchored, pointer-events
           off, so the corkboard still pans/zooms inside. */}
       {decor && <Decorations />}
+
+      {showReport && <ReportModal title={title} nodes={nodes} edges={edges} onClose={() => setShowReport(false)} />}
     </div>
   )
 }

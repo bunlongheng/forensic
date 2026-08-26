@@ -47,6 +47,8 @@ export function FloatingEdge({ id, source, target, style }) {
       {/* Fat invisible hit area so the thin thread is easy to click/select. */}
       <path d={path} fill="none" stroke="transparent" strokeWidth={22} className="react-flow__edge-interaction" />
       <path id={id} className="react-flow__edge-path" d={path} style={style} />
+      {/* Thin sheen down the middle - the highlight on a round waxed string. */}
+      <path d={path} fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={0.9} style={{ pointerEvents: 'none' }} />
       <PinHead x={sp.x} y={sp.y} />
       <PinHead x={tp.x} y={tp.y} />
     </>
