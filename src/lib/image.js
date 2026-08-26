@@ -3,7 +3,7 @@
 // else PNG) so a board packed with photos stays light in Postgres and fast to
 // pan/zoom. Returns { src, width, height } - width/height are the natural pixels
 // used to seed the node's on-canvas size while preserving aspect ratio.
-const MAX = 2800 // long-edge cap: high enough to zoom in a long way before raster blur
+const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
 const RECODE_OVER = 350_000 // bytes: recode anything bigger even if it fits MAX
 
 const readAsDataURL = (file) =>
@@ -44,9 +44,9 @@ export async function fileToImage(file) {
   ctx.drawImage(img, 0, 0, w, h)
   const hasAlpha = file.type === 'image/png' || file.type === 'image/gif'
   const type = hasAlpha ? 'image/png' : 'image/webp'
-  let out = canvas.toDataURL(type, 0.85)
+  let out = canvas.toDataURL(type, 0.8)
   // Some engines silently ignore webp and hand back a data: URL of another type;
   // fall back to jpeg if webp wasn't honored and we don't need alpha.
-  if (!hasAlpha && !out.startsWith('data:image/webp')) out = canvas.toDataURL('image/jpeg', 0.85)
+  if (!hasAlpha && !out.startsWith('data:image/webp')) out = canvas.toDataURL("image/jpeg", 0.8)
   return { src: out, width: w, height: h }
 }
