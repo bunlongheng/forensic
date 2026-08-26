@@ -1,3 +1,13 @@
+<div align="center">
+  <img src="docs/icon.png" alt="Forensic" width="96" height="96" />
+  <h1>Forensic</h1>
+  <p><em>An infinite Figma-like evidence board - pin images and wire the connections, unlimited zoom</em></p>
+  <p><a href="https://forensic-bheng.vercel.app">Live</a> &middot; <a href="https://github.com/bunlongheng/forensic">Repo</a> &middot; <a href="https://bunlongheng.com/projects?name=forensic">Portfolio</a></p>
+  <img src="docs/social-preview.png" alt="Forensic - preview" width="820" />
+</div>
+
+---
+
 # Forensic
 
 An infinite, Figma-fast board for pinning images and wiring the connections. Drop
