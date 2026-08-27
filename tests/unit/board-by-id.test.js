@@ -137,16 +137,35 @@ describe("/api/boards/:id (boardById)", () => {
       expect(query).not.toHaveBeenCalled();
     });
 
-    it("deletes and returns { deleted: true }", async () => {
-      query.mockResolvedValueOnce({ rowCount: 1 });
+    it("hard-deletes a small board (<3 nodes) and returns { deleted: true }", async () => {
+      query.mockResolvedValueOnce({ rows: [{ n: 1, trashed_at: null }] }); // node-count probe
+      query.mockResolvedValueOnce({ rowCount: 1 }); // DELETE
       const res = mockRes();
       await boardById(localReq("DELETE", ID), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual({ deleted: true });
     });
 
+    it("soft-deletes a board with 3+ nodes to Trash and returns { trashed: true }", async () => {
+      query.mockResolvedValueOnce({ rows: [{ n: 5, trashed_at: null }] }); // node-count probe
+      query.mockResolvedValueOnce({ rowCount: 1 }); // UPDATE trashed_at
+      const res = mockRes();
+      await boardById(localReq("DELETE", ID), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ trashed: true });
+    });
+
+    it("purge=1 hard-deletes even a large board", async () => {
+      query.mockResolvedValueOnce({ rows: [{ n: 9, trashed_at: null }] });
+      query.mockResolvedValueOnce({ rowCount: 1 });
+      const res = mockRes();
+      await boardById(localReq("DELETE", ID, undefined, { query: { id: ID, purge: "1" } }), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ deleted: true });
+    });
+
     it("returns { deleted: false } when nothing matched", async () => {
-      query.mockResolvedValueOnce({ rowCount: 0 });
+      query.mockResolvedValueOnce({ rows: [] }); // board not found
       const res = mockRes();
       await boardById(localReq("DELETE", ID), res);
       expect(res.statusCode).toBe(200);

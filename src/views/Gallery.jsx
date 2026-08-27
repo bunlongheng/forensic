@@ -1,38 +1,20 @@
 import { useState } from 'react'
 import BoardCard from '../components/BoardCard.jsx'
-import { Icon } from '../components/Icon.jsx'
+import { GalleryHeader } from '../components/GalleryHeader.jsx'
 
 // The signed-in owner's home: every saved board as a live snapshot, plus create /
 // search / sign-out. New boards open straight into the canvas.
-export default function Gallery({ boards, accent, themeName, onToggleTheme, onOpen, onCreate, onDelete, onSignOut, creating }) {
+export default function Gallery({ boards, accent, themeName, onToggleTheme, onOpen, onCreate, onDelete, onSignOut, onOpenTrash, trashCount = 0, creating }) {
   const [q, setQ] = useState('')
   const filtered = boards.filter((b) => !q.trim() || (b.title || '').toLowerCase().includes(q.toLowerCase()))
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 5, background: 'color-mix(in srgb, var(--bg) 88%, transparent)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 1180, margin: '0 auto', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <img src="/icon.png" alt="" width={30} height={30} style={{ borderRadius: 8 }} />
-          <div style={{ marginRight: 'auto' }}>
-            <div className="mono" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '.14em' }}>FORENSIC</div>
-            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Wire the evidence together</div>
-          </div>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <span style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none', display: 'grid' }}><Icon name="search" size={15} /></span>
-            <input
-              value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search boards"
-              style={{ padding: '9px 12px 9px 32px', width: 200, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, outline: 'none' }}
-            />
-          </div>
-          <button onClick={onCreate} disabled={creating} title="New board"
-            style={{ ...ghost, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: creating ? 'wait' : 'pointer' }}>
-            <Icon name="plus" size={20} />
-          </button>
-          <button onClick={onToggleTheme} title="Toggle theme" style={ghost}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} /></button>
-          <button onClick={onSignOut} title="Sign out" style={ghost}><Icon name="logout" /></button>
-        </div>
-      </header>
+      <GalleryHeader
+        themeName={themeName} onToggleTheme={onToggleTheme} onCreate={onCreate} onSignOut={onSignOut}
+        onTrash={onOpenTrash} trashCount={trashCount} trashActive={false} onHome={() => {}}
+        q={q} setQ={setQ} creating={creating}
+      />
 
       <main style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 20px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 }}>
@@ -52,9 +34,4 @@ export default function Gallery({ boards, accent, themeName, onToggleTheme, onOp
       </main>
     </div>
   )
-}
-
-const ghost = {
-  display: 'grid', placeItems: 'center', width: 38, height: 38, borderRadius: 10,
-  background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer',
 }

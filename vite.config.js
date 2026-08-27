@@ -7,8 +7,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      // Forensic's own API port (4336) - kept off 4321 so it never collides with
+      // the sibling apps (system-design / drop) that also default to 4321.
       '/api': {
-        target: 'http://localhost:4321',
+        target: 'http://localhost:4336',
         changeOrigin: true,
       },
     },

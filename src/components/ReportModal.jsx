@@ -1,7 +1,7 @@
-import { buildReport } from '../lib/report.js'
+import { useState, useEffect } from 'react'
+import { buildReport, detectLinks } from '../lib/report.js'
+import { ocrImage } from '../lib/ocr.js'
 
-// A printable case report generated from the board (no tokens). Lists the
-// evidence, the detected links, and the connection map.
 function Section({ label, count, children }) {
   return (
     <div style={{ marginTop: 20 }}>
@@ -13,8 +13,38 @@ function Section({ label, count, children }) {
   )
 }
 
+const btn = {
+  padding: '8px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 9, cursor: 'pointer',
+  background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', flexShrink: 0,
+}
+
 export function ReportModal({ title, nodes, edges, onClose }) {
   const r = buildReport(title, nodes, edges)
+  const imgs = nodes.filter((n) => n.type === 'image' && typeof n.data?.src === 'string')
+
+  const [ocr, setOcr] = useState({}) // nodeId -> text
+  const [progress, setProgress] = useState({ done: 0, total: imgs.length })
+  const [running, setRunning] = useState(imgs.length > 0)
+
+  // Read text inside every image (in-browser OCR, no tokens), one at a time.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      for (let i = 0; i < imgs.length; i++) {
+        const text = await ocrImage(imgs[i].data.src)
+        if (cancelled) return
+        setOcr((o) => ({ ...o, [imgs[i].id]: text }))
+        setProgress({ done: i + 1, total: imgs.length })
+      }
+      if (!cancelled) setRunning(false)
+    })()
+    return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ocrText = Object.values(ocr).join('\n')
+  const allLinks = [...new Set([...r.links, ...detectLinks(ocrText)])]
+  const ocrHits = imgs.map((n) => ({ label: n.data.label || 'Photo', text: ocr[n.id] })).filter((x) => x.text)
+
   const stat = (n, l) => (
     <div style={{ textAlign: 'center' }}>
       <div className="mono" style={{ fontSize: 26, fontWeight: 700 }}>{n}</div>
@@ -41,13 +71,20 @@ export function ReportModal({ title, nodes, edges, onClose }) {
           {stat(r.counts.notes, 'Notes')}
           {stat(r.counts.images, 'Photos')}
           {stat(r.counts.connections, 'Links')}
-          {stat(r.counts.links, 'URLs')}
+          {stat(allLinks.length, 'URLs')}
         </div>
 
-        {r.links.length > 0 && (
-          <Section label="Detected links" count={r.links.length}>
+        {running && (
+          <div style={{ marginTop: 16, fontSize: 12.5, color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 13, height: 13, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', display: 'inline-block', animation: 'fx-spin .8s linear infinite' }} />
+            Reading text inside images (OCR)… {progress.done}/{progress.total}
+          </div>
+        )}
+
+        {allLinks.length > 0 && (
+          <Section label="Detected links" count={allLinks.length}>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.7 }}>
-              {r.links.map((u) => <li key={u}><a href={u} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{u}</a></li>)}
+              {allLinks.map((u) => <li key={u}><a href={u} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{u}</a></li>)}
             </ul>
           </Section>
         )}
@@ -59,6 +96,17 @@ export function ReportModal({ title, nodes, edges, onClose }) {
           </ul>
         </Section>
 
+        {ocrHits.length > 0 && (
+          <Section label="Text found in images (OCR)" count={ocrHits.length}>
+            {ocrHits.map((h, i) => (
+              <div key={i} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700 }}>{h.label}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--muted)', whiteSpace: 'pre-wrap', lineHeight: 1.5, maxHeight: 120, overflow: 'auto', background: 'var(--panel-2)', borderRadius: 8, padding: '8px 10px', marginTop: 4 }}>{h.text}</div>
+              </div>
+            ))}
+          </Section>
+        )}
+
         {r.connections.length > 0 && (
           <Section label="Connection map" count={r.connections.length}>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.7 }}>
@@ -69,9 +117,4 @@ export function ReportModal({ title, nodes, edges, onClose }) {
       </div>
     </div>
   )
-}
-
-const btn = {
-  padding: '8px 14px', fontSize: 12.5, fontWeight: 600, borderRadius: 9, cursor: 'pointer',
-  background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', flexShrink: 0,
 }

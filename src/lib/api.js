@@ -14,3 +14,8 @@ export const updateBoard = (id, body) =>
   fetch(`/api/boards/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(body) }).then(j)
 export const deleteBoard = (id) =>
   fetch(`/api/boards/${id}`, { method: 'DELETE' }).then(j)
+export const listTrash = () => fetch('/api/boards?trash=1').then(j)
+export const restoreBoard = (id) =>
+  fetch(`/api/boards/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ restore: true }) }).then(j)
+export const purgeBoard = (id) =>
+  fetch(`/api/boards/${id}?purge=1`, { method: 'DELETE' }).then(j)

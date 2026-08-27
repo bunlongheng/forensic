@@ -33,7 +33,7 @@ app.use((_req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'",
+    "default-src 'self'; img-src 'self' data: https://avatars.githubusercontent.com; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; font-src 'self' data:; connect-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'",
   );
   next();
 });
@@ -53,5 +53,6 @@ const dist = path.join(__dirname, "dist");
 app.use(express.static(dist));
 app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(dist, "index.html")));
 
-const PORT = process.env.PORT || 4321;
+// 4336 (not 4321) so it never collides with sibling apps that also default to 4321.
+const PORT = process.env.PORT || 4336;
 app.listen(PORT, () => console.log(`forensic server on http://localhost:${PORT}`));

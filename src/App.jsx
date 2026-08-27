@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from './theme.js'
-import { listBoards, getBoard, createBoard, deleteBoard as apiDelete } from './lib/api.js'
+import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
 import { Toast } from './components/Toast.jsx'
 import Gallery from './views/Gallery.jsx'
+import Trash from './views/Trash.jsx'
 import Board from './views/Board.jsx'
 
 // Normalize an API row into the single board shape the whole UI speaks.
@@ -23,8 +24,9 @@ export default function App() {
   // theme is 'light'|'dark' (also React Flow's colorMode); t is the resolved palette.
   const { theme: themeMode, toggle, t } = useTheme()
 
-  const [view, setView] = useState('gallery') // 'gallery' | 'board'
+  const [view, setView] = useState('gallery') // 'gallery' | 'board' | 'trash'
   const [boards, setBoards] = useState([])
+  const [trash, setTrash] = useState([])
   const [active, setActive] = useState(null)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -43,6 +45,7 @@ export default function App() {
 
   const loadBoards = useCallback(() => {
     listBoards().then((rows) => setBoards(rows.map(normalize))).catch(() => setBoards([]))
+    listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => {}) // keeps the Trash badge count fresh
   }, [])
 
   // Auth check + one-time OAuth redirect feedback. Toasts are deferred to a
@@ -84,9 +87,31 @@ export default function App() {
     finally { setCreating(false) }
   }
 
+  // Delete: a board with real work (3+ nodes) goes to Trash first (recoverable);
+  // a small/scratch board is removed for good so Trash never fills with junk.
   function removeBoard(b) {
-    if (!window.confirm(`Delete "${b.title}"? This cannot be undone.`)) return
-    apiDelete(b.id).then(() => { setBoards((bs) => bs.filter((x) => x.id !== b.id)); showToast('Board deleted') })
+    const n = (b.nodes || []).length
+    const msg = n >= 3
+      ? `Move "${b.title}" to Trash? You can restore it later.`
+      : `Delete "${b.title}"? It has ${n} item${n === 1 ? '' : 's'}, so it won't go to Trash.`
+    if (!window.confirm(msg)) return
+    apiDelete(b.id).then((r) => {
+      setBoards((bs) => bs.filter((x) => x.id !== b.id))
+      showToast(r?.trashed ? 'Moved to Trash' : 'Board deleted')
+    }).catch(() => showToast('Delete failed'))
+  }
+
+  const loadTrash = useCallback(() => {
+    listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => setTrash([]))
+  }, [])
+  function openTrash() { loadTrash(); setView('trash') }
+  function restoreOne(b) {
+    restoreBoard(b.id).then(() => { setTrash((t) => t.filter((x) => x.id !== b.id)); showToast('Restored'); loadBoards() })
+      .catch(() => showToast('Restore failed'))
+  }
+  function purgeOne(b) {
+    if (!window.confirm(`Permanently delete "${b.title}"? This cannot be undone.`)) return
+    purgeBoard(b.id).then(() => { setTrash((t) => t.filter((x) => x.id !== b.id)); showToast('Deleted forever') })
       .catch(() => showToast('Delete failed'))
   }
 
@@ -123,12 +148,26 @@ export default function App() {
     if (!user) return <SignInScreen devBypass={() => setDevBypass(true)} />
   }
 
+  // ── Trash ───────────────────────────────────────────────────────────────────
+  if (view === 'trash') {
+    return (
+      <>
+        <Trash boards={trash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
+          onCreate={createNew} onSignOut={signOut} creating={creating}
+          onBack={() => { setView('gallery'); loadBoards() }}
+          onRestore={restoreOne} onPurge={purgeOne} />
+        <Toast {...toast} />
+      </>
+    )
+  }
+
   // ── Gallery ─────────────────────────────────────────────────────────────────
   return (
     <>
       <Gallery
         boards={boards} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
-        onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut} creating={creating}
+        onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut}
+        onOpenTrash={openTrash} trashCount={trash.length} creating={creating}
       />
       <Toast {...toast} />
     </>

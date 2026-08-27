@@ -15,6 +15,13 @@ const P = {
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>,
   bulb: <><path d="M9 18h6" /><path d="M10 21h4" /><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.3 1 2.1V16h6v-.4c0-.8.4-1.5 1-2.1A6 6 0 0 0 12 3z" /></>,
   report: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5" /><path d="M8 13h8M8 17h6" /></>,
+  text: <><path d="M5 6V4h14v2" /><path d="M12 4v16" /><path d="M9 20h6" /></>,
+  circle: <path d="M20.5 12a8.5 8 0 1 1-4-6.8" />,
+  person: <><circle cx="12" cy="8" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
+  sticker: <><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8l8-8V5a2 2 0 0 0-2-2z" /><path d="M13 21v-6a2 2 0 0 1 2-2h6" /></>,
+  group: <rect x="4" y="5" width="16" height="14" rx="2" strokeDasharray="3.5 3" />,
+  callout: <><path d="M3 10v4h4l7 4V6l-7 4H3z" /><path d="M18 9a4 4 0 0 1 0 6" /></>,
+  clip: <path d="M20 11l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4L14 4.4a3 3 0 0 1 4.2 4.2l-8.6 8.6a1.5 1.5 0 0 1-2.1-2.1l7.8-7.8" />,
 }
 
 export function Icon({ name, size = 17 }) {

@@ -47,13 +47,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .react-flow__edge-path { stroke-linecap: round; }
 .react-flow__edge.selected .react-flow__edge-path { filter: drop-shadow(0 0 3px var(--accent)); }
 .react-flow__handle {
-  width: 11px; height: 11px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   background: var(--accent); border: 2px solid var(--panel);
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
   opacity: 0; transition: opacity .12s ease, transform .12s ease;
+}
+/* Big invisible grab ring so pulling a thread is easy and repeatable - you rarely
+   have to be precise. Pointer events on the ::before bubble to the handle. */
+.react-flow__handle::before {
+  content: ''; position: absolute; inset: -11px; border-radius: 50%;
 }
 .react-flow__node:hover .react-flow__handle,
 .react-flow__node.selected .react-flow__handle { opacity: 1; }
-.react-flow__handle:hover { transform: scale(1.35); }
+/* A selected node keeps its anchors fully lit so you can fan out many threads from
+   it without re-hovering - select once, pull a thread to each target. */
+.react-flow__node.selected .react-flow__handle { opacity: 1; transform: scale(1.12); }
+.react-flow__handle:hover { transform: scale(1.5); background: var(--accent); }
 .react-flow__node.selected { z-index: 10 !important; }
 .react-flow__resize-control.handle {
   width: 9px; height: 9px; border-radius: 2px;
@@ -66,6 +75,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 .react-flow__controls-button:hover { background: var(--panel-2); }
 .react-flow__minimap { border-radius: 12px; overflow: hidden; }
+/* Keep the minimap barely there so it never competes with the board; it brightens
+   when you actually reach for it. */
+.react-flow__minimap.fx-minimap { opacity: .28; transition: opacity .18s ease; }
+.react-flow__minimap.fx-minimap:hover { opacity: .95; }
+
+/* Add-menu tools: clear hover feedback (grow + accent fill). */
+.fx-fab-item { transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease, box-shadow .12s ease; }
+.fx-fab-item:hover {
+  transform: scale(1.14);
+  background: var(--accent) !important;
+  color: var(--accent-ink) !important;
+  border-color: var(--accent) !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,.4) !important;
+}
+
+/* ── Phone view: reclaim every pixel ──────────────────────────────────────────
+   Hide the minimap, zoom % and board title (keep just the back button), thin the
+   wooden frame, and pull the toolbar / add-button in tight to the edges. */
+@media (max-width: 640px) {
+  .fx-mobile-hide { display: none !important; }
+  .fx-frame { border-width: 11px !important; }
+  .fx-topbar { top: 12px !important; left: 12px !important; right: 12px !important; }
+  .fx-fab { left: 14px !important; bottom: 14px !important; }
+}
 
 /* ── Animations ───────────────────────────────────────────────────────────── */
 @keyframes fx-spin { to { transform: rotate(360deg); } }

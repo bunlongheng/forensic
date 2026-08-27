@@ -3,6 +3,12 @@
 // the connections. The report modal renders this.
 const URL_RE = /\b((?:https?:\/\/|www\.)[^\s)]+|[a-z0-9][a-z0-9.-]*\.(?:com|net|org|io|dev|app|ai|co|gg|xyz|sh)(?:\/[^\s)]*)?)/gi
 
+// Pull unique, normalized URLs out of any text.
+export function detectLinks(text) {
+  return [...new Set(((text || '').match(URL_RE) || []).map((u) => u.replace(/[.,;]+$/, '')))]
+    .map((u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`))
+}
+
 function headline(node) {
   if (!node) return 'Unknown'
   if (node.type === 'image') return node.data?.label || 'Photo'
@@ -15,8 +21,7 @@ export function buildReport(title, nodes, edges) {
   const images = nodes.filter((n) => n.type === 'image').map((n) => ({ id: n.id, label: n.data?.label || '' }))
 
   const textPool = [...notes.map((n) => n.text), ...images.map((i) => i.label)].join('\n')
-  const links = [...new Set((textPool.match(URL_RE) || []).map((u) => u.replace(/[.,;]+$/, '')))]
-    .map((u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`))
+  const links = detectLinks(textPool)
 
   const connections = edges.map((e) => ({ from: headline(byId[e.source]), to: headline(byId[e.target]) }))
 
