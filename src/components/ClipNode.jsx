@@ -35,7 +35,7 @@ function ClipNode({ id, data, selected }) {
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
-      <NodeHandles />
+      <NodeHandles className="fx-handle-hidden" />
       <div
         // Triple-tap opens it: zooms in, drops the cursor, ready to type.
         onClick={onTap}
@@ -60,7 +60,7 @@ function ClipNode({ id, data, selected }) {
           <div style={{ color: data.text ? '#211d17' : '#9a9078' }}>{text}</div>
         )}
       </div>
-      <Paperclip />
+      {data.paperclip !== false && <Paperclip />}
     </div>
   )
 }

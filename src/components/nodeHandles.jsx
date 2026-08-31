@@ -10,8 +10,8 @@ const SIDES = [
   { position: Position.Left, id: 'l' },
 ]
 
-export function NodeHandles() {
+export function NodeHandles({ className }) {
   return SIDES.map((s) => (
-    <Handle key={s.id} id={s.id} type="source" position={s.position} isConnectableStart isConnectableEnd />
+    <Handle key={s.id} id={s.id} type="source" position={s.position} className={className} isConnectableStart isConnectableEnd />
   ))
 }

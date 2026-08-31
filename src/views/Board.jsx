@@ -18,7 +18,7 @@ import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
 import { ReportModal } from '../components/ReportModal.jsx'
 import { AddMenu } from '../components/AddMenu.jsx'
-import { NOTE_TINTS, PROFILE_NAMES, PROFILE_COLORS, STICKER_EMOJIS, CONTAINER_TINTS } from '../lib/constants.js'
+import { PROFILE_NAMES, PROFILE_COLORS, STICKER_EMOJIS, CONTAINER_TINTS } from '../lib/constants.js'
 import { updateBoard } from '../lib/api.js'
 import { fileToImage } from '../lib/image.js'
 import { saveDraft, loadDraft, clearDraft, saveViewport } from '../lib/localBoard.js'
@@ -85,6 +85,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const vpTimer = useRef(null)        // throttle for persisting the viewport
   const restoreReady = useRef(false)  // gates local writes until we've checked for an existing draft
   const clipRef = useRef(null)        // copied node for Cmd/Ctrl+C -> +V duplicate
+  const history = useRef([])          // undo stack of durable snapshots (JSON strings)
+  const histIdx = useRef(-1)          // current position in the stack
+  const isRestoring = useRef(false)   // set while undo/redo writes state, so it isn't re-recorded
+  const [hist, setHist] = useState({ canUndo: false, canRedo: false })
 
   // Remember where the owner is looking (zoom/pan), throttled, so an accidental
   // refresh reopens at the exact same spot instead of snapping back to fit.
@@ -181,6 +185,60 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     return () => window.removeEventListener('keydown', onKey)
   }, [canEdit, sel, nodes, setNodes, showToast])
 
+  // ── Undo / redo ─────────────────────────────────────────────────────────────
+  // Record every DURABLE change (snapshot already strips selection/drag noise, so
+  // dragging or clicking never spams the stack). Undo walks back through the stack
+  // and rewrites nodes/edges/title; the write is flagged so it isn't re-recorded.
+  useEffect(() => {
+    if (!canEdit) return
+    if (isRestoring.current) { isRestoring.current = false; return }
+    history.current = history.current.slice(0, histIdx.current + 1) // drop any redo tail
+    history.current.push(snapshot)
+    if (history.current.length > 100) history.current.shift()       // cap long sessions
+    histIdx.current = history.current.length - 1
+    setHist({ canUndo: histIdx.current > 0, canRedo: false })
+  }, [snapshot, canEdit])
+
+  const restoreSnapshot = useCallback((snap) => {
+    try {
+      const d = JSON.parse(snap)
+      isRestoring.current = true
+      setTitle(d.title || 'Untitled Board')
+      setNodes(withEditable(d.nodes || [], canEdit))
+      setEdges(d.edges || [])
+      setSel(null)
+    } catch { /* skip a corrupt history entry */ }
+  }, [setNodes, setEdges, canEdit])
+
+  const undo = useCallback(() => {
+    if (histIdx.current <= 0) return
+    histIdx.current -= 1
+    restoreSnapshot(history.current[histIdx.current])
+    setHist({ canUndo: histIdx.current > 0, canRedo: histIdx.current < history.current.length - 1 })
+  }, [restoreSnapshot])
+
+  const redo = useCallback(() => {
+    if (histIdx.current >= history.current.length - 1) return
+    histIdx.current += 1
+    restoreSnapshot(history.current[histIdx.current])
+    setHist({ canUndo: histIdx.current > 0, canRedo: histIdx.current < history.current.length - 1 })
+  }, [restoreSnapshot])
+
+  // Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y = redo. Ignored while typing
+  // so the browser's native text undo still works inside a note.
+  useEffect(() => {
+    if (!canEdit) return
+    const onKey = (e) => {
+      if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) return
+      if (!(e.metaKey || e.ctrlKey)) return
+      const k = e.key.toLowerCase()
+      if (k === 'z') { e.preventDefault(); (e.shiftKey ? redo : undo)() }
+      else if (k === 'y') { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canEdit, undo, redo])
+
   // Keep the inspector the same width as the top-right toolbar so they line up.
   useEffect(() => {
     const el = toolbarRef.current
@@ -260,14 +318,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
-  const addNote = useCallback((at) => {
-    setNodes((nds) => nds.concat({
-      id: uid('note'), type: 'note', position: at,
-      style: { width: 200, height: 140 },
-      data: { text: '', color: NOTE_TINTS[nds.length % NOTE_TINTS.length], editable: true },
-    }))
-  }, [setNodes])
-
   // Drop one of the FAB object types at `at`. Containers slide to the BACK of the
   // stack (they group visually and must sit under the evidence); everything else
   // lands on top where you added it.
@@ -321,12 +371,17 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     return () => window.removeEventListener('paste', onPaste)
   }, [canEdit, addImageFiles, centerPos])
 
-  const onConnect = useCallback((c) => setEdges((eds) => addEdge(c, eds)), [setEdges])
+  // Ignore self-connections - a thread from a node back to itself collapses to a
+  // stray pin in the middle of the card (no visible string). Only wire two cards.
+  const onConnect = useCallback((c) => {
+    if (c.source === c.target) return
+    setEdges((eds) => addEdge(c, eds))
+  }, [setEdges])
 
-  // TRIPLE-click/tap empty canvas to drop a note (double was too easy to trigger by
-  // accident). We count taps in a short window ourselves rather than trust
-  // e.detail, which never reaches 3 on touchscreens. onPaneClick only fires on the
-  // pane, so nodes are never affected.
+  // TRIPLE-click/tap empty canvas to drop a clip (double was too easy to trigger by
+  // accident). We count taps in a short window ourselves rather than trust e.detail,
+  // which never reaches 3 on touchscreens. onPaneClick only fires on the pane, so
+  // nodes are never affected.
   const paneTaps = useRef([])
   const onPaneClick = useCallback((e) => {
     if (!canEdit) return
@@ -335,9 +390,9 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     paneTaps.current.push(t)
     if (paneTaps.current.length >= 3) {
       paneTaps.current = []
-      addNote(screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+      addNodeOfType('clip', screenToFlowPosition({ x: e.clientX, y: e.clientY }))
     }
-  }, [canEdit, addNote, screenToFlowPosition])
+  }, [canEdit, addNodeOfType, screenToFlowPosition])
 
   // Hold SHIFT while dragging a node to snap it into a straight line with the
   // node(s) it's wired to - align centers on X or Y so the thread runs perfectly
@@ -463,7 +518,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         nodesConnectable={canEdit}
         elementsSelectable={canEdit}
         deleteKeyCode={canEdit ? ['Backspace', 'Delete'] : null}
-        selectionOnDrag
+        selectionOnDrag={canEdit}
         panOnScroll
         proOptions={{ hideAttribution: true }}
       >
@@ -483,7 +538,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <div style={{ textAlign: 'center', color: theme.muted, animation: 'fx-rise .5s both' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🧵</div>
             <div className="mono" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: theme.text }}>DROP EVIDENCE ONTO THE BOARD</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or triple-click to add a note.</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or triple-click to add a clip.</div>
             <div style={{ fontSize: 13, marginTop: 2 }}>Drag from a node's edge to wire connections.</div>
           </div>
         </div>
@@ -513,6 +568,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         <div style={{ flex: 1 }} />
         <div ref={toolbarRef} style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '4px 6px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
           <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)', padding: '0 5px', minWidth: 40, textAlign: 'center' }}>{zoomPct}%</span>
+          {canEdit && <button onClick={undo} disabled={!hist.canUndo} title="Undo (Cmd/Ctrl+Z)" style={{ ...iconBtn, opacity: hist.canUndo ? 1 : 0.35, cursor: hist.canUndo ? 'pointer' : 'default' }}><Icon name="undo" size={16} /></button>}
+          {canEdit && <button onClick={redo} disabled={!hist.canRedo} title="Redo (Cmd/Ctrl+Shift+Z)" style={{ ...iconBtn, opacity: hist.canRedo ? 1 : 0.35, cursor: hist.canRedo ? 'pointer' : 'default' }}><Icon name="redo" size={16} /></button>}
           <button onClick={fit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>
           <button onClick={exportPng} title="Export PNG" style={iconBtn}><Icon name="download" size={16} /></button>
           {board.id && <button onClick={share} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}

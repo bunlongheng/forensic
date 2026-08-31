@@ -5,13 +5,12 @@ import { Icon } from './Icon.jsx'
 // quadrant (not a vertical stack). Four tools; sticker lives in the top toolbar.
 const ITEMS = [
   { key: 'text', icon: 'text', label: 'Text' },
-  { key: 'clip', icon: 'clip', label: 'Clip' },
   { key: 'callout', icon: 'callout', label: 'Callout' },
   { key: 'annotation', icon: 'circle', label: 'Circle' },
   { key: 'profile', icon: 'person', label: 'Person' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
-const R = 98 // arc radius
+const R = 172 // arc radius - wide enough that the smaller buttons never overlap
 // Evenly spread across the 0-90 quadrant: 4 equal slices, one icon centered in each.
 const ANGLES = ITEMS.map((_, i) => ((2 * i + 1) * 90) / (2 * ITEMS.length)) // 11.25, 33.75, 56.25, 78.75
 
@@ -30,12 +29,12 @@ export function AddMenu({ onAdd }) {
             <button
               key={it.key} className="fx-fab-item" onClick={() => { onAdd(it.key); setOpen(false) }} title={it.label}
               style={{
-                position: 'absolute', left: 4 + x, bottom: 4 + y, width: 46, height: 46, borderRadius: '50%',
+                position: 'absolute', left: 8 + x, bottom: 8 + y, width: 38, height: 38, borderRadius: '50%',
                 background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer',
                 display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow)',
                 animation: 'fx-pop .18s both', animationDelay: `${i * 0.04}s`,
               }}
-            ><Icon name={it.icon} size={20} /></button>
+            ><Icon name={it.icon} size={17} /></button>
           )
         })}
         <button

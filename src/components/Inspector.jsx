@@ -191,6 +191,7 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
 
       {kind === 'clip' && (
         <>
+          <Toggle label="Paperclip" value={data?.paperclip !== false} onChange={(v) => onNode({ paperclip: v })} />
           <Row label="Paper color">
             {['#fbfaf6', ...NOTE_TINTS].map((c) => <Swatch key={c} color={c} active={(data?.color || '#fbfaf6') === c} onClick={() => onNode({ color: c })} />)}
           </Row>

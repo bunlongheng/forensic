@@ -20,6 +20,18 @@ function setUrlId(id) {
   window.history.replaceState({}, '', u)
 }
 
+// Touch devices (iPhone, iPad - incl. iPadOS reporting as Mac - and any coarse-
+// pointer phone/tablet) are READ-ONLY on the board canvas: you only ever pan and
+// zoom to read there, so selecting, dragging and editing nodes are all disabled to
+// stop accidental changes. Desktop (fine pointer) stays fully editable.
+const isTouchDevice = (() => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const coarse = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
+  return iOS || coarse
+})()
+
 export default function App() {
   // theme is 'light'|'dark' (also React Flow's colorMode); t is the resolved palette.
   const { theme: themeMode, toggle, t } = useTheme()
@@ -132,7 +144,7 @@ export default function App() {
   // ── Board view (public for shared links; editable for the signed-in owner) ──
   if (view === 'board' && active) {
     if (!authChecked) return <Splash label="Loading board…" />
-    const canEdit = Boolean(user) || devBypass
+    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice
     return (
       <>
         <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}

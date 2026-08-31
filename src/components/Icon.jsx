@@ -22,6 +22,8 @@ const P = {
   group: <rect x="4" y="5" width="16" height="14" rx="2" strokeDasharray="3.5 3" />,
   callout: <><path d="M3 10v4h4l7 4V6l-7 4H3z" /><path d="M18 9a4 4 0 0 1 0 6" /></>,
   clip: <path d="M20 11l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4L14 4.4a3 3 0 0 1 4.2 4.2l-8.6 8.6a1.5 1.5 0 0 1-2.1-2.1l7.8-7.8" />,
+  undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10H9" /></>,
+  redo: <><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h6" /></>,
 }
 
 export function Icon({ name, size = 17 }) {

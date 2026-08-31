@@ -63,6 +63,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
    it without re-hovering - select once, pull a thread to each target. */
 .react-flow__node.selected .react-flow__handle { opacity: 1; transform: scale(1.12); }
 .react-flow__handle:hover { transform: scale(1.5); background: var(--accent); }
+/* Clip notes hide the red anchor dots (they read as clutter on a quick scrap) but
+   keep the invisible grab ring, so you can still pull a thread from the edges. */
+.react-flow__handle.fx-handle-hidden,
+.react-flow__handle.fx-handle-hidden:hover { background: transparent; border-color: transparent; box-shadow: none; transform: none; }
 .react-flow__node.selected { z-index: 10 !important; }
 .react-flow__resize-control.handle {
   width: 9px; height: 9px; border-radius: 2px;

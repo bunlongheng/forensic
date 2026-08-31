@@ -33,8 +33,8 @@ function CalloutNode({ id, data, selected }) {
 
   const bg = data.color || '#fff3bf'
   const textStyle = {
-    textAlign: 'center', fontWeight: 400, fontSize: 30, lineHeight: 1.04, color: '#1a1712',
-    fontFamily: "'Permanent Marker', cursive", wordBreak: 'break-word',
+    textAlign: 'center', fontWeight: 700, fontSize: 40, lineHeight: 1.02, color: '#1a1712',
+    fontFamily: "'Caveat', ui-rounded, 'Segoe UI', sans-serif", wordBreak: 'break-word',
   }
 
   return (

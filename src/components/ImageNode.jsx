@@ -35,7 +35,7 @@ function ImageNode({ id, data, selected }) {
       {data.pin === true && <Pin size={27} color={data.pinColor || '#ff3b30'} />}
       <div style={{
         width: '100%', height: '100%',
-        background: '#fbfaf6', borderRadius: rip ? 0 : 3, padding: showCap ? '9px 9px 0' : 9,
+        background: '#fbfaf6', borderRadius: rip ? 0 : 3, padding: showCap ? '8px 8px 0' : 0,
         clipPath: ripClip, WebkitClipPath: ripClip,
         display: 'flex', flexDirection: 'column',
         border: `1px solid ${selected ? 'var(--accent)' : 'rgba(0,0,0,0.14)'}`,

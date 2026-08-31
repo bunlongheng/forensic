@@ -36,7 +36,9 @@ function PinHead({ x, y }) {
 export function FloatingEdge({ id, source, target, style }) {
   const s = useInternalNode(source)
   const t = useInternalNode(target)
-  if (!s || !t) return null
+  // A self-connection collapses both ends to the node centre, dropping a stray pin
+  // in the middle of the card with no visible thread. Never render one.
+  if (!s || !t || source === target) return null
   const sc = center(s)
   const tc = center(t)
   const sp = boundaryPoint(s, tc)
