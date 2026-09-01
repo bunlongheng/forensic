@@ -212,6 +212,11 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
 
       {kind === 'stamp' && (
         <>
+          <Row label="Shape">
+            {[['rect', 'Slanted'], ['circle', 'Circle']].map(([k, l]) => (
+              <button key={k} onClick={() => onNode({ shape: k })} style={segBtn((data?.shape || 'rect') === k)}>{l}</button>
+            ))}
+          </Row>
           <Row label="Stamp">
             {STAMP_LABELS.map((l) => (
               <button key={l} onClick={() => onNode({ label: l })} style={segBtn((data?.label || 'APPROVED') === l)}>{l}</button>

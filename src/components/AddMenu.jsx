@@ -32,8 +32,9 @@ export function AddMenu({ onAdd }) {
 
       {/* Chooser card - the "which one?" step before a tool is added. */}
       {chooser && (
-        <div className="fx-noexport" style={{
+        <div className="fx-noexport nowheel" style={{
           position: 'absolute', left: 42, bottom: 108, zIndex: 11, width: 190,
+          maxHeight: '62vh', overflowY: 'auto',
           background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14,
           padding: 8, boxShadow: 'var(--shadow)', animation: 'fx-pop .16s both',
         }}>
