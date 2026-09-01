@@ -41,20 +41,20 @@ export function AddMenu({ onAdd, onAddImage }) {
       {/* Chooser card - the "which one?" step before a tool is added. */}
       {chooser && (
         <div className="fx-noexport nowheel" style={{
-          position: 'absolute', left: 42, bottom: 108, zIndex: 11, width: 190,
-          maxHeight: '62vh', overflowY: 'auto',
-          background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14,
-          padding: 8, boxShadow: 'var(--shadow)', animation: 'fx-pop .16s both',
+          position: 'absolute', left: 42, bottom: 104, zIndex: 11, width: 148,
+          maxHeight: '58vh', overflowY: 'auto',
+          background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 11,
+          padding: 6, boxShadow: 'var(--shadow)', animation: 'fx-pop .16s both',
         }}>
-          <div className="mono" style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.04em', padding: '2px 6px 6px' }}>
+          <div className="mono" style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', letterSpacing: '.04em', padding: '1px 6px 4px' }}>
             {chooser.label.toUpperCase()}
           </div>
           {chooser.choices.map((c) => (
             <button key={c.label} onClick={() => choose(c)}
               style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginTop: 2,
-                borderRadius: 9, border: '1px solid var(--border)', background: 'var(--panel-2)',
-                color: 'var(--text)', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', marginTop: 2,
+                borderRadius: 7, border: '1px solid var(--border)', background: 'var(--panel-2)',
+                color: 'var(--text)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
               }}>{c.label}</button>
           ))}
         </div>
