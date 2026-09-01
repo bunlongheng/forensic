@@ -177,7 +177,12 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
       )}
 
       {kind === 'text' && (
-        <div style={{ marginTop: 14, fontSize: 12, color: 'var(--muted)' }}>Double-click the scrap to write.</div>
+        <>
+          <Row label="Paper color">
+            {['#f7f2e6', ...NOTE_TINTS].map((c) => <Swatch key={c} color={c} active={(data?.color || '#f7f2e6') === c} onClick={() => onNode({ color: c })} />)}
+          </Row>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Double-click the scrap to write.</div>
+        </>
       )}
 
       {kind === 'callout' && (

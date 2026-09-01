@@ -31,7 +31,14 @@ export default function App() {
   const [active, setActive] = useState(null)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [devBypass, setDevBypass] = useState(false)
+  // On localhost the Google auth backend isn't wired up, so /api/auth/me is always
+  // "not authenticated" - which used to leave you read-only (no +, no editing) after
+  // every reload, especially when opening a board via ?id (the sign-in screen, where
+  // you'd re-enable the bypass, is skipped). Treat localhost as always-editable dev
+  // mode. Production (a real hostname) still requires signing in.
+  const [devBypass, setDevBypass] = useState(
+    () => ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname),
+  )
   const [creating, setCreating] = useState(false)
   // Start in the loading state if the URL already targets a board, so we never
   // synchronously flip it inside an effect.

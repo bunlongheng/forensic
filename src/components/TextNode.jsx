@@ -26,7 +26,7 @@ function TextNode({ id, data, selected }) {
       <div
         onDoubleClick={() => editable && startEdit()}
         style={{
-          width: '100%', height: '100%', background: '#f7f2e6', clipPath: rip, WebkitClipPath: rip,
+          width: '100%', height: '100%', background: data.color || '#f7f2e6', clipPath: rip, WebkitClipPath: rip,
           padding: '18px 16px', display: 'grid',
           // drop-shadow (not box-shadow) so the shadow follows the ripped edge.
           filter: selected
