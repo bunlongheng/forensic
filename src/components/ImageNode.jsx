@@ -104,8 +104,8 @@ function ImageNode({ id, data, selected }) {
             <svg viewBox="0 0 300 200" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
               {puz.holes.map((h, i) => (
                 <g key={`h${i}`}>
-                  <rect x={h.x} y={h.y} width={PZ - 6} height={PZ - 6} rx="6" fill="rgba(28,20,12,0.82)" stroke="rgba(0,0,0,0.5)" strokeWidth="1" />
-                  <rect x={h.x + 2} y={h.y + 2} width={PZ - 10} height={PZ - 10} rx="5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2" />
+                  <rect x={h.x} y={h.y} width={PZ - 6} height={PZ - 6} rx="6" fill="#faf7f0" stroke="rgba(0,0,0,0.16)" strokeWidth="1" />
+                  <rect x={h.x + 1.5} y={h.y + 1.5} width={PZ - 9} height={PZ - 9} rx="5" fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="1.5" />
                 </g>
               ))}
               {puz.lines.map((d, i) => <path key={`l${i}`} d={d} fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.2" />)}
