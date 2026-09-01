@@ -8,10 +8,12 @@ import '@fontsource/caveat/700.css'            // bold handwriting - loud call-o
 import '@xyflow/react/dist/style.css'
 import './index.css'
 import App from './App.jsx'
+import { VersionBadge } from './components/VersionBadge.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <App />
+    <VersionBadge />
   </StrictMode>,
 )
 

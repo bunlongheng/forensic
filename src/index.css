@@ -100,8 +100,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 @media (max-width: 640px) {
   .fx-mobile-hide { display: none !important; }
   .fx-frame { border-width: 11px !important; }
-  .fx-topbar { top: 12px !important; left: 12px !important; right: 12px !important; }
-  .fx-fab { left: 14px !important; bottom: 14px !important; }
+  /* Keep the board chrome clear of the iOS status bar / notch and home indicator. */
+  .fx-topbar {
+    top: calc(12px + env(safe-area-inset-top)) !important;
+    left: calc(12px + env(safe-area-inset-left)) !important;
+    right: calc(12px + env(safe-area-inset-right)) !important;
+  }
+  .fx-fab {
+    left: calc(14px + env(safe-area-inset-left)) !important;
+    bottom: calc(14px + env(safe-area-inset-bottom)) !important;
+  }
 }
 
 /* ── Animations ───────────────────────────────────────────────────────────── */

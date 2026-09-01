@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow, ReactFlowProvider, Background, BackgroundVariant, MiniMap,
   useNodesState, useEdgesState, addEdge, useReactFlow,
@@ -30,6 +30,11 @@ const NODE_TYPES = {
   callout: CalloutNode, clip: ClipNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
+
+// Written to the system clipboard on Cmd/Ctrl+C of a node, so a following Cmd/Ctrl+V
+// reliably fires a 'paste' event (which we use to duplicate the node) without ever
+// shadowing a real image paste.
+const NODE_COPY_MARKER = 'forensic-node-copy'
 let SEQ = 0
 const uid = (p) => `${p}-${Date.now().toString(36)}-${(SEQ++).toString(36)}`
 
@@ -103,7 +108,13 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // Persist only when the DURABLE content changes. sanitize strips selection /
   // drag / hover state, so merely opening or clicking a board never re-saves and
   // never bumps its gallery order.
-  const snapshot = JSON.stringify({ title, nodes: sanitizeNodes(nodes), edges: sanitizeEdges(edges) })
+  // Only re-serialize when the durable content actually changes. Without this memo
+  // the whole board (incl. base64 image data) was re-stringified on EVERY render -
+  // and zooming re-renders each frame - which is what made pan/zoom feel laggy.
+  const snapshot = useMemo(
+    () => JSON.stringify({ title, nodes: sanitizeNodes(nodes), edges: sanitizeEdges(edges) }),
+    [title, nodes, edges],
+  )
   useEffect(() => {
     if (!canEdit || !board.id) return
     if (savedSnap.current === null) { savedSnap.current = snapshot; return } // initial load - never save
@@ -161,29 +172,23 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     return () => window.removeEventListener('keydown', onKey)
   }, [canEdit, board.id, snapshot, showToast])
 
-  // Cmd/Ctrl + C then + V duplicates the selected node (offset a little). Ignored
-  // while typing in a note so it never steals the real text copy/paste.
+  // Cmd/Ctrl + C copies the selected node into clipRef. The actual paste (duplicate)
+  // is handled in the single 'paste' listener below so it never competes with
+  // pasting an image - we write a marker to the clipboard so that paste event still
+  // fires even when nothing else is on the clipboard. Ignored while typing in a note.
   useEffect(() => {
     if (!canEdit) return
     const onKey = (e) => {
       if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) return
       if (!(e.metaKey || e.ctrlKey)) return
-      const k = e.key.toLowerCase()
-      if (k === 'c') {
-        if (!sel || sel.kind === 'edge') return
-        const n = nodes.find((x) => x.id === sel.id)
-        if (n) clipRef.current = n
-      } else if (k === 'v' && clipRef.current) {
-        e.preventDefault()
-        const src = clipRef.current
-        const copy = { ...src, id: uid(src.type), selected: false, position: { x: src.position.x + 30, y: src.position.y + 30 }, data: { ...src.data } }
-        setNodes((nds) => nds.concat(copy))
-        showToast('Pasted a copy')
-      }
+      if (e.key.toLowerCase() !== 'c') return
+      if (!sel || sel.kind === 'edge') return
+      const n = nodes.find((x) => x.id === sel.id)
+      if (n) { clipRef.current = n; navigator.clipboard?.writeText?.(NODE_COPY_MARKER).catch(() => {}) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, sel, nodes, setNodes, showToast])
+  }, [canEdit, sel, nodes])
 
   // ── Undo / redo ─────────────────────────────────────────────────────────────
   // Record every DURABLE change (snapshot already strips selection/drag noise, so
@@ -359,17 +364,28 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  // Paste an image from the clipboard anywhere on the board.
+  // Single paste path. An image on the clipboard ALWAYS wins - so copying a node
+  // earlier can never block pasting a screenshot. Only when there is no image, and
+  // the clipboard carries our copy marker (or nothing), do we duplicate the copied
+  // node. This is what lets Cmd+C on a node -> Cmd+V drop a duplicate.
   useEffect(() => {
     if (!canEdit) return
     const onPaste = (e) => {
       const items = [...(e.clipboardData?.items || [])]
-      const files = items.filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile())
-      if (files.length) { e.preventDefault(); addImageFiles(files, centerPos()) }
+      const files = items.filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile()).filter(Boolean)
+      if (files.length) { e.preventDefault(); addImageFiles(files, centerPos()); return }
+      const text = e.clipboardData?.getData('text') || ''
+      if (clipRef.current && (text === NODE_COPY_MARKER || text === '')) {
+        e.preventDefault()
+        const src = clipRef.current
+        const copy = { ...src, id: uid(src.type), selected: false, position: { x: src.position.x + 30, y: src.position.y + 30 }, data: { ...src.data } }
+        setNodes((nds) => nds.concat(copy))
+        showToast('Pasted a copy')
+      }
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [canEdit, addImageFiles, centerPos])
+  }, [canEdit, addImageFiles, centerPos, setNodes, showToast])
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.

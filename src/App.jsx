@@ -20,16 +20,17 @@ function setUrlId(id) {
   window.history.replaceState({}, '', u)
 }
 
-// Touch devices (iPhone, iPad - incl. iPadOS reporting as Mac - and any coarse-
-// pointer phone/tablet) are READ-ONLY on the board canvas: you only ever pan and
-// zoom to read there, so selecting, dragging and editing nodes are all disabled to
-// stop accidental changes. Desktop (fine pointer) stays fully editable.
+// Phones and tablets (iPhone, iPad - incl. iPadOS reporting as Mac - and Android)
+// are READ-ONLY on the board canvas: you only ever pan and zoom to read there, so
+// selecting, dragging and editing nodes are disabled to stop accidental changes.
+// We key on the actual mobile OS, NOT "(pointer: coarse)" - that also matches
+// touch-capable laptops/2-in-1s, which must stay fully editable.
 const isTouchDevice = (() => {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent || ''
   const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  const coarse = typeof window !== 'undefined' && Boolean(window.matchMedia?.('(pointer: coarse)')?.matches)
-  return iOS || coarse
+  const android = /Android/.test(ua)
+  return iOS || android
 })()
 
 export default function App() {

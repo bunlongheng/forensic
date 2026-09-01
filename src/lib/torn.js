@@ -26,6 +26,23 @@ export function tornBottom(id, { steps = 14, amp = 9 } = {}) {
   return `polygon(${pts.join(',')})`
 }
 
+// Jagged on BOTH the top and bottom edges (sides stay clean) - a quick note ripped
+// out of a notepad, torn top and bottom. Deterministic per id so it stays stable.
+export function tornTopBottom(id, { steps = 18, amp = 6 } = {}) {
+  const r = rng(hash(String(id)) + 7)
+  const bite = (deep) => (deep ? amp * (0.5 + r() * 0.5) : r() * amp * 0.3)
+  const pts = []
+  for (let i = 0; i <= steps; i++) {           // top edge: left -> right, biting down
+    const x = (i / steps) * 100
+    pts.push(`${x.toFixed(1)}% ${bite(i % 2 === 0).toFixed(1)}%`)
+  }
+  for (let i = 0; i <= steps; i++) {           // bottom edge: right -> left, biting up
+    const x = 100 - (i / steps) * 100
+    pts.push(`${x.toFixed(1)}% ${(100 - bite(i % 2 === 0)).toFixed(1)}%`)
+  }
+  return `polygon(${pts.join(',')})`
+}
+
 // Same idea but the tear runs down the RIGHT edge (top + left + bottom stay clean),
 // like a strip ripped off the side of a pad.
 export function tornRight(id, { steps = 16, amp = 8 } = {}) {
