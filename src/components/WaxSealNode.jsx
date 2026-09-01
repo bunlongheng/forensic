@@ -44,15 +44,27 @@ function shade(hex, amt) {
   return '#' + [m(r), m(g), m(b)].map((x) => x.toString(16).padStart(2, '0')).join('')
 }
 
+// A beveled pressed ring: a shadow copy (down-right), a highlight copy (up-left) and
+// the mid stroke - reads as a raised bead pressed into the wax by the signet.
+function Ring({ r, mid, lite, dark, sw }) {
+  return (
+    <g>
+      <circle cx="50" cy="50" r={r} fill="none" stroke={dark} strokeWidth={sw} transform="translate(0.8,1)" />
+      <circle cx="50" cy="50" r={r} fill="none" stroke={lite} strokeWidth={sw * 0.7} opacity="0.75" transform="translate(-0.7,-0.9)" />
+      <circle cx="50" cy="50" r={r} fill="none" stroke={mid} strokeWidth={sw * 0.85} />
+    </g>
+  )
+}
+
 function WaxSealNode({ id, data, selected }) {
   const color = data.color || '#8b1e3f'
   const symbol = data.symbol || '★'
   const p = blobPath(id)
-  const lite = shade(color, 0.3), dark = shade(color, -0.36), floor = shade(color, -0.2)
-  const gid = `wg-${id}`, fid = `wf-${id}`
+  const lite = shade(color, 0.34), dark = shade(color, -0.42), floor = shade(color, -0.16), mid = shade(color, -0.04)
+  const gid = `wg-${id}`, fid = `wf-${id}`, pid = `wp-${id}`
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <NodeResizer isVisible={selected} keepAspectRatio minWidth={44} minHeight={44} lineClassName="line" handleClassName="handle" />
+      <NodeResizer isVisible={selected} keepAspectRatio minWidth={48} minHeight={48} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
         <defs>
@@ -61,18 +73,26 @@ function WaxSealNode({ id, data, selected }) {
             <stop offset="56%" stopColor={color} />
             <stop offset="100%" stopColor={dark} />
           </radialGradient>
+          <radialGradient id={pid} cx="50%" cy="50%" r="50%">
+            <stop offset="60%" stopColor="rgba(0,0,0,0)" />
+            <stop offset="100%" stopColor={shade(color, -0.16)} />
+          </radialGradient>
           <filter id={fid} x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="2.5" stdDeviation="2.6" floodColor="rgba(0,0,0,0.42)" />
+            <feDropShadow dx="0" dy="2.6" stdDeviation="2.6" floodColor="rgba(0,0,0,0.42)" />
           </filter>
         </defs>
         <path d={p} fill={`url(#${gid})`} filter={`url(#${fid})`} />
-        <path d={p} fill="none" stroke={dark} strokeWidth="1.4" opacity="0.55" />
-        <ellipse cx="42" cy="33" rx="13" ry="7.5" fill="rgba(255,255,255,0.15)" />
-        {/* embossed symbol: shadow (up-left) + highlight (down-right) + recessed floor */}
-        <g fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize="30" textAnchor="middle">
-          <text x="49.1" y="60.1" fill={dark}>{symbol}</text>
-          <text x="50.9" y="61.9" fill={lite} opacity="0.6">{symbol}</text>
-          <text x="50" y="61" fill={floor}>{symbol}</text>
+        <path d={p} fill="none" stroke={dark} strokeWidth="1.4" opacity="0.5" />
+        {/* the disc the signet pressed - recessed shading toward its rim */}
+        <circle cx="50" cy="50" r="31" fill={`url(#${pid})`} />
+        <ellipse cx="42" cy="33" rx="12" ry="7" fill="rgba(255,255,255,0.13)" />
+        {/* two beveled rings + the embossed emblem inside */}
+        <Ring r={30} mid={mid} lite={lite} dark={dark} sw={2.6} />
+        <Ring r={24} mid={mid} lite={lite} dark={dark} sw={1.5} />
+        <g fontFamily="Georgia, 'Times New Roman', serif" fontWeight="700" fontSize="24" textAnchor="middle">
+          <text x="49.2" y="58.2" fill={dark}>{symbol}</text>
+          <text x="50.8" y="59.8" fill={lite} opacity="0.6">{symbol}</text>
+          <text x="50" y="59" fill={floor}>{symbol}</text>
         </g>
       </svg>
     </div>
