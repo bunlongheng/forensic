@@ -12,7 +12,7 @@ function autoGrow(el) { if (el) { el.style.height = 'auto'; el.style.height = el
 
 const REST = 'drop-shadow(0 6px 12px rgba(0,0,0,.3))'
 
-function ClipNode({ id, data, selected }) {
+function ClipNode({ id, data }) {
   const { updateNodeData, deleteElements } = useReactFlow()
   const editable = data.editable !== false
   const [editing, setEditing] = useState(false)
@@ -45,21 +45,11 @@ function ClipNode({ id, data, selected }) {
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <NodeHandles className="fx-handle-hidden" />
-      {/* Selected feedback: a red torn "backing" that peeks out behind the paper as
-          a ripped red border. Clips hide their anchor dots, so this is the only
-          "you clicked me" cue. Same rip, a few px larger, sitting behind. */}
-      {selected && (
-        <div aria-hidden style={{
-          position: 'absolute', inset: -3, zIndex: 0, background: 'var(--accent)',
-          clipPath: rip, WebkitClipPath: rip, pointerEvents: 'none',
-          filter: 'drop-shadow(0 0 5px var(--accent))',
-        }} />
-      )}
       <div
-        // Single click drops the cursor in, ready to type.
-        onClick={() => editable && !editing && startEdit()}
+        // Double-click to write; single click just selects (so it can be deleted).
+        // Selection glow is applied globally on the node wrapper, not here.
+        onDoubleClick={() => editable && startEdit()}
         style={{
-          position: 'relative', zIndex: 1,
           width: '100%', minHeight: 54, padding: '20px 17px', boxSizing: 'border-box',
           background: bg, color: '#1b1712',
           // Torn top + bottom, hard corners. drop-shadow (not box-shadow) so the

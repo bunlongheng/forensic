@@ -46,8 +46,7 @@ function CalloutNode({ id, data, selected }) {
         style={{
           width: '100%', height: '100%', background: bg, borderRadius: 4, display: 'grid', placeItems: 'center',
           padding: '18px 20px 16px', overflow: 'hidden',
-          boxShadow: selected ? '0 13px 30px rgba(0,0,0,.42)' : '0 9px 22px rgba(0,0,0,.34)',
-          outline: selected ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
+          boxShadow: '0 9px 22px rgba(0,0,0,.34)',
         }}
       >
         {editing ? (

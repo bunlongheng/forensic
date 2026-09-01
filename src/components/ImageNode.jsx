@@ -38,9 +38,8 @@ function ImageNode({ id, data, selected }) {
         background: '#fbfaf6', borderRadius: rip ? 0 : 3, padding: showCap ? '8px 8px 0' : 0,
         clipPath: ripClip, WebkitClipPath: ripClip,
         display: 'flex', flexDirection: 'column',
-        border: `1px solid ${selected ? 'var(--accent)' : 'rgba(0,0,0,0.14)'}`,
-        boxShadow: selected ? '0 14px 30px rgba(0,0,0,.42)' : '0 9px 22px rgba(0,0,0,.34)',
-        filter: selected ? 'drop-shadow(0 0 2px var(--accent))' : 'none',
+        border: '1px solid rgba(0,0,0,0.14)',
+        boxShadow: '0 9px 22px rgba(0,0,0,.34)',
       }}>
         <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex' }}>
           <img

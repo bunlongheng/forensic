@@ -15,9 +15,9 @@ function AnnotationNode({ data, selected }) {
       <NodeHandles />
       <svg viewBox="0 0 208 148" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible', display: 'block' }}>
         <path
-          d={RING} fill="none" stroke={color} strokeWidth={selected ? 5 : 4.2} strokeLinecap="round"
+          d={RING} fill="none" stroke={color} strokeWidth={4.2} strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
-          style={{ filter: selected ? 'drop-shadow(0 0 3px var(--accent))' : 'drop-shadow(0 1px 1px rgba(0,0,0,.25))' }}
+          style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.25))' }}
         />
       </svg>
     </div>

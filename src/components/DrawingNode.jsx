@@ -29,7 +29,7 @@ function DrawingNode({ id, data, selected }) {
       <div
         ref={surf} className="nodrag nowheel"
         onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up}
-        style={{ width: '100%', height: '100%', cursor: editable ? 'crosshair' : 'default', borderRadius: 6, outline: selected ? '1px dashed var(--accent)' : 'none' }}
+        style={{ width: '100%', height: '100%', cursor: editable ? 'crosshair' : 'default', borderRadius: 6 }}
       >
         <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', display: 'block' }}>
           {[...paths, stroke].filter(Boolean).map((pts, i) => (

@@ -25,7 +25,7 @@ function ContainerNode({ id, data, selected }) {
       <NodeHandles />
       <div style={{
         width: '100%', height: '100%', borderRadius: 16, border: `2px dashed ${color}`,
-        background: `${color}12`, boxShadow: selected ? `0 0 0 1px ${color}` : 'none',
+        background: `${color}12`,
       }}>
         <div
           className="mono nodrag"

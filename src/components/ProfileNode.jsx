@@ -4,7 +4,7 @@ import { useEditZoom } from '../lib/useEditZoom.js'
 
 // A person on the board: a colored circle with initials (no photo) and an
 // editable name under it. Double-click the name to rename.
-function ProfileNode({ id, data, selected }) {
+function ProfileNode({ id, data }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
   const [editing, setEditing] = useState(false)
@@ -27,7 +27,7 @@ function ProfileNode({ id, data, selected }) {
         background: outline ? '#fbfaf6' : color, color: outline ? color : '#fff',
         display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 21, letterSpacing: '.02em',
         border: outline ? `3px solid ${color}` : '3px solid #fff',
-        boxShadow: selected ? '0 0 0 2px var(--accent), 0 8px 18px rgba(0,0,0,.4)' : '0 6px 14px rgba(0,0,0,.34)',
+        boxShadow: '0 6px 14px rgba(0,0,0,.34)',
       }}>{initials}</div>
       {editing ? (
         <input

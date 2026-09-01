@@ -67,7 +67,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
    keep the invisible grab ring, so you can still pull a thread from the edges. */
 .react-flow__handle.fx-handle-hidden,
 .react-flow__handle.fx-handle-hidden:hover { background: transparent; border-color: transparent; box-shadow: none; transform: none; }
-.react-flow__node.selected { z-index: 10 !important; }
+/* ONE consistent selection cue for every node: a soft accent glow that follows the
+   node's real silhouette (torn cards, circles, stickers - all the same). No per-node
+   outlines/rings/borders; nodes must not re-add their own selected styling. */
+.react-flow__node.selected { z-index: 10 !important; filter: drop-shadow(0 0 2px var(--accent)); }
 .react-flow__resize-control.handle {
   width: 9px; height: 9px; border-radius: 2px;
   background: var(--panel); border: 1.5px solid var(--accent);

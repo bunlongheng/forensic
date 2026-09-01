@@ -29,9 +29,8 @@ function TextNode({ id, data, selected }) {
           width: '100%', height: '100%', background: data.color || '#f7f2e6', clipPath: rip, WebkitClipPath: rip,
           padding: '18px 16px', display: 'grid',
           // drop-shadow (not box-shadow) so the shadow follows the ripped edge.
-          filter: selected
-            ? 'drop-shadow(0 9px 15px rgba(0,0,0,.32)) drop-shadow(0 0 2px var(--accent))'
-            : 'drop-shadow(0 6px 12px rgba(0,0,0,.26))',
+          // Selection glow is applied globally on the node wrapper.
+          filter: 'drop-shadow(0 6px 12px rgba(0,0,0,.26))',
           fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 23, lineHeight: 1.14, color: '#1b1a17',
         }}
       >

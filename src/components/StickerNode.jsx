@@ -23,7 +23,7 @@ function StickerNode({ id, data, selected }) {
         style={{
           width: '100%', height: '100%', containerType: 'size', display: 'grid', placeItems: 'center',
           background: '#fff', borderRadius: '24%', border: '4px solid #fff',
-          boxShadow: `0 5px 13px rgba(0,0,0,.3)${selected ? ', 0 0 0 2px var(--accent)' : ''}`,
+          boxShadow: '0 5px 13px rgba(0,0,0,.3)',
         }}
       >
         <span style={{ fontSize: '62cqmin', lineHeight: 1, filter: 'drop-shadow(0 1px 1px rgba(0,0,0,.18))' }}>{emoji}</span>

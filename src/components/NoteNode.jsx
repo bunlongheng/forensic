@@ -56,8 +56,7 @@ function NoteNode({ id, data, selected }) {
           borderRadius: variant === 'torn' ? 0 : 4,
           padding: '15px 15px 17px', overflow: 'hidden', color: '#2a241c',
           fontFamily: "Georgia, 'Times New Roman', serif",
-          boxShadow: selected ? '0 14px 30px rgba(0,0,0,.4)' : '0 8px 20px rgba(0,0,0,.32)',
-          filter: selected ? 'drop-shadow(0 0 2px var(--accent))' : 'none',
+          boxShadow: '0 8px 20px rgba(0,0,0,.32)',
         }}
       >
         {editing ? (
