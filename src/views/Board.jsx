@@ -15,6 +15,7 @@ import CalloutNode from '../components/CalloutNode.jsx'
 import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
+import MarkerNode from '../components/MarkerNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
@@ -29,7 +30,7 @@ import { Icon } from '../components/Icon.jsx'
 const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
-  callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
+  callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode, marker: MarkerNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
@@ -336,6 +337,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         callout: { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } },
         stamp: { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } },
         redaction: { style: { width: 170, height: 26 }, data: { color: '#111111', editable: true } },
+        marker: (() => {
+          const i = nds.filter((n) => n.type === 'marker').length
+          return { style: { width: 52, height: 52 }, data: { number: i + 1, color: '#8b1e3f', editable: true } }
+        })(),
         annotation: { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } },
         drawing: { style: { width: 220, height: 160 }, data: { paths: [], editable: true } },
         sticker: { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } },

@@ -1,4 +1,4 @@
-import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS } from '../lib/constants.js'
+import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, MARKER_COLORS } from '../lib/constants.js'
 
 function segBtn(active) {
   return {
@@ -69,7 +69,7 @@ function PinControl({ data, onNode, pin }) {
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
 export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
-  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact' }[kind] || 'Item'
+  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', marker: 'Marker' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
 
@@ -234,6 +234,21 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
             {['#111111', '#ffffff', '#3a2a1a'].map((c) => <Swatch key={c} color={c} active={(data?.color || '#111111') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
           <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Drag a corner to stretch the bar over anything.</div>
+        </>
+      )}
+
+      {kind === 'marker' && (
+        <>
+          <div style={{ marginTop: 9 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>Number</div>
+            <input
+              type="text" value={data?.number ?? ''} onChange={(e) => onNode({ number: e.target.value })} placeholder="1"
+              style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          <Row label="Badge color">
+            {MARKER_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
+          </Row>
         </>
       )}
     </div>

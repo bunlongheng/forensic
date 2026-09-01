@@ -12,6 +12,9 @@ export const PIN_COLORS = ['#ff3b30', '#2f6fed', '#22c55e', '#f5a623', '#a45cff'
 export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'TOP SECRET', 'HIDDEN', 'CLASSIFIED', 'PROJECT+', 'CODE 8']
 export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
 
+// Numbered evidence markers - crime-scene badge colors (maroon default).
+export const MARKER_COLORS = ['#8b1e3f', '#b23a2e', '#1f5c8b', '#2f7d4f', '#1a1a1a', '#b8860b']
+
 // Red thread first, then alternates for edges.
 export const THREAD_COLORS = ['#e5231b', '#111827', '#2f6fed', '#22c55e', '#f5a623', '#e7e0cf']
 

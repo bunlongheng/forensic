@@ -15,9 +15,12 @@ const ITEMS = [
   ] },
   { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, key: 'stamp', extra: { label: l } })) },
   { key: 'redaction', icon: 'redact', label: 'Redact' },
+  { key: 'marker', icon: 'marker', label: 'Marker' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
-const R = 172 // arc radius - wide enough that the smaller buttons never overlap
+// Radius auto-grows with the tool count so the 38px buttons keep ~44px between
+// centers and never overlap, however many tools we add.
+const R = Math.max(150, Math.round(22 / Math.sin((45 / ITEMS.length) * Math.PI / 180)))
 const ANGLES = ITEMS.map((_, i) => ((2 * i + 1) * 90) / (2 * ITEMS.length))
 
 export function AddMenu({ onAdd, onAddImage }) {
