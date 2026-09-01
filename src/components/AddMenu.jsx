@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Icon } from './Icon.jsx'
 import { STAMP_LABELS } from '../lib/constants.js'
 
-// Bottom-left "+" that fans its tools out along an arc into the upper-right quadrant.
-// A tool with `choices` doesn't add straight away - it opens a small chooser first
-// (present options before adding), e.g. Stamp -> which stamp.
+// A floating tool KNOB: a round hub at bottom-center. Tap it and the tools bloom
+// into a full ring around it; drag the ring to spin it like a knob. A tool with
+// `choices` opens a small chooser first (present options before adding).
 const ITEMS = [
   { key: 'text', icon: 'text', label: 'Text' },
   { key: 'callout', icon: 'callout', label: 'Callout' },
@@ -21,35 +21,53 @@ const ITEMS = [
   { key: 'spotlight', icon: 'spotlight', label: 'Spotlight' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
-// Radius auto-grows with the tool count so the 38px buttons keep ~44px between
-// centers and never overlap, however many tools we add.
-const R = Math.max(150, Math.round(22 / Math.sin((45 / ITEMS.length) * Math.PI / 180)))
-const ANGLES = ITEMS.map((_, i) => ((2 * i + 1) * 90) / (2 * ITEMS.length))
+const R = 112 // ring radius
+const N = ITEMS.length
 
 export function AddMenu({ onAdd, onAddImage }) {
   const [open, setOpen] = useState(false)
-  const [chooser, setChooser] = useState(null) // an ITEMS entry whose choices are showing
+  const [chooser, setChooser] = useState(null)
+  const [rot, setRot] = useState(0)      // ring rotation (degrees)
+  const hubRef = useRef(null)
+  const drag = useRef(null)
 
   function close() { setOpen(false); setChooser(null) }
-  function pick(item) {
-    if (item.choices) { setChooser(item); return } // show options first
-    onAdd(item.key); close()
-  }
+  function pick(item) { if (item.choices) { setChooser(item); return } onAdd(item.key); close() }
   function choose(c) {
     close()
-    if (c.action === 'image') { onAddImage?.(); return } // Photo -> file picker
+    if (c.action === 'image') { onAddImage?.(); return }
     onAdd(c.key || chooser.key, c.extra)
   }
+
+  // Drag anywhere on the ring band to spin the knob.
+  function onRingDown(e) {
+    const r = hubRef.current.getBoundingClientRect()
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2
+    const a0 = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI
+    drag.current = { a0, rot0: rot, moved: false }
+    const move = (ev) => {
+      const a = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI
+      drag.current.moved = true
+      setRot(drag.current.rot0 + (a - drag.current.a0))
+    }
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  const item = { position: 'absolute', width: 38, height: 38, borderRadius: '50%', zIndex: 2,
+    background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer',
+    display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow)' }
 
   return (
     <>
       {(open || chooser) && <div onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />}
 
-      {/* Chooser card - the "which one?" step before a tool is added. */}
+      {/* Chooser card - the "which one?" step, centered above the knob. */}
       {chooser && (
         <div className="fx-noexport nowheel" style={{
-          position: 'absolute', left: 42, bottom: 104, zIndex: 11, width: 148,
-          maxHeight: '58vh', overflowY: 'auto',
+          position: 'absolute', left: '50%', bottom: 190, transform: 'translateX(-50%)', zIndex: 11, width: 150,
+          maxHeight: '52vh', overflowY: 'auto',
           background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 11,
           padding: 6, boxShadow: 'var(--shadow)', animation: 'fx-pop .16s both',
         }}>
@@ -77,27 +95,42 @@ export function AddMenu({ onAdd, onAddImage }) {
         </div>
       )}
 
-      <div className="fx-noexport fx-fab" style={{ position: 'absolute', left: 42, bottom: 42, zIndex: 10, width: 54, height: 54 }}>
-        {open && !chooser && ITEMS.map((it, i) => {
-          const a = (ANGLES[i] * Math.PI) / 180
-          const x = Math.cos(a) * R
-          const y = Math.sin(a) * R
-          return (
-            <button
-              key={it.key} className="fx-fab-item" onClick={() => pick(it)} title={it.label}
+      <div
+        ref={hubRef}
+        className="fx-noexport"
+        style={{
+          position: 'absolute', left: '50%', bottom: 'calc(150px + env(safe-area-inset-bottom))',
+          transform: 'translateX(-50%)', zIndex: 10, width: 60, height: 60,
+        }}
+      >
+        {open && !chooser && (
+          <>
+            {/* draggable ring band (spin the knob) - a circle behind the buttons */}
+            <div
+              onPointerDown={onRingDown}
               style={{
-                position: 'absolute', left: 8 + x, bottom: 8 + y, width: 38, height: 38, borderRadius: '50%',
-                background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--text)', cursor: 'pointer',
-                display: 'grid', placeItems: 'center', boxShadow: 'var(--shadow)',
-                animation: 'fx-pop .18s both', animationDelay: `${i * 0.04}s`,
+                position: 'absolute', left: 30 - (R + 22), top: 30 - (R + 22), width: (R + 22) * 2, height: (R + 22) * 2,
+                borderRadius: '50%', clipPath: 'circle(50%)', zIndex: 0, cursor: 'grab',
               }}
-            ><Icon name={it.icon} size={17} /></button>
-          )
-        })}
+            />
+            {ITEMS.map((it, i) => {
+              const a = ((i / N) * 360 + rot - 90) * Math.PI / 180
+              const x = Math.cos(a) * R, y = Math.sin(a) * R
+              return (
+                <button
+                  key={it.key} className="fx-fab-item" title={it.label}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => { if (!drag.current?.moved) pick(it) }}
+                  style={{ ...item, left: 30 + x - 19, top: 30 + y - 19, animation: 'fx-pop .18s both', animationDelay: `${i * 0.02}s` }}
+                ><Icon name={it.icon} size={16} /></button>
+              )
+            })}
+          </>
+        )}
         <button
           onClick={() => (chooser ? setChooser(null) : setOpen((o) => !o))} title="Add to board"
           style={{
-            position: 'absolute', left: 0, bottom: 0, width: 54, height: 54, borderRadius: '50%',
+            position: 'absolute', left: 2, top: 2, width: 56, height: 56, borderRadius: '50%', zIndex: 3,
             background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: 'pointer',
             display: 'grid', placeItems: 'center', boxShadow: '0 8px 20px rgba(0,0,0,.35)',
             transform: open ? 'rotate(45deg)' : 'none', transition: 'transform .22s ease',
