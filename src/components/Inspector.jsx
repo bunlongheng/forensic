@@ -1,4 +1,4 @@
-import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS } from '../lib/constants.js'
+import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS } from '../lib/constants.js'
 
 function segBtn(active) {
   return {
@@ -69,7 +69,7 @@ function PinControl({ data, onNode, pin }) {
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
 export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
-  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip' }[kind] || 'Item'
+  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
 
@@ -200,7 +200,20 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
           <Row label="Paper color">
             {['#fbfaf6', ...NOTE_TINTS].map((c) => <Swatch key={c} color={c} active={(data?.color || '#fbfaf6') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Triple-click the paper to write.</div>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Double-click the paper to write.</div>
+        </>
+      )}
+
+      {kind === 'stamp' && (
+        <>
+          <Row label="Stamp">
+            {STAMP_LABELS.map((l) => (
+              <button key={l} onClick={() => onNode({ label: l })} style={segBtn((data?.label || 'APPROVED') === l)}>{l}</button>
+            ))}
+          </Row>
+          <Row label="Ink color">
+            {STAMP_COLORS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#d0342c') === c} onClick={() => onNode({ color: c })} />)}
+          </Row>
         </>
       )}
     </div>

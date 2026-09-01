@@ -24,6 +24,7 @@ const P = {
   clip: <path d="M20 11l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4L14 4.4a3 3 0 0 1 4.2 4.2l-8.6 8.6a1.5 1.5 0 0 1-2.1-2.1l7.8-7.8" />,
   undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10H9" /></>,
   redo: <><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h6" /></>,
+  stamp: <><path d="M9 10a3 3 0 1 1 6 0c0 1.5-1 2-1 3.5V15h-4v-1.5C10 12 9 11.5 9 10z" /><path d="M4 20h16" /><path d="M6 17h12v2H6z" /></>,
 }
 
 export function Icon({ name, size = 17 }) {

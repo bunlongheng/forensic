@@ -13,6 +13,7 @@ import AnnotationNode from '../components/AnnotationNode.jsx'
 import DrawingNode from '../components/DrawingNode.jsx'
 import CalloutNode from '../components/CalloutNode.jsx'
 import ClipNode from '../components/ClipNode.jsx'
+import StampNode from '../components/StampNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
@@ -27,7 +28,7 @@ import { Icon } from '../components/Icon.jsx'
 const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
-  callout: CalloutNode, clip: ClipNode,
+  callout: CalloutNode, clip: ClipNode, stamp: StampNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
@@ -332,6 +333,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         text: { style: { width: 180, height: 90 }, data: { text: '', editable: true } },
         clip: { style: { width: 210 }, data: { text: '', color: '#fbfaf6', editable: true } }, // no height - auto-fits
         callout: { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } },
+        stamp: { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } },
         annotation: { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } },
         drawing: { style: { width: 220, height: 160 }, data: { paths: [], editable: true } },
         sticker: { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } },
@@ -561,7 +563,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       )}
 
       {/* Bottom-left add menu (text / circle / person / draw / sticker / group) */}
-      {canEdit && <AddMenu onAdd={(type) => addNodeOfType(type, centerPos())} />}
+      {canEdit && <AddMenu onAdd={(type, extra) => addNodeOfType(type, centerPos(), extra)} />}
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="fx-noexport fx-topbar" style={{ position: 'absolute', top: 42, left: 42, right: 42, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
