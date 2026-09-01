@@ -20,18 +20,6 @@ function setUrlId(id) {
   window.history.replaceState({}, '', u)
 }
 
-// Phones and tablets (iPhone, iPad - incl. iPadOS reporting as Mac - and Android)
-// are READ-ONLY on the board canvas: you only ever pan and zoom to read there, so
-// selecting, dragging and editing nodes are disabled to stop accidental changes.
-// We key on the actual mobile OS, NOT "(pointer: coarse)" - that also matches
-// touch-capable laptops/2-in-1s, which must stay fully editable.
-const isTouchDevice = (() => {
-  if (typeof navigator === 'undefined') return false
-  const ua = navigator.userAgent || ''
-  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  const android = /Android/.test(ua)
-  return iOS || android
-})()
 
 export default function App() {
   // theme is 'light'|'dark' (also React Flow's colorMode); t is the resolved palette.
@@ -145,7 +133,7 @@ export default function App() {
   // ── Board view (public for shared links; editable for the signed-in owner) ──
   if (view === 'board' && active) {
     if (!authChecked) return <Splash label="Loading board…" />
-    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice
+    const canEdit = Boolean(user) || devBypass
     return (
       <>
         <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
