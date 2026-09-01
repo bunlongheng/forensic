@@ -7,41 +7,59 @@ import { tornTopBottom } from '../lib/torn.js'
 
 // A scrap of paper ripped from a notepad - torn top and bottom, no rounded corners,
 // bold handwriting. A quick handwritten note that fits its words (auto-height).
-// Triple-click to write; it zooms in and grows line by line.
+// Single-click to write. Empty notes auto-cancel so the board never fills with blanks.
 function autoGrow(el) { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }
 
+const REST = 'drop-shadow(0 6px 12px rgba(0,0,0,.3))'
+
 function ClipNode({ id, data, selected }) {
-  const { updateNodeData } = useReactFlow()
+  const { updateNodeData, deleteElements } = useReactFlow()
   const editable = data.editable !== false
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(data.text || '')
   const ref = useRef(null)
   const { focus, restore } = useEditZoom(id)
 
-  const taps = useRef([])
   useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select(); autoGrow(ref.current) } }, [editing])
   function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
-  // Count taps ourselves - e.detail never reaches 3 on touch.
-  function onTap(e) {
-    if (!editable) return
-    const t = e.timeStamp
-    taps.current = taps.current.filter((x) => t - x < 600)
-    taps.current.push(t)
-    if (taps.current.length >= 3) { taps.current = []; startEdit() }
+  function commit() {
+    setEditing(false)
+    // Nothing written -> auto-cancel: drop the empty note instead of keeping a blank.
+    if (draft.trim() === '') { restore(); deleteElements({ nodes: [{ id }] }); return }
+    updateNodeData(id, { text: draft, autoEdit: undefined })
+    restore()
   }
+  // Freshly dropped (double-click on the board) notes open straight into edit mode.
+  // Deferred a frame so we don't setState synchronously inside the mount effect.
+  useEffect(() => {
+    if (!data.autoEdit) return
+    const raf = requestAnimationFrame(() => { updateNodeData(id, { autoEdit: undefined }); startEdit() })
+    return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const bg = data.color || '#fbfaf6'
-  const text = data.text || (editable ? 'Triple-click to write…' : '')
+  const text = data.text || (editable ? 'Click to write…' : '')
   const rip = tornTopBottom(id)
 
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <NodeHandles className="fx-handle-hidden" />
+      {/* Selected feedback: a red torn "backing" that peeks out behind the paper as
+          a ripped red border. Clips hide their anchor dots, so this is the only
+          "you clicked me" cue. Same rip, a few px larger, sitting behind. */}
+      {selected && (
+        <div aria-hidden style={{
+          position: 'absolute', inset: -3, zIndex: 0, background: 'var(--accent)',
+          clipPath: rip, WebkitClipPath: rip, pointerEvents: 'none',
+          filter: 'drop-shadow(0 0 5px var(--accent))',
+        }} />
+      )}
       <div
-        // Triple-tap opens it: zooms in, drops the cursor, ready to type.
-        onClick={onTap}
+        // Single click drops the cursor in, ready to type.
+        onClick={() => editable && !editing && startEdit()}
         style={{
+          position: 'relative', zIndex: 1,
           width: '100%', minHeight: 54, padding: '20px 17px', boxSizing: 'border-box',
           background: bg, color: '#1b1712',
           // Torn top + bottom, hard corners. drop-shadow (not box-shadow) so the
@@ -49,9 +67,7 @@ function ClipNode({ id, data, selected }) {
           clipPath: rip, WebkitClipPath: rip,
           fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 22, lineHeight: 1.16,
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          filter: selected
-            ? 'drop-shadow(0 10px 16px rgba(0,0,0,.36)) drop-shadow(0 0 2px var(--accent))'
-            : 'drop-shadow(0 6px 12px rgba(0,0,0,.3))',
+          filter: REST,
         }}
       >
         {editing ? (
@@ -59,7 +75,7 @@ function ClipNode({ id, data, selected }) {
             ref={ref} className="nodrag nowheel" value={draft} rows={1}
             onChange={(e) => { setDraft(e.target.value); autoGrow(e.target) }}
             onBlur={commit}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); restore() } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); ref.current?.blur() } }}
             style={{ width: '100%', resize: 'none', overflow: 'hidden', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 'inherit', lineHeight: 'inherit', color: 'inherit', display: 'block' }}
           />
         ) : (

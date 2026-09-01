@@ -326,7 +326,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // Drop one of the FAB object types at `at`. Containers slide to the BACK of the
   // stack (they group visually and must sit under the evidence); everything else
   // lands on top where you added it.
-  const addNodeOfType = useCallback((type, at) => {
+  const addNodeOfType = useCallback((type, at, extra) => {
     setNodes((nds) => {
       const spec = {
         text: { style: { width: 180, height: 90 }, data: { text: '', editable: true } },
@@ -345,6 +345,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       // Cascade each new object so they never land in one stack (which buries them).
       const off = (nds.length % 8) * 28
       const node = { id: uid(type), type, position: { x: at.x + off, y: at.y + off }, ...spec }
+      if (extra) node.data = { ...node.data, ...extra }
       if (type === 'container') { node.position = { x: at.x - 160, y: at.y - 120 }; node.zIndex = 0; return [node, ...nds] }
       return nds.concat(node)
     })
@@ -394,19 +395,18 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     setEdges((eds) => addEdge(c, eds))
   }, [setEdges])
 
-  // TRIPLE-click/tap empty canvas to drop a clip (double was too easy to trigger by
-  // accident). We count taps in a short window ourselves rather than trust e.detail,
-  // which never reaches 3 on touchscreens. onPaneClick only fires on the pane, so
-  // nodes are never affected.
+  // DOUBLE-click/tap empty canvas to drop a note, already open for typing. We count
+  // taps in a short window ourselves rather than trust e.detail, which is unreliable
+  // on touch. onPaneClick only fires on the pane, so nodes are never affected.
   const paneTaps = useRef([])
   const onPaneClick = useCallback((e) => {
     if (!canEdit) return
     const t = e.timeStamp
-    paneTaps.current = paneTaps.current.filter((x) => t - x < 600)
+    paneTaps.current = paneTaps.current.filter((x) => t - x < 450)
     paneTaps.current.push(t)
-    if (paneTaps.current.length >= 3) {
+    if (paneTaps.current.length >= 2) {
       paneTaps.current = []
-      addNodeOfType('clip', screenToFlowPosition({ x: e.clientX, y: e.clientY }))
+      addNodeOfType('clip', screenToFlowPosition({ x: e.clientX, y: e.clientY }), { autoEdit: true })
     }
   }, [canEdit, addNodeOfType, screenToFlowPosition])
 
@@ -554,7 +554,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <div style={{ textAlign: 'center', color: theme.muted, animation: 'fx-rise .5s both' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🧵</div>
             <div className="mono" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: theme.text }}>DROP EVIDENCE ONTO THE BOARD</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or triple-click to add a clip.</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or double-click to add a note.</div>
             <div style={{ fontSize: 13, marginTop: 2 }}>Drag from a node's edge to wire connections.</div>
           </div>
         </div>
