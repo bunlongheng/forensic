@@ -1,4 +1,4 @@
-import { NOTE_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS } from '../lib/constants.js'
+import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS } from '../lib/constants.js'
 
 function segBtn(active) {
   return {
@@ -179,7 +179,7 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
       {kind === 'text' && (
         <>
           <Row label="Paper color">
-            {['#f7f2e6', ...NOTE_TINTS].map((c) => <Swatch key={c} color={c} active={(data?.color || '#f7f2e6') === c} onClick={() => onNode({ color: c })} />)}
+            {BRIGHT_TINTS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#f7f2e6') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
           <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Double-click the scrap to write.</div>
         </>

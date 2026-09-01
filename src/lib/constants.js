@@ -1,6 +1,10 @@
 // Note card tints (warm paper, a danger red, then soft pastels).
 export const NOTE_TINTS = ['#fef3c7', '#fca5a5', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff', '#f3f0e8']
 
+// Bright, distinct paper colors for the text quick-note - white + saturated hues
+// (no washed-out pastels), a proper vivid yellow. Dark ink stays readable on all.
+export const BRIGHT_TINTS = ['#ffffff', '#ffe600', '#ff9500', '#ff3b30', '#ff2d95', '#a259ff', '#0a84ff', '#30d158']
+
 // Pushpin colors (glossy dome tints).
 export const PIN_COLORS = ['#ff3b30', '#2f6fed', '#22c55e', '#f5a623', '#a45cff', '#111827']
 
