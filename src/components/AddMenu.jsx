@@ -57,10 +57,20 @@ export function AddMenu({ onAdd, onAddImage }) {
           {chooser.choices.map((c) => (
             <button key={c.label} onClick={() => choose(c)}
               style={{
-                display: 'block', width: '100%', textAlign: 'left', padding: '5px 8px', marginTop: 2,
+                display: 'flex', alignItems: 'center', justifyContent: chooser.key === 'stamp' ? 'center' : 'flex-start',
+                width: '100%', padding: chooser.key === 'stamp' ? '7px 6px' : '5px 8px', marginTop: 2,
                 borderRadius: 7, border: '1px solid var(--border)', background: 'var(--panel-2)',
                 color: 'var(--text)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-              }}>{c.label}</button>
+              }}>
+              {chooser.key === 'stamp'
+                ? <span style={{
+                    display: 'inline-block', transform: 'rotate(-3deg)',
+                    border: '2px solid #d0342c', boxShadow: 'inset 0 0 0 1.2px #d0342c', borderRadius: 4,
+                    color: '#d0342c', padding: '2px 7px', fontFamily: "'Space Mono', ui-monospace, monospace",
+                    fontWeight: 700, fontSize: 9.5, letterSpacing: '.04em', textTransform: 'uppercase', opacity: 0.9,
+                  }}>{c.label}</span>
+                : c.label}
+            </button>
           ))}
         </div>
       )}
