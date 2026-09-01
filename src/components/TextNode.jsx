@@ -2,10 +2,10 @@ import { memo, useState, useRef, useEffect } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { useEditZoom } from '../lib/useEditZoom.js'
+import { tornTopBottom } from '../lib/torn.js'
 
-// Floating handwriting on a small torn scrap - like a sharpie note stuck to the
-// board. Double-click to write. No frame, just paper + ink.
-const TORN = 'polygon(0% 5%,5% 0%,96% 3%,100% 8%,99% 93%,95% 100%,4% 97%,0% 90%)'
+// Floating handwriting on a scrap ripped from a notepad - torn top and bottom, bold
+// sharpie ink, no frame. Double-click to write.
 
 function TextNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
@@ -17,6 +17,7 @@ function TextNode({ id, data, selected }) {
   useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
   function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
   function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
+  const rip = tornTopBottom(id)
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -25,10 +26,13 @@ function TextNode({ id, data, selected }) {
       <div
         onDoubleClick={() => editable && startEdit()}
         style={{
-          width: '100%', height: '100%', background: '#f7f2e6', clipPath: TORN, WebkitClipPath: TORN,
-          padding: '12px 15px', display: 'grid', boxShadow: '0 7px 16px rgba(0,0,0,.26)',
-          fontFamily: "'Caveat', cursive", fontSize: 23, lineHeight: 1.12, color: '#1b1a17',
-          outline: selected ? '2px solid var(--accent)' : 'none', outlineOffset: 2,
+          width: '100%', height: '100%', background: '#f7f2e6', clipPath: rip, WebkitClipPath: rip,
+          padding: '18px 16px', display: 'grid',
+          // drop-shadow (not box-shadow) so the shadow follows the ripped edge.
+          filter: selected
+            ? 'drop-shadow(0 9px 15px rgba(0,0,0,.32)) drop-shadow(0 0 2px var(--accent))'
+            : 'drop-shadow(0 6px 12px rgba(0,0,0,.26))',
+          fontFamily: "'Caveat', cursive", fontWeight: 700, fontSize: 23, lineHeight: 1.14, color: '#1b1a17',
         }}
       >
         {editing ? (
@@ -36,7 +40,7 @@ function TextNode({ id, data, selected }) {
             ref={ref} className="nodrag nowheel" value={draft}
             onChange={(e) => setDraft(e.target.value)} onBlur={commit}
             onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); restore() } }}
-            style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', lineHeight: 'inherit', color: 'inherit' }}
+            style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 'inherit', lineHeight: 'inherit', color: 'inherit' }}
           />
         ) : (
           <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', alignSelf: 'center' }}>
