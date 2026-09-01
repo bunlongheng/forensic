@@ -99,8 +99,8 @@ export function AddMenu({ onAdd, onAddImage }) {
         ref={hubRef}
         className="fx-noexport"
         style={{
-          position: 'absolute', left: '50%', bottom: 'calc(150px + env(safe-area-inset-bottom))',
-          transform: 'translateX(-50%)', zIndex: 10, width: 60, height: 60,
+          position: 'absolute', left: 'calc(118px + env(safe-area-inset-left))', bottom: 'calc(150px + env(safe-area-inset-bottom))',
+          zIndex: 10, width: 60, height: 60,
         }}
       >
         {open && !chooser && (
@@ -121,7 +121,12 @@ export function AddMenu({ onAdd, onAddImage }) {
                   key={it.key} className="fx-fab-item" title={it.label}
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => { if (!drag.current?.moved) pick(it) }}
-                  style={{ ...item, left: 30 + x - 19, top: 30 + y - 19, animation: 'fx-pop .18s both', animationDelay: `${i * 0.02}s` }}
+                  style={{
+                    ...item, left: 30 + x - 19, top: 30 + y - 19,
+                    '--tx': `${x}px`, '--ty': `${y}px`,
+                    animation: 'fx-bloom .42s cubic-bezier(.22,.9,.28,1.12) both',
+                    animationDelay: `${i * 0.035}s`,
+                  }}
                 ><Icon name={it.icon} size={16} /></button>
               )
             })}

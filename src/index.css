@@ -118,6 +118,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* ── Animations ───────────────────────────────────────────────────────────── */
 @keyframes fx-spin { to { transform: rotate(360deg); } }
 @keyframes fx-pop { from { opacity: 0; transform: scale(.72); } to { opacity: 1; transform: scale(1); } }
+/* Tool knob: each button flies out from the hub center to its ring spot. --tx/--ty
+   are the button's offset from centre, so `from` pulls it back to the middle. */
+@keyframes fx-bloom {
+  from { opacity: 0; transform: translate(calc(var(--tx) * -1), calc(var(--ty) * -1)) scale(.25); }
+  to   { opacity: 1; transform: translate(0, 0) scale(1); }
+}
 @keyframes fx-draw { from { stroke-dashoffset: 640; } to { stroke-dashoffset: 0; } }
 @keyframes fx-drift { 0%,100% { transform: translate3d(0,0,0); } 50% { transform: translate3d(0,-10px,0); } }
 @keyframes fx-in { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
