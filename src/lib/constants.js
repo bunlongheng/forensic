@@ -15,6 +15,9 @@ export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
 // Numbered evidence markers - crime-scene badge colors (maroon default).
 export const MARKER_COLORS = ['#8b1e3f', '#b23a2e', '#1f5c8b', '#2f7d4f', '#1a1a1a', '#b8860b']
 
+// Wax seal colors - deep sealing-wax reds plus a few classic tints.
+export const WAX_COLORS = ['#8b1e3f', '#7a1220', '#a02c2c', '#5b3a1a', '#1f3a5c', '#2f5d3f']
+
 // Red thread first, then alternates for edges.
 export const THREAD_COLORS = ['#e5231b', '#111827', '#2f6fed', '#22c55e', '#f5a623', '#e7e0cf']
 

@@ -27,6 +27,7 @@ const P = {
   stamp: <><path d="M9 10a3 3 0 1 1 6 0c0 1.5-1 2-1 3.5V15h-4v-1.5C10 12 9 11.5 9 10z" /><path d="M4 20h16" /><path d="M6 17h12v2H6z" /></>,
   redact: <><rect x="3.5" y="7" width="17" height="4" rx="1" fill="currentColor" stroke="none" /><rect x="3.5" y="13" width="11" height="4" rx="1" fill="currentColor" stroke="none" /></>,
   marker: <><circle cx="12" cy="12" r="8.5" /><path d="M10.7 9l1.8-1v7M10 15h5" /></>,
+  wax: <><circle cx="12" cy="11" r="7.5" /><path d="M12 7.5l1.3 2.7 3 .3-2.2 2 .6 2.9-2.7-1.5-2.7 1.5.6-2.9-2.2-2 3-.3z" /></>,
 }
 
 export function Icon({ name, size = 17 }) {
