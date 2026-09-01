@@ -5,9 +5,21 @@ import { Pin } from './Pin.jsx'
 import { tornBottom } from '../lib/torn.js'
 import { useEditZoom } from '../lib/useEditZoom.js'
 
-// An "evidence" node styled as a pinned photo print: a white polaroid frame with
-// the image, an OPTIONAL caption strip (off by default), a red pushpin, and
-// optional grayscale + torn ("rip") effects. Caption shows exactly what you type.
+// An "evidence" node styled as a pinned photo print: a white frame, the image, an
+// OPTIONAL caption strip, a red pushpin, an optional torn ("rip") edge, and a photo
+// STYLE - original, crumpled wrinkle paper, newsprint B&W, or a jigsaw puzzle look.
+
+// A tiling jigsaw grid (tabs bump inward so the pattern repeats without clipping).
+const PZ = 52
+const PUZZLE_URI = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+  `<svg xmlns='http://www.w3.org/2000/svg' width='${PZ}' height='${PZ}'>` +
+  `<g fill='none' stroke='rgba(0,0,0,0.42)' stroke-width='1.3'>` +
+  `<path d='M${PZ} 0 V${PZ * 0.38} C ${PZ - 8} ${PZ * 0.38}, ${PZ - 8} ${PZ * 0.62}, ${PZ} ${PZ * 0.62} V${PZ}'/>` +
+  `<path d='M0 ${PZ} H${PZ * 0.38} C ${PZ * 0.38} ${PZ - 8}, ${PZ * 0.62} ${PZ - 8}, ${PZ * 0.62} ${PZ} H${PZ}'/></g>` +
+  `<g fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='1' transform='translate(0.6,1)'>` +
+  `<path d='M${PZ} 0 V${PZ * 0.38} C ${PZ - 8} ${PZ * 0.38}, ${PZ - 8} ${PZ * 0.62}, ${PZ} ${PZ * 0.62} V${PZ}'/>` +
+  `<path d='M0 ${PZ} H${PZ * 0.38} C ${PZ * 0.38} ${PZ - 8}, ${PZ * 0.62} ${PZ - 8}, ${PZ * 0.62} ${PZ} H${PZ}'/></g></svg>`,
+)
 
 function ImageNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
@@ -22,11 +34,14 @@ function ImageNode({ id, data, selected }) {
   function commit() { setEditing(false); updateNodeData(id, { label: draft }); restore() }
 
   const showCap = data.showCaption === true   // off unless the owner enables it
-  const gray = data.grayscale === true
   const rip = data.rip === true
   const ripClip = rip ? tornBottom(id) : 'none'
-  const wrinkle = data.wrinkle === true
-  const imgFilter = [gray && 'grayscale(1)', wrinkle && 'url(#fx-wrinkle)'].filter(Boolean).join(' ') || 'none'
+  // Photo style: original | wrinkle | newspaper | puzzle. (data.grayscale/.wrinkle
+  // from older boards still map to their style so nothing breaks.)
+  const style = data.style || (data.wrinkle ? 'wrinkle' : data.grayscale ? 'newspaper' : 'original')
+  const imgFilter = style === 'newspaper' ? 'grayscale(1) contrast(1.45) brightness(1.08)'
+    : style === 'wrinkle' ? 'url(#fx-wrinkle)'
+    : 'none'
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -46,11 +61,24 @@ function ImageNode({ id, data, selected }) {
             src={data.src} alt={data.label || 'evidence'} draggable={false}
             style={{ width: '100%', flex: 1, minHeight: 0, objectFit: 'contain', display: 'block', borderRadius: 1, filter: imgFilter }}
           />
-          {wrinkle && (
+          {style === 'wrinkle' && (
             <div style={{
               position: 'absolute', inset: 0, pointerEvents: 'none', mixBlendMode: 'soft-light', opacity: 0.9, borderRadius: 1,
               // Organic crumpled-paper shading (baked SVG crease-light), not a grid.
               backgroundImage: 'url("/wrinkle.svg")', backgroundSize: 'cover',
+            }} />
+          )}
+          {style === 'newspaper' && (
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', mixBlendMode: 'multiply', opacity: 0.2, borderRadius: 1,
+              // Halftone newsprint dots.
+              backgroundImage: 'radial-gradient(rgba(0,0,0,0.75) 22%, transparent 24%)', backgroundSize: '4px 4px',
+            }} />
+          )}
+          {style === 'puzzle' && (
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 1,
+              backgroundImage: `url("${PUZZLE_URI}")`, backgroundSize: `${PZ}px ${PZ}px`,
             }} />
           )}
         </div>

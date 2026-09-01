@@ -97,15 +97,21 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
         </>
       )}
 
-      {kind === 'image' && (
-        <>
-          <PinControl data={data} onNode={onNode} pin={pin} />
-          <Toggle label="Caption" value={data?.showCaption === true} onChange={(v) => onNode({ showCaption: v })} />
-          <Toggle label="Grayscale" value={data?.grayscale === true} onChange={(v) => onNode({ grayscale: v })} />
-          <Toggle label="Rip effect" value={data?.rip === true} onChange={(v) => onNode({ rip: v })} />
-          <Toggle label="Wrinkle" value={data?.wrinkle === true} onChange={(v) => onNode({ wrinkle: v })} />
-        </>
-      )}
+      {kind === 'image' && (() => {
+        const style = data?.style || (data?.wrinkle ? 'wrinkle' : data?.grayscale ? 'newspaper' : 'original')
+        return (
+          <>
+            <PinControl data={data} onNode={onNode} pin={pin} />
+            <Row label="Style">
+              {[['original', 'Original'], ['wrinkle', 'Wrinkle'], ['newspaper', 'Newspaper'], ['puzzle', 'Puzzle']].map(([k, l]) => (
+                <button key={k} onClick={() => onNode({ style: k, grayscale: undefined, wrinkle: undefined })} style={segBtn(style === k)}>{l}</button>
+              ))}
+            </Row>
+            <Toggle label="Caption" value={data?.showCaption === true} onChange={(v) => onNode({ showCaption: v })} />
+            <Toggle label="Rip effect" value={data?.rip === true} onChange={(v) => onNode({ rip: v })} />
+          </>
+        )
+      })()}
 
       {kind === 'edge' && (
         <Row label="Thread color">
