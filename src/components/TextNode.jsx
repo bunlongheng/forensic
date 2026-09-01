@@ -2,10 +2,10 @@ import { memo, useState, useRef, useEffect } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { useEditZoom } from '../lib/useEditZoom.js'
-import { tornTopBottom } from '../lib/torn.js'
+import { tornBottom } from '../lib/torn.js'
 
-// Floating handwriting on a scrap ripped from a notepad - torn top and bottom, bold
-// sharpie ink, no frame. Double-click to write.
+// Floating handwriting on a scrap ripped from a notepad - clean square top, torn
+// bottom edge, bold sharpie ink, no frame. Double-click to write.
 
 function TextNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
@@ -17,7 +17,7 @@ function TextNode({ id, data, selected }) {
   useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
   function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
   function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
-  const rip = tornTopBottom(id)
+  const rip = tornBottom(id)
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
