@@ -14,6 +14,7 @@ const ITEMS = [
     { label: 'Photo', action: 'image' },
   ] },
   { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, key: 'stamp', extra: { label: l } })) },
+  { key: 'redaction', icon: 'redact', label: 'Redact' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
 const R = 172 // arc radius - wide enough that the smaller buttons never overlap

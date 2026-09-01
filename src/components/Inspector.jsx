@@ -69,7 +69,7 @@ function PinControl({ data, onNode, pin }) {
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
 export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
-  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp' }[kind] || 'Item'
+  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
 
@@ -225,6 +225,15 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
           <Row label="Ink color">
             {STAMP_COLORS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#d0342c') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
+        </>
+      )}
+
+      {kind === 'redaction' && (
+        <>
+          <Row label="Bar color">
+            {['#111111', '#ffffff', '#3a2a1a'].map((c) => <Swatch key={c} color={c} active={(data?.color || '#111111') === c} onClick={() => onNode({ color: c })} />)}
+          </Row>
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Drag a corner to stretch the bar over anything.</div>
         </>
       )}
     </div>

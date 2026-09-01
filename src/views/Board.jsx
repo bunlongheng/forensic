@@ -14,6 +14,7 @@ import DrawingNode from '../components/DrawingNode.jsx'
 import CalloutNode from '../components/CalloutNode.jsx'
 import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
+import RedactionNode from '../components/RedactionNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
@@ -28,7 +29,7 @@ import { Icon } from '../components/Icon.jsx'
 const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
-  callout: CalloutNode, clip: ClipNode, stamp: StampNode,
+  callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
@@ -334,6 +335,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         clip: { style: { width: 210 }, data: { text: '', color: '#fbfaf6', editable: true } }, // no height - auto-fits
         callout: { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } },
         stamp: { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } },
+        redaction: { style: { width: 170, height: 26 }, data: { color: '#111111', editable: true } },
         annotation: { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } },
         drawing: { style: { width: 220, height: 160 }, data: { paths: [], editable: true } },
         sticker: { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } },

@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { NodeResizer } from '@xyflow/react'
+import { memo, useEffect } from 'react'
+import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 
 // A rubber-stamp imprint pressed onto the evidence. Two shapes: a slanted rectangle
@@ -8,10 +8,24 @@ import { NodeHandles } from './nodeHandles.jsx'
 const MONO = "'Space Mono', ui-monospace, monospace"
 
 function StampNode({ id, data, selected }) {
+  const { setNodes } = useReactFlow()
   const color = data.color || '#d0342c'
   const label = data.label || 'APPROVED'
   const circle = data.shape === 'circle'
   const arc = `arc-${id}`
+
+  // A circle seal wants a square box; the slanted stamp wants a wide one. Snap the
+  // node to the right footprint whenever the shape changes.
+  useEffect(() => {
+    setNodes((nds) => nds.map((n) => {
+      if (n.id !== id) return n
+      const w = n.style?.width, h = n.style?.height
+      if (circle && w !== h) return { ...n, style: { ...n.style, width: 150, height: 150 } }
+      if (!circle && w === h) return { ...n, style: { ...n.style, width: 220, height: 60 } }
+      return n
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [circle])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
