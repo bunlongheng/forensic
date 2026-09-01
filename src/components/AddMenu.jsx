@@ -9,14 +9,17 @@ const ITEMS = [
   { key: 'text', icon: 'text', label: 'Text' },
   { key: 'callout', icon: 'callout', label: 'Callout' },
   { key: 'annotation', icon: 'circle', label: 'Circle' },
-  { key: 'profile', icon: 'person', label: 'Person' },
-  { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, extra: { label: l } })) },
+  { key: 'person', icon: 'person', label: 'Person', choices: [
+    { label: 'Profile card', key: 'profile' },
+    { label: 'Photo', action: 'image' },
+  ] },
+  { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, key: 'stamp', extra: { label: l } })) },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
 const R = 172 // arc radius - wide enough that the smaller buttons never overlap
 const ANGLES = ITEMS.map((_, i) => ((2 * i + 1) * 90) / (2 * ITEMS.length))
 
-export function AddMenu({ onAdd }) {
+export function AddMenu({ onAdd, onAddImage }) {
   const [open, setOpen] = useState(false)
   const [chooser, setChooser] = useState(null) // an ITEMS entry whose choices are showing
 
@@ -24,6 +27,11 @@ export function AddMenu({ onAdd }) {
   function pick(item) {
     if (item.choices) { setChooser(item); return } // show options first
     onAdd(item.key); close()
+  }
+  function choose(c) {
+    close()
+    if (c.action === 'image') { onAddImage?.(); return } // Photo -> file picker
+    onAdd(c.key || chooser.key, c.extra)
   }
 
   return (
@@ -42,7 +50,7 @@ export function AddMenu({ onAdd }) {
             {chooser.label.toUpperCase()}
           </div>
           {chooser.choices.map((c) => (
-            <button key={c.label} onClick={() => { onAdd(chooser.key, c.extra); close() }}
+            <button key={c.label} onClick={() => choose(c)}
               style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '8px 10px', marginTop: 2,
                 borderRadius: 9, border: '1px solid var(--border)', background: 'var(--panel-2)',

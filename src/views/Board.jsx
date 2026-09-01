@@ -563,7 +563,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       )}
 
       {/* Bottom-left add menu (text / circle / person / draw / sticker / group) */}
-      {canEdit && <AddMenu onAdd={(type, extra) => addNodeOfType(type, centerPos(), extra)} />}
+      {canEdit && <AddMenu onAdd={(type, extra) => addNodeOfType(type, centerPos(), extra)} onAddImage={() => fileRef.current?.click()} />}
 
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="fx-noexport fx-topbar" style={{ position: 'absolute', top: 42, left: 42, right: 42, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10, pointerEvents: 'none' }}>
