@@ -21,17 +21,18 @@ function spline(p) {
   return d + 'Z'
 }
 
-// Irregular wax blob with a couple of drips toward the bottom.
+// Irregular wax blob with a couple of gentle drips toward the bottom - kept mild so
+// it always reads as a round-ish seal, never a splat/cone.
 function blobPath(id) {
   const r = rng(hash(String(id)) + 5)
-  const n = 13, base = 33, jit = 0.13
+  const n = 14, base = 34, jit = 0.09
   const pts = []
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 - Math.PI / 2
     let rad = base * (1 - jit + r() * jit * 2)
     const bottom = Math.sin(a)
-    if (bottom > 0.55 && r() > 0.4) rad *= 1.28 + r() * 0.4 // a drip
-    pts.push([50 + Math.cos(a) * rad, 50 + Math.sin(a) * rad * (bottom > 0.55 ? 1.14 : 1)])
+    if (bottom > 0.6 && r() > 0.55) rad *= 1.12 + r() * 0.16 // a subtle drip
+    pts.push([50 + Math.cos(a) * rad, 50 + Math.sin(a) * rad * (bottom > 0.6 ? 1.05 : 1)])
   }
   return spline(pts)
 }

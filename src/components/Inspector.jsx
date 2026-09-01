@@ -68,7 +68,7 @@ function PinControl({ data, onNode, pin }) {
 
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
-export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
+export function Inspector({ kind, data, onNode, onEdge, onArrange, width = 264 }) {
   const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', marker: 'Marker', wax: 'Wax seal', crosshair: 'Crosshair', spotlight: 'Spotlight' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
@@ -80,6 +80,13 @@ export function Inspector({ kind, data, onNode, onEdge, width = 264 }) {
       padding: '12px 14px 14px', boxShadow: 'var(--shadow)',
     }}>
       <div className="mono" style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: '.02em' }}>{title}</div>
+
+      {kind !== 'edge' && onArrange && (
+        <Row label="Arrange">
+          <button onClick={() => onArrange('front')} style={segBtn(false)}>To front</button>
+          <button onClick={() => onArrange('back')} style={segBtn(false)}>To back</button>
+        </Row>
+      )}
 
       {kind === 'note' && (
         <>

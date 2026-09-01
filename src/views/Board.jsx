@@ -411,6 +411,15 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     setEdges((eds) => addEdge(c, eds))
   }, [setEdges])
 
+  // Send a node to the very front or back by bumping its zIndex past all others.
+  const arrange = useCallback((nodeId, dir) => {
+    setNodes((nds) => {
+      const zs = nds.map((n) => n.zIndex ?? 0)
+      const z = dir === 'front' ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1
+      return nds.map((n) => (n.id === nodeId ? { ...n, zIndex: z } : n))
+    })
+  }, [setNodes])
+
   // DOUBLE-click/tap empty canvas to drop a note, already open for typing. We count
   // taps in a short window ourselves rather than trust e.detail, which is unreliable
   // on touch. onPaneClick only fires on the pane, so nodes are never affected.
@@ -623,6 +632,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
             kind={sel.kind} data={el.data || {}} width={panelW}
             onNode={(patch) => updateNodeData(sel.id, patch)}
             onEdge={(patch) => setEdges((eds) => eds.map((x) => (x.id === sel.id ? { ...x, data: { ...x.data, ...patch } } : x)))}
+            onArrange={(dir) => arrange(sel.id, dir)}
           />
         )
       })()}

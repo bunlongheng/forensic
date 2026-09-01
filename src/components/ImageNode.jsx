@@ -36,13 +36,16 @@ function jigEdge(x, y, horiz) {
 function puzzle(id) {
   const r = rng(hash(id) + 9)
   const cx = Math.ceil(300 / PZ), cy = Math.ceil(200 / PZ)
-  const lines = [], holes = []
+  const lines = [], cells = []
   for (let gy = 0; gy < cy; gy++) for (let gx = 0; gx < cx; gx++) {
     const px = gx * PZ, py = gy * PZ
     if (gx < cx - 1) lines.push(jigEdge(px + PZ, py, false))
     if (gy < cy - 1) lines.push(jigEdge(px, py + PZ, true))
-    if (r() < 0.26) holes.push({ x: px + 3, y: py + 3 })
+    cells.push({ x: px + 3, y: py + 3 })
   }
+  // exactly 2 missing pieces, picked deterministically
+  const holes = []
+  for (let k = 0; k < 2 && cells.length; k++) holes.push(cells.splice(Math.floor(r() * cells.length), 1)[0])
   return { lines, holes }
 }
 

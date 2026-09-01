@@ -3,9 +3,10 @@ import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 
 // A rubber-stamp imprint pressed onto the evidence. Two shapes: a slanted rectangle
-// (default) and a round official seal with the label curved around the rim. Bold
-// uppercase mono ink, faded + multiply-blended so it reads as ink on what's behind.
+// (default) and a round official seal - top label, "OFFICIAL" flourish + stars round
+// the bottom, side stars and a center star. Faded + multiply so it reads as ink.
 const MONO = "'Space Mono', ui-monospace, monospace"
+const SERIF = "Georgia, 'Times New Roman', serif"
 
 function StampNode({ id, data, selected }) {
   const { setNodes } = useReactFlow()
@@ -29,28 +30,33 @@ function StampNode({ id, data, selected }) {
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <NodeResizer isVisible={selected} keepAspectRatio={circle} minWidth={circle ? 90 : 120} minHeight={circle ? 90 : 44} lineClassName="line" handleClassName="handle" />
+      <NodeResizer isVisible={selected} keepAspectRatio minWidth={circle ? 80 : 110} minHeight={circle ? 80 : 40} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       <div style={{ width: '100%', height: '100%', containerType: 'size', display: 'grid', placeItems: 'center' }}>
         {circle ? (
           <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"
-            style={{ width: '100%', height: '100%', transform: 'rotate(-7deg)', opacity: 0.85, mixBlendMode: 'multiply', overflow: 'visible' }}>
+            style={{ width: '100%', height: '100%', transform: 'rotate(-6deg)', opacity: 0.86, mixBlendMode: 'multiply', overflow: 'visible' }}>
             <defs>
-              {/* top arc for the curved label, bottom arc for the flourish */}
-              <path id={arc} d="M 14 50 A 36 36 0 0 1 86 50" fill="none" />
+              <path id={`${arc}-t`} d="M 15 50 A 35 35 0 0 1 85 50" fill="none" />
+              <path id={`${arc}-b`} d="M 17 56 A 33 33 0 0 0 83 56" fill="none" />
             </defs>
-            <circle cx="50" cy="50" r="46" fill="none" stroke={color} strokeWidth="2.6" />
-            <circle cx="50" cy="50" r="39" fill="none" stroke={color} strokeWidth="1.3" />
-            <text fill={color} fontFamily={MONO} fontWeight="700" fontSize="11" letterSpacing="1.2">
-              <textPath href={`#${arc}`} startOffset="50%" textAnchor="middle">{label}</textPath>
+            <circle cx="50" cy="50" r="46" fill="none" stroke={color} strokeWidth="2.1" />
+            <circle cx="50" cy="50" r="38.5" fill="none" stroke={color} strokeWidth="1" />
+            <text fill={color} fontFamily={SERIF} fontWeight="700" fontSize="10.5" letterSpacing="1.4">
+              <textPath href={`#${arc}-t`} startOffset="50%" textAnchor="middle">{label}</textPath>
             </text>
-            <text x="50" y="66" textAnchor="middle" fill={color} fontFamily={MONO} fontWeight="700" fontSize="22">★</text>
+            <text fill={color} fontFamily={SERIF} fontWeight="700" fontSize="8" letterSpacing="2">
+              <textPath href={`#${arc}-b`} startOffset="50%" textAnchor="middle">★ OFFICIAL ★</textPath>
+            </text>
+            <text x="9.5" y="53.5" textAnchor="middle" fill={color} fontSize="9">★</text>
+            <text x="90.5" y="53.5" textAnchor="middle" fill={color} fontSize="9">★</text>
+            <text x="50" y="60" textAnchor="middle" fill={color} fontSize="30">★</text>
           </svg>
         ) : (
           <div style={{
-            transform: 'rotate(-7deg)', border: `3px solid ${color}`, color, borderRadius: 7,
-            padding: '5px 15px', boxShadow: `inset 0 0 0 2px ${color}`,
-            fontFamily: MONO, fontWeight: 700, fontSize: 'min(24px, 40cqh)', letterSpacing: '.06em',
+            transform: 'rotate(-7deg)', border: '0.14em solid', borderColor: color, color, borderRadius: '0.32em',
+            padding: '0.22em 0.66em', boxShadow: `inset 0 0 0 0.1em ${color}`,
+            fontFamily: MONO, fontWeight: 700, fontSize: '34cqmin', letterSpacing: '.06em',
             textTransform: 'uppercase', opacity: 0.82, whiteSpace: 'nowrap', mixBlendMode: 'multiply', userSelect: 'none',
           }}>{label}</div>
         )}
