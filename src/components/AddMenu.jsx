@@ -17,6 +17,8 @@ const ITEMS = [
   { key: 'redaction', icon: 'redact', label: 'Redact' },
   { key: 'marker', icon: 'marker', label: 'Marker' },
   { key: 'wax', icon: 'wax', label: 'Wax seal' },
+  { key: 'crosshair', icon: 'crosshair', label: 'Crosshair' },
+  { key: 'spotlight', icon: 'spotlight', label: 'Spotlight' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
 // Radius auto-grows with the tool count so the 38px buttons keep ~44px between

@@ -17,6 +17,8 @@ import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
 import MarkerNode from '../components/MarkerNode.jsx'
 import WaxSealNode from '../components/WaxSealNode.jsx'
+import CrosshairNode from '../components/CrosshairNode.jsx'
+import SpotlightNode from '../components/SpotlightNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
@@ -32,6 +34,7 @@ const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
   callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode, marker: MarkerNode, wax: WaxSealNode,
+  crosshair: CrosshairNode, spotlight: SpotlightNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
@@ -343,6 +346,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           return { style: { width: 52, height: 52 }, data: { number: i + 1, color: '#8b1e3f', editable: true } }
         })(),
         wax: { style: { width: 84, height: 84 }, data: { symbol: '★', color: '#8b1e3f', editable: true } },
+        crosshair: { style: { width: 90, height: 90 }, data: { color: '#e5231b', editable: true } },
+        spotlight: { style: { width: 220, height: 220 }, data: { dim: 0.72, editable: true }, zIndex: 50 },
         annotation: { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } },
         drawing: { style: { width: 220, height: 160 }, data: { paths: [], editable: true } },
         sticker: { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } },

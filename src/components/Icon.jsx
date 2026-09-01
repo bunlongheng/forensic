@@ -28,6 +28,8 @@ const P = {
   redact: <><rect x="3.5" y="7" width="17" height="4" rx="1" fill="currentColor" stroke="none" /><rect x="3.5" y="13" width="11" height="4" rx="1" fill="currentColor" stroke="none" /></>,
   marker: <><circle cx="12" cy="12" r="8.5" /><path d="M10.7 9l1.8-1v7M10 15h5" /></>,
   wax: <><circle cx="12" cy="11" r="7.5" /><path d="M12 7.5l1.3 2.7 3 .3-2.2 2 .6 2.9-2.7-1.5-2.7 1.5.6-2.9-2.2-2 3-.3z" /></>,
+  crosshair: <><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></>,
+  spotlight: <><path d="M9 3h6l2.5 6H6.5z" /><circle cx="12" cy="15.5" r="4.5" /></>,
 }
 
 export function Icon({ name, size = 17 }) {
