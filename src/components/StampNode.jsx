@@ -9,24 +9,30 @@ const MONO = "'Space Mono', ui-monospace, monospace"
 const COURIER = "'Courier New', Courier, monospace" // typewriter ink = real-stamp feel
 
 // The center emblem, drawn monochrome in the ink color and matched to the label.
+// Icon emblems are scaled up ~1.45x around the center so they read big on the stamp.
 function Emblem({ label, color }) {
+  const big = (children) => <g transform="translate(50 54) scale(1.45) translate(-50 -54)">{children}</g>
   switch (label) {
     case 'APPROVED': // thumbs up
-      return (<><path d="M45 60 h3.2 v-7 h-3.2z" fill={color} /><path d="M48.2 53 c2 -.6 3.4 -2.6 4.2 -5 c.5 -1.4 2.4 -1 2.2 .6 l-.5 3 h3.8 c1.2 0 1.9 1 1.6 2.1 l-1.4 4.4 c-.3 1 -1 1.4 -2 1.4 h-7.9z" fill={color} /></>)
+      return big(<><path d="M45 60 h3.2 v-7 h-3.2z" fill={color} /><path d="M48.2 53 c2 -.6 3.4 -2.6 4.2 -5 c.5 -1.4 2.4 -1 2.2 .6 l-.5 3 h3.8 c1.2 0 1.9 1 1.6 2.1 l-1.4 4.4 c-.3 1 -1 1.4 -2 1.4 h-7.9z" fill={color} /></>)
     case 'CONFIDENTIAL': // padlock
-      return (<><rect x="44.5" y="53" width="11" height="8" rx="1.3" fill={color} /><path d="M46.5 53 v-1.8 a3.5 3.5 0 0 1 7 0 v1.8" fill="none" stroke={color} strokeWidth="1.7" /></>)
+      return big(<><rect x="44.5" y="53" width="11" height="8" rx="1.3" fill={color} /><path d="M46.5 53 v-1.8 a3.5 3.5 0 0 1 7 0 v1.8" fill="none" stroke={color} strokeWidth="1.7" /></>)
     case 'SECRET': // eye with a slash
-      return (<><path d="M43 55 c3 -4.2 11 -4.2 14 0 c-3 4.2 -11 4.2 -14 0z" fill="none" stroke={color} strokeWidth="1.6" /><circle cx="50" cy="55" r="2.1" fill={color} /><line x1="43" y1="50" x2="57" y2="60" stroke={color} strokeWidth="1.9" /></>)
+      return big(<><path d="M43 55 c3 -4.2 11 -4.2 14 0 c-3 4.2 -11 4.2 -14 0z" fill="none" stroke={color} strokeWidth="1.6" /><circle cx="50" cy="55" r="2.1" fill={color} /><line x1="43" y1="50" x2="57" y2="60" stroke={color} strokeWidth="1.9" /></>)
     case 'CLASSIFIED': // shield
-      return (<path d="M50 47 l7 2.2 v4.6 c0 4.6 -3.6 7.5 -7 8.4 c-3.4 -.9 -7 -3.8 -7 -8.4 v-4.6z" fill={color} />)
+      return big(<path d="M50 47 l7 2.2 v4.6 c0 4.6 -3.6 7.5 -7 8.4 c-3.4 -.9 -7 -3.8 -7 -8.4 v-4.6z" fill={color} />)
     case 'PROJECT+': // plus
-      return (<path d="M50 47.5 v13 M43.5 54 h13" stroke={color} strokeWidth="3" strokeLinecap="round" />)
-    case 'PROGRESS': // circular arrow
-      return (<><path d="M56.8 54 a6.8 6.8 0 1 1 -2 -4.8" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" /><path d="M53.3 47 l3.4 2.3 l-3.8 1.7z" fill={color} /></>)
+      return big(<path d="M50 47.5 v13 M43.5 54 h13" stroke={color} strokeWidth="3" strokeLinecap="round" />)
+    case 'PROGRESS': // "loading..." + a game-style loading bar
+      return (<>
+        <text x="50" y="50.5" textAnchor="middle" fill={color} fontFamily={COURIER} fontWeight="700" fontSize="6.6" letterSpacing=".3">loading...</text>
+        <rect x="34" y="55" width="32" height="6" rx="3" fill="none" stroke={color} strokeWidth="1.3" />
+        <rect x="35.6" y="56.4" width="18" height="3.2" rx="1.6" fill={color} />
+      </>)
     case 'BLOCKED': // prohibition
-      return (<><circle cx="50" cy="54" r="6.8" fill="none" stroke={color} strokeWidth="2.3" /><line x1="45.2" y1="49.2" x2="54.8" y2="58.8" stroke={color} strokeWidth="2.3" /></>)
+      return big(<><circle cx="50" cy="54" r="6.8" fill="none" stroke={color} strokeWidth="2.3" /><line x1="45.2" y1="49.2" x2="54.8" y2="58.8" stroke={color} strokeWidth="2.3" /></>)
     default:
-      return (<text x="50" y="60" textAnchor="middle" fill={color} fontSize="30">★</text>)
+      return big(<text x="50" y="60" textAnchor="middle" fill={color} fontSize="30">★</text>)
   }
 }
 
