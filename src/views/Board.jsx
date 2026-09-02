@@ -617,7 +617,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <button onClick={() => setShowReport(true)} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>
           {canEdit && <button onClick={() => fileRef.current?.click()} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
           {canEdit && <button onClick={() => addNodeOfType('sticker', centerPos())} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
-          <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>
+          {canEdit && <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>}
           {canEdit && <input ref={fileRef} type="file" accept="image/*" multiple hidden
             onChange={(e) => { if (e.target.files?.length) addImageFiles(e.target.files, centerPos()); e.target.value = '' }} />}
         </div>

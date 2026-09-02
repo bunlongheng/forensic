@@ -10,8 +10,8 @@ export function VersionBadge() {
       className="mono fx-noexport"
       style={{
         position: 'fixed',
-        right: 'calc(8px + env(safe-area-inset-right))',
-        bottom: 'calc(6px + env(safe-area-inset-bottom))',
+        right: 'calc(16px + env(safe-area-inset-right))',
+        bottom: 'calc(10px + env(safe-area-inset-bottom))',
         zIndex: 2147483000, pointerEvents: 'none',
         fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
         // White, with a faint shadow so it stays legible on light pages too.

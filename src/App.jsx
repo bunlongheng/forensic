@@ -20,6 +20,16 @@ function setUrlId(id) {
   window.history.replaceState({}, '', u)
 }
 
+// Phones and tablets (iPhone, iPad - incl. iPadOS reporting as Mac - and Android)
+// are READ-ONLY: you only ever pan/zoom to read there, so all editing is disabled
+// and the edit UI hidden. Keyed on the actual mobile OS, not a touch laptop.
+const isTouchDevice = (() => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  return iOS || /Android/.test(ua)
+})()
+
 
 export default function App() {
   // theme is 'light'|'dark' (also React Flow's colorMode); t is the resolved palette.
@@ -140,7 +150,7 @@ export default function App() {
   // ── Board view (public for shared links; editable for the signed-in owner) ──
   if (view === 'board' && active) {
     if (!authChecked) return <Splash label="Loading board…" />
-    const canEdit = Boolean(user) || devBypass
+    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice
     return (
       <>
         <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
