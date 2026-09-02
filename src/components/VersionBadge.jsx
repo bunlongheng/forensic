@@ -14,7 +14,8 @@ export function VersionBadge() {
         bottom: 'calc(6px + env(safe-area-inset-bottom))',
         zIndex: 2147483000, pointerEvents: 'none',
         fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
-        color: 'var(--muted)', opacity: 0.55,
+        // White, with a faint shadow so it stays legible on light pages too.
+        color: '#ffffff', opacity: 0.85, textShadow: '0 1px 2px rgba(0,0,0,0.45)',
       }}
     >
       {VERSION}
