@@ -614,7 +614,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <button onClick={fit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>
           <button onClick={exportPng} title="Export PNG" style={iconBtn}><Icon name="download" size={16} /></button>
           {board.id && <button onClick={share} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}
-          <button onClick={() => setShowReport(true)} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>
+          {canEdit && <button onClick={() => setShowReport(true)} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>}
           {canEdit && <button onClick={() => fileRef.current?.click()} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
           {canEdit && <button onClick={() => addNodeOfType('sticker', centerPos())} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
           {canEdit && <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>}

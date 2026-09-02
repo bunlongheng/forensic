@@ -27,7 +27,12 @@ const isTouchDevice = (() => {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent || ''
   const iOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  return iOS || /Android/.test(ua)
+  const android = /Android/i.test(ua)
+  // "Request Desktop Site" spoofs a Mac UA, so also treat any real touchscreen on a
+  // small screen as a phone/tablet (a big touch laptop stays editable).
+  const touchSmall = (navigator.maxTouchPoints || 0) > 0 &&
+    typeof window !== 'undefined' && Math.min(window.screen.width, window.screen.height) <= 820
+  return iOS || android || touchSmall
 })()
 
 
