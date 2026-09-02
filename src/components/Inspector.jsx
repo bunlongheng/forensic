@@ -68,7 +68,7 @@ function PinControl({ data, onNode, pin }) {
 
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
-export function Inspector({ kind, data, onNode, onEdge, onArrange, width = 264 }) {
+export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, width = 264 }) {
   const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', marker: 'Marker', wax: 'Wax seal', crosshair: 'Crosshair', spotlight: 'Spotlight' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
@@ -168,6 +168,7 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, width = 264 }
           <Row label="Group color">
             {CONTAINER_TINTS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#6b7280') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
+          {onUngroup && <Row label="Group"><button onClick={onUngroup} style={segBtn(false)}>Ungroup</button></Row>}
         </>
       )}
 

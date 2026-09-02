@@ -87,6 +87,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [zoomPct, setZoomPct] = useState(100)
   const { screenToFlowPosition, fitView, updateNodeData } = useReactFlow()
   const [sel, setSel] = useState(null) // { kind:'note'|'image'|'edge', id }
+  const [multiCount, setMultiCount] = useState(0) // # of selected top-level nodes (for Group)
   const [showReport, setShowReport] = useState(false)
   const wrapRef = useRef(null)
   const fileRef = useRef(null)
@@ -420,6 +421,94 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     })
   }, [setNodes])
 
+  const nodeW = (n) => (typeof n.style?.width === 'number' ? n.style.width : (n.measured?.width || n.width || 150))
+  const nodeH = (n) => (typeof n.style?.height === 'number' ? n.style.height : (n.measured?.height || n.height || 90))
+
+  // Group the selected top-level nodes: wrap them in a container and reparent them
+  // to it (positions become relative) so the whole set moves as one.
+  const groupSelected = useCallback(() => {
+    setNodes((nds) => {
+      const sel = nds.filter((n) => n.selected && n.type !== 'container' && !n.parentId)
+      if (sel.length < 2) return nds
+      const pad = 26
+      const minX = Math.min(...sel.map((n) => n.position.x)) - pad
+      const minY = Math.min(...sel.map((n) => n.position.y)) - pad
+      const maxX = Math.max(...sel.map((n) => n.position.x + nodeW(n))) + pad
+      const maxY = Math.max(...sel.map((n) => n.position.y + nodeH(n))) + pad
+      const gid = uid('container')
+      const group = {
+        id: gid, type: 'container', position: { x: minX, y: minY }, zIndex: 0, selected: true,
+        style: { width: maxX - minX, height: maxY - minY },
+        data: { title: 'Group', color: CONTAINER_TINTS[0], editable: true },
+      }
+      const ids = new Set(sel.map((n) => n.id))
+      const rest = nds.map((n) => (ids.has(n.id)
+        ? { ...n, parentId: gid, position: { x: n.position.x - minX, y: n.position.y - minY }, selected: false }
+        : n))
+      return [group, ...rest]
+    })
+  }, [setNodes])
+
+  // Ungroup selected container(s): free their children back to absolute positions.
+  const ungroupSelected = useCallback(() => {
+    setNodes((nds) => {
+      const groups = nds.filter((n) => n.selected && n.type === 'container')
+      if (!groups.length) return nds
+      const gids = new Set(groups.map((g) => g.id))
+      const gpos = Object.fromEntries(groups.map((g) => [g.id, g.position]))
+      return nds
+        .filter((n) => !gids.has(n.id))
+        .map((n) => (n.parentId && gids.has(n.parentId)
+          ? { ...n, parentId: undefined, position: { x: n.position.x + gpos[n.parentId].x, y: n.position.y + gpos[n.parentId].y }, selected: false }
+          : n))
+    })
+  }, [setNodes])
+
+  // Auto-thread the selected assets. 'chain' weaves a clean nearest-neighbour path
+  // through them (great for a row/column); 'fan' wires the biggest asset (the hub)
+  // out to all the others (great for a doc + its supporting evidence).
+  const connectSelected = useCallback((mode) => {
+    const sel = nodes.filter((n) => n.selected && !n.parentId)
+    if (sel.length < 2) return
+    const ctr = (n) => ({ x: n.position.x + nodeW(n) / 2, y: n.position.y + nodeH(n) / 2 })
+    let pairs = []
+    if (mode === 'fan') {
+      const hub = sel.reduce((a, b) => (nodeW(a) * nodeH(a) >= nodeW(b) * nodeH(b) ? a : b))
+      pairs = sel.filter((n) => n.id !== hub.id).map((n) => [hub.id, n.id])
+    } else {
+      const rem = [...sel]
+      let cur = rem.reduce((a, b) => (ctr(a).y < ctr(b).y ? a : b)) // start at the topmost
+      rem.splice(rem.indexOf(cur), 1)
+      while (rem.length) {
+        const c = ctr(cur)
+        let bi = 0, bd = Infinity
+        rem.forEach((n, i) => { const d = (ctr(n).x - c.x) ** 2 + (ctr(n).y - c.y) ** 2; if (d < bd) { bd = d; bi = i } })
+        const nxt = rem.splice(bi, 1)[0]
+        pairs.push([cur.id, nxt.id]); cur = nxt
+      }
+    }
+    setEdges((eds) => {
+      const add = pairs
+        .filter(([s, t]) => !eds.some((e) => (e.source === s && e.target === t) || (e.source === t && e.target === s)))
+        .map(([s, t]) => ({ id: uid('e'), source: s, target: t }))
+      return add.length ? eds.concat(add) : eds
+    })
+  }, [nodes, setEdges])
+
+  // Cmd/Ctrl+G groups the selection; add Shift to ungroup.
+  useEffect(() => {
+    if (!canEdit) return
+    const onKey = (e) => {
+      if (/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault()
+        if (e.shiftKey) ungroupSelected(); else groupSelected()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canEdit, groupSelected, ungroupSelected])
+
   // DOUBLE-click/tap empty canvas to drop a note, already open for typing. We count
   // taps in a short window ourselves rather than trust e.detail, which is unreliable
   // on touch. onPaneClick only fires on the pane, so nodes are never affected.
@@ -543,6 +632,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           // Return the SAME reference when unchanged so React bails out - otherwise
           // a fresh object every fire loops against the glow re-render.
           setSel((prev) => (prev?.id === next?.id && prev?.kind === next?.kind ? prev : next))
+          setMultiCount(ns.filter((n) => !n.parentId).length)
         }}
         onPaneClick={onPaneClick}
         onNodeDrag={canEdit ? onNodeDrag : undefined}
@@ -624,6 +714,20 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       </div>
 
       {/* ── Inspector (right panel) ─────────────────────────────────────────── */}
+      {/* Floating actions when several nodes are multi-selected. */}
+      {canEdit && multiCount >= 2 && (
+        <div className="fx-noexport" style={{
+          position: 'absolute', top: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 11,
+          display: 'flex', alignItems: 'center', gap: 6, padding: 5, borderRadius: 999,
+          background: 'var(--panel)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)',
+        }}>
+          <span className="mono" style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', padding: '0 6px' }}>{multiCount} selected</span>
+          <button onClick={() => connectSelected('chain')} style={pillBtn} title="Thread them into one path">Chain</button>
+          <button onClick={() => connectSelected('fan')} style={pillBtn} title="Thread the biggest asset out to the rest">Fan</button>
+          <button onClick={groupSelected} style={{ ...pillBtn, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' }}><Icon name="group" size={14} /> Group</button>
+        </div>
+      )}
+
       {canEdit && sel && (() => {
         const el = sel.kind === 'edge' ? edges.find((e) => e.id === sel.id) : nodes.find((n) => n.id === sel.id)
         if (!el) return null
@@ -633,6 +737,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
             onNode={(patch) => updateNodeData(sel.id, patch)}
             onEdge={(patch) => setEdges((eds) => eds.map((x) => (x.id === sel.id ? { ...x, data: { ...x.data, ...patch } } : x)))}
             onArrange={(dir) => arrange(sel.id, dir)}
+            onUngroup={ungroupSelected}
           />
         )
       })()}
@@ -649,6 +754,12 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 const iconBtn = {
   display: 'grid', placeItems: 'center', width: 27, height: 27, borderRadius: 7,
   background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text)',
+}
+
+const pillBtn = {
+  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 999,
+  background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)',
+  cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
 }
 
 export default function Board(props) {
