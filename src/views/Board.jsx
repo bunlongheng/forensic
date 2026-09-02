@@ -639,7 +639,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
       {/* Fixed board frame. Window-anchored, pointer-events off, so the corkboard
           still pans/zooms inside. */}
-      <Decorations />
+      {canEdit && <Decorations />}
 
       {showReport && <ReportModal title={title} nodes={nodes} edges={edges} onClose={() => setShowReport(false)} />}
     </div>
