@@ -11,7 +11,7 @@ const COURIER = "'Courier New', Courier, monospace" // typewriter ink = real-sta
 // The center emblem, drawn monochrome in the ink color and matched to the label.
 // Icon emblems are scaled up ~1.45x around the center so they read big on the stamp.
 function Emblem({ label, color }) {
-  const big = (children) => <g transform="translate(50 54) scale(1.45) translate(-50 -54)">{children}</g>
+  const big = (children) => <g transform="translate(50 50) scale(1.7) translate(-50 -54)">{children}</g>
   switch (label) {
     case 'APPROVED': // thumbs up
       return big(<><path d="M45 60 h3.2 v-7 h-3.2z" fill={color} /><path d="M48.2 53 c2 -.6 3.4 -2.6 4.2 -5 c.5 -1.4 2.4 -1 2.2 .6 l-.5 3 h3.8 c1.2 0 1.9 1 1.6 2.1 l-1.4 4.4 c-.3 1 -1 1.4 -2 1.4 h-7.9z" fill={color} /></>)
@@ -25,9 +25,9 @@ function Emblem({ label, color }) {
       return big(<path d="M50 47.5 v13 M43.5 54 h13" stroke={color} strokeWidth="3" strokeLinecap="round" />)
     case 'PROGRESS': // "loading..." + a game-style loading bar
       return (<>
-        <text x="50" y="50.5" textAnchor="middle" fill={color} fontFamily={COURIER} fontWeight="700" fontSize="6.6" letterSpacing=".3">loading...</text>
-        <rect x="34" y="55" width="32" height="6" rx="3" fill="none" stroke={color} strokeWidth="1.3" />
-        <rect x="35.6" y="56.4" width="18" height="3.2" rx="1.6" fill={color} />
+        <text x="50" y="46" textAnchor="middle" fill={color} fontFamily={COURIER} fontWeight="700" fontSize="7.4" letterSpacing=".3">loading...</text>
+        <rect x="31" y="50" width="38" height="7" rx="3.5" fill="none" stroke={color} strokeWidth="1.4" />
+        <rect x="33" y="51.6" width="21" height="3.8" rx="1.9" fill={color} />
       </>)
     case 'BLOCKED': // prohibition
       return big(<><circle cx="50" cy="54" r="6.8" fill="none" stroke={color} strokeWidth="2.3" /><line x1="45.2" y1="49.2" x2="54.8" y2="58.8" stroke={color} strokeWidth="2.3" /></>)
@@ -66,18 +66,18 @@ function StampNode({ id, data, selected }) {
             style={{ width: '100%', height: '100%', transform: 'rotate(-6deg)', opacity: 0.86, mixBlendMode: 'multiply', overflow: 'visible' }}>
             <defs>
               <path id={`${arc}-t`} d="M 15 50 A 35 35 0 0 1 85 50" fill="none" />
-              <path id={`${arc}-b`} d="M 17 56 A 33 33 0 0 0 83 56" fill="none" />
+              <path id={`${arc}-b`} d="M 18 60 A 34 34 0 0 0 82 60" fill="none" />
             </defs>
             <circle cx="50" cy="50" r="46" fill="none" stroke={color} strokeWidth="2.1" />
-            <circle cx="50" cy="50" r="38.5" fill="none" stroke={color} strokeWidth="1" />
-            <text fill={color} fontFamily={COURIER} fontWeight="700" fontSize="10" letterSpacing="1.2">
+            <circle cx="50" cy="50" r="33" fill="none" stroke={color} strokeWidth="1" />
+            <text fill={color} fontFamily={COURIER} fontWeight="700" fontSize="9.5" letterSpacing="1">
               <textPath href={`#${arc}-t`} startOffset="50%" textAnchor="middle">{label}</textPath>
             </text>
-            <text fill={color} fontFamily={COURIER} fontWeight="700" fontSize="7.5" letterSpacing="2">
+            <text fill={color} fontFamily={COURIER} fontWeight="700" fontSize="7" letterSpacing="1.6">
               <textPath href={`#${arc}-b`} startOffset="50%" textAnchor="middle">★ OFFICIAL ★</textPath>
             </text>
-            <text x="9.5" y="53.5" textAnchor="middle" fill={color} fontSize="9">★</text>
-            <text x="90.5" y="53.5" textAnchor="middle" fill={color} fontSize="9">★</text>
+            <text x="10.5" y="53.5" textAnchor="middle" fill={color} fontSize="8">★</text>
+            <text x="89.5" y="53.5" textAnchor="middle" fill={color} fontSize="8">★</text>
             <Emblem label={label} color={color} />
           </svg>
         ) : (
