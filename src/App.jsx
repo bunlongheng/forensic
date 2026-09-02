@@ -46,6 +46,14 @@ export default function App() {
   const [active, setActive] = useState(null)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
+  // Read-only whenever the VIEW is phone-sized (not just by device), so a narrow
+  // window / mobile screen shows the lean view-only UI. Reacts live to resizing.
+  const [narrow, setNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 760 : false))
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth <= 760)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
   // On localhost the Google auth backend isn't wired up, so /api/auth/me is always
   // "not authenticated" - which used to leave you read-only (no +, no editing) after
   // every reload, especially when opening a board via ?id (the sign-in screen, where
@@ -155,7 +163,7 @@ export default function App() {
   // ── Board view (public for shared links; editable for the signed-in owner) ──
   if (view === 'board' && active) {
     if (!authChecked) return <Splash label="Loading board…" />
-    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice
+    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice && !narrow
     return (
       <>
         <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
