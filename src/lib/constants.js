@@ -9,7 +9,7 @@ export const BRIGHT_TINTS = ['#ffffff', '#ffe600', '#ff9500', '#ff3b30', '#ff2d9
 export const PIN_COLORS = ['#ff3b30', '#2f6fed', '#22c55e', '#f5a623', '#a45cff', '#111827']
 
 // Evidence stamps - the imprint text and the four ink colors (black/red/green/blue).
-export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'TOP SECRET', 'HIDDEN', 'CLASSIFIED', 'PROJECT+', 'CODE 8']
+export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'TOP SECRET', 'HIDDEN', 'CLASSIFIED', 'PROJECT+', 'PROGRESS', 'BLOCKED']
 export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
 
 // Numbered evidence markers - crime-scene badge colors (maroon default).
