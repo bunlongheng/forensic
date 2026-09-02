@@ -20,7 +20,7 @@ const P = {
   person: <><circle cx="12" cy="8" r="3.6" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
   sticker: <><path d="M15 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8l8-8V5a2 2 0 0 0-2-2z" /><path d="M13 21v-6a2 2 0 0 1 2-2h6" /></>,
   group: <rect x="4" y="5" width="16" height="14" rx="2" strokeDasharray="3.5 3" />,
-  callout: <><path d="M3 10v4h4l7 4V6l-7 4H3z" /><path d="M18 9a4 4 0 0 1 0 6" /></>,
+  callout: <><rect x="5" y="8" width="14" height="11" rx="1.2" /><path d="M7.6 9.2 L3.4 6.9 L2.7 8.1 L6.9 10.4 Z" /><path d="M16.4 9.2 L20.6 6.9 L21.3 8.1 L17.1 10.4 Z" /></>,
   clip: <path d="M20 11l-8.5 8.5a4.5 4.5 0 0 1-6.4-6.4L14 4.4a3 3 0 0 1 4.2 4.2l-8.6 8.6a1.5 1.5 0 0 1-2.1-2.1l7.8-7.8" />,
   undo: <><path d="M9 14L4 9l5-5" /><path d="M4 9h11a5 5 0 0 1 0 10H9" /></>,
   redo: <><path d="M15 14l5-5-5-5" /><path d="M20 9H9a5 5 0 0 0 0 10h6" /></>,
@@ -29,7 +29,7 @@ const P = {
   marker: <><circle cx="12" cy="12" r="8.5" /><path d="M10.7 9l1.8-1v7M10 15h5" /></>,
   wax: <><circle cx="12" cy="11" r="7.5" /><path d="M12 7.5l1.3 2.7 3 .3-2.2 2 .6 2.9-2.7-1.5-2.7 1.5.6-2.9-2.2-2 3-.3z" /></>,
   crosshair: <><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></>,
-  spotlight: <><path d="M9 3h6l2.5 6H6.5z" /><circle cx="12" cy="15.5" r="4.5" /></>,
+  spotlight: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5V5 M12 19v2.5 M2.5 12H5 M19 12h2.5 M5.4 5.4l1.7 1.7 M16.9 16.9l1.7 1.7 M18.6 5.4l-1.7 1.7 M7.1 16.9l-1.7 1.7" /></>,
 }
 
 export function Icon({ name, size = 17 }) {
