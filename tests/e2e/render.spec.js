@@ -31,7 +31,11 @@ test("a real hostname, signed out, renders the sign-in screen", async ({ page, b
   await page.route("http://forensic.test/**", async (route) => {
     const u = new URL(route.request().url());
     const response = await route.fetch({ url: `${baseURL}${u.pathname}${u.search}` });
-    await route.fulfill({ response });
+    // COOP is HTTPS-only by spec; on this plain-http spoof Chrome logs a console
+    // error that would fail the zero-errors check. Prod is HTTPS, so drop it here.
+    const headers = { ...response.headers() };
+    delete headers["cross-origin-opener-policy"];
+    await route.fulfill({ response, headers });
   });
   const errors = collectErrors(page);
   await page.goto("http://forensic.test/");

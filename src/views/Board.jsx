@@ -28,11 +28,12 @@ import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
 import { fileToImage } from '../lib/image.js'
 import { saveViewport } from '../lib/localBoard.js'
 import {
-  NODE_COPY_MARKER, uid, withEditable, boardSnapshot, addNode, duplicateNode, arrangeZ,
+  uid, withEditable, boardSnapshot, addNode, arrangeZ,
   groupNodes, ungroupNodes, threadPairs, addThreads, snapToConnected, styleNodes, styleEdges,
 } from '../lib/boardGraph.js'
 import { useBoardPersistence } from '../hooks/useBoardPersistence.js'
 import { useUndoRedo } from '../hooks/useUndoRedo.js'
+import { useNodeClipboard } from '../hooks/useNodeClipboard.js'
 
 const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
@@ -59,7 +60,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [panelW, setPanelW] = useState(264) // inspector matches the toolbar's width
   const vpRef = useRef(null)          // latest viewport {x,y,zoom} for the local draft
   const vpTimer = useRef(null)        // throttle for persisting the viewport
-  const clipRef = useRef(null)        // copied node for Cmd/Ctrl+C -> +V duplicate
 
   // Only re-serialize when the durable content actually changes. Without this memo
   // the whole board (incl. base64 image data) was re-stringified on EVERY render -
@@ -85,22 +85,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (!board.id || !restoreReady.current || vpTimer.current) return
     vpTimer.current = setTimeout(() => { vpTimer.current = null; saveViewport(board.id, vpRef.current) }, 300)
   }, [board.id, restoreReady])
-
-  // Cmd/Ctrl + C copies the selected node into clipRef. The actual paste (duplicate)
-  // is handled in the single 'paste' listener below so it never competes with
-  // pasting an image - we write a marker to the clipboard so that paste event still
-  // fires even when nothing else is on the clipboard. Ignored while typing in a note.
-  useEffect(() => {
-    if (!canEdit) return
-    const onKey = (e) => {
-      if (typing() || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'c') return
-      if (!sel || sel.kind === 'edge') return
-      const n = nodes.find((x) => x.id === sel.id)
-      if (n) { clipRef.current = n; navigator.clipboard?.writeText?.(NODE_COPY_MARKER).catch(() => {}) }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, sel, nodes])
 
   // Keep the inspector the same width as the top-right toolbar so they line up.
   useEffect(() => {
@@ -152,27 +136,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  // Single paste path. An image on the clipboard ALWAYS wins - so copying a node
-  // earlier can never block pasting a screenshot. Only when there is no image, and
-  // the clipboard carries our copy marker (or nothing), do we duplicate the copied
-  // node. This is what lets Cmd+C on a node -> Cmd+V drop a duplicate.
-  useEffect(() => {
-    if (!canEdit) return
-    const onPaste = (e) => {
-      const items = [...(e.clipboardData?.items || [])]
-      const files = items.filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile()).filter(Boolean)
-      if (files.length) { e.preventDefault(); addImageFiles(files, centerPos()); return }
-      const text = e.clipboardData?.getData('text') || ''
-      if (clipRef.current && (text === NODE_COPY_MARKER || text === '')) {
-        e.preventDefault()
-        const copy = duplicateNode(clipRef.current)
-        setNodes((nds) => nds.concat(copy))
-        showToast('Pasted a copy')
-      }
-    }
-    window.addEventListener('paste', onPaste)
-    return () => window.removeEventListener('paste', onPaste)
-  }, [canEdit, addImageFiles, centerPos, setNodes, showToast])
+  useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles, centerPos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.
@@ -227,8 +191,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (pos) setNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: pos } : n)))
   }, [nodes, edges, setNodes])
 
-  const styledNodes = styleNodes(nodes)
-  const styledEdges = styleEdges(edges, sel, theme.accent)
+  // Memoized: zoom/pan re-renders every frame (zoomPct), so keep these arrays
+  // referentially stable unless their inputs change - React Flow then skips diffing.
+  const styledNodes = useMemo(() => styleNodes(nodes), [nodes])
+  const styledEdges = useMemo(() => styleEdges(edges, sel, theme.accent), [edges, sel, theme.accent])
 
   function exportPng() {
     // Capture the whole board window - frame, lamps and all - minus the UI chrome.
