@@ -43,17 +43,3 @@ export function tornTopBottom(id, { steps = 18, amp = 6 } = {}) {
   return `polygon(${pts.join(',')})`
 }
 
-// Same idea but the tear runs down the RIGHT edge (top + left + bottom stay clean),
-// like a strip ripped off the side of a pad.
-export function tornRight(id, { steps = 16, amp = 8 } = {}) {
-  const r = rng(hash(String(id)) + 3)
-  const pts = ['0% 0%']
-  for (let i = 0; i <= steps; i++) {
-    const y = (i / steps) * 100
-    const deep = i % 2 === 0
-    const bite = deep ? amp * (0.55 + r() * 0.45) : r() * amp * 0.3
-    pts.push(`${(100 - bite).toFixed(1)}% ${y.toFixed(1)}%`)
-  }
-  pts.push('0% 100%')
-  return `polygon(${pts.join(',')})`
-}

@@ -30,5 +30,3 @@ export async function ocrImage(src) {
     return ''
   }
 }
-
-export const ocrCached = (src) => cache.get(src)
