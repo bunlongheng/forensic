@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Undo / redo over durable board snapshots (JSON strings). Records every change
-// to `snapshot` (which already strips selection/drag noise, so dragging or
-// clicking never spams the stack). Undo walks back through the stack and hands
-// the parsed snapshot to `restore`; that write is flagged so it isn't re-recorded.
+// to `snapshot`. `snapshot` strips selection/drag flags and other UI-only state -
+// positions ARE durable and do get recorded - but the Board freezes the snapshot
+// value for the duration of a drag, so the flurry of pointermove position updates
+// collapses into one history entry once the drag ends. Undo walks back through
+// the stack and hands the parsed snapshot to `restore`; that write is flagged so
+// it isn't re-recorded.
 // Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y = redo. Ignored while typing
 // so the browser's native text undo still works inside a note.
 export function useUndoRedo({ snapshot, canEdit, restore, limit = 100 }) {

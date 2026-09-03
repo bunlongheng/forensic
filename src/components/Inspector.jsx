@@ -28,6 +28,20 @@ function Row({ label, children }) {
   )
 }
 
+// A single-line labeled text input - used for the 4 kinds that just need to name
+// something (person, group, marker number, wax emboss).
+function TextField({ label, value, onChange, placeholder, maxLength }) {
+  return (
+    <div style={{ marginTop: 9 }}>
+      <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>{label}</div>
+      <input
+        value={value ?? ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} maxLength={maxLength}
+        style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+      />
+    </div>
+  )
+}
+
 // iOS-style toggle: one aligned row - label on the left, sliding switch on the
 // right - so every option lines up to the same width down the panel.
 function Toggle({ label, value, onChange }) {
@@ -128,13 +142,7 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
 
       {kind === 'profile' && (
         <>
-          <div style={{ marginTop: 9 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>Name</div>
-            <input
-              value={data?.name || ''} onChange={(e) => onNode({ name: e.target.value })} placeholder="Name"
-              style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none' }}
-            />
-          </div>
+          <TextField label="Name" value={data?.name} onChange={(v) => onNode({ name: v })} placeholder="Name" />
           <Row label="Avatar color">
             {PROFILE_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#2f6fed') === c} onClick={() => onNode({ color: c })} />)}
             {/* Border-only: an outlined badge with no fill */}
@@ -158,13 +166,7 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
 
       {kind === 'container' && (
         <>
-          <div style={{ marginTop: 9 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>Title</div>
-            <input
-              value={data?.title || ''} onChange={(e) => onNode({ title: e.target.value })} placeholder="Section"
-              style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
+          <TextField label="Title" value={data?.title} onChange={(v) => onNode({ title: v })} placeholder="Section" />
           <Row label="Group color">
             {CONTAINER_TINTS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#6b7280') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
@@ -247,13 +249,7 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
 
       {kind === 'marker' && (
         <>
-          <div style={{ marginTop: 9 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>Number</div>
-            <input
-              type="text" value={data?.number ?? ''} onChange={(e) => onNode({ number: e.target.value })} placeholder="1"
-              style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
+          <TextField label="Number" value={data?.number} onChange={(v) => onNode({ number: v })} placeholder="1" />
           <Row label="Badge color">
             {MARKER_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
@@ -262,13 +258,7 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
 
       {kind === 'wax' && (
         <>
-          <div style={{ marginTop: 9 }}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: '.01em', color: 'var(--muted)', marginBottom: 5 }}>Emboss (letter or symbol)</div>
-            <input
-              type="text" maxLength={2} value={data?.symbol ?? ''} onChange={(e) => onNode({ symbol: e.target.value })} placeholder="★"
-              style={{ width: '100%', padding: '7px 10px', fontSize: 13, borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
+          <TextField label="Emboss (letter or symbol)" value={data?.symbol} onChange={(v) => onNode({ symbol: v })} placeholder="★" maxLength={2} />
           <Row label="Wax color">
             {WAX_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
           </Row>

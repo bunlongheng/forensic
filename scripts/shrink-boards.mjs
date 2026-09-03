@@ -7,8 +7,24 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import pg from 'pg'
 
-const require = createRequire(import.meta.url)
-const sharp = require(process.env.HOME + '/Sites/bheng/node_modules/sharp')
+// sharp is not a repo dependency (dev-only tooling): prefer a local install,
+// falling back to the shared ~/Sites/bheng copy.
+async function loadSharp() {
+  try {
+    return (await import('sharp')).default
+  } catch {
+    // not installed in this repo - fall through to the shared copy
+  }
+  try {
+    const require = createRequire(import.meta.url)
+    return require(process.env.HOME + '/Sites/bheng/node_modules/sharp')
+  } catch {
+    console.error('sharp not found: run `npm i -D sharp` in this repo, or install it in ~/Sites/bheng.')
+    process.exit(1)
+  }
+}
+
+const sharp = await loadSharp()
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 const env = Object.fromEntries(
@@ -37,9 +53,13 @@ async function shrink(src, max, q) {
   return next.length < src.length ? next : null
 }
 
+// Self-signed cert on the remote host, so verification is off by default -
+// unless DATABASE_CA is set, in which case the connection is verified. Inlined
+// (not imported from lib/db.js) so this script stays a standalone CLI.
+const sslConfig = env.DATABASE_CA ? { ca: env.DATABASE_CA, rejectUnauthorized: true } : { rejectUnauthorized: false }
 const pool = new pg.Pool({
   connectionString: env.DATABASE_URL,
-  ssl: env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+  ssl: env.DATABASE_SSL === 'true' ? sslConfig : false,
 })
 try {
   const { rows } = await pool.query('SELECT id, title, nodes FROM boards')

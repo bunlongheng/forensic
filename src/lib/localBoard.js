@@ -46,3 +46,9 @@ const vpKey = (id) => `fx:vp:${id}`
 export function saveViewport(id, vp) {
   try { localStorage.setItem(vpKey(id), JSON.stringify(vp)) } catch { /* quota / private mode */ }
 }
+export function loadViewport(id) {
+  try {
+    const raw = localStorage.getItem(vpKey(id))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null } // quota / private mode / corrupt value
+}

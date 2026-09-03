@@ -2,15 +2,12 @@ import { memo, useState, useRef, useEffect } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
-import { tornBottom } from '../lib/torn.js'
+import { tornBottom, hash, rng } from '../lib/torn.js'
 import { useEditZoom } from '../lib/useEditZoom.js'
 
 // An "evidence" node styled as a pinned photo print: a white frame, the image, an
 // OPTIONAL caption strip, a red pushpin, an optional torn ("rip") edge, and a photo
 // STYLE - original, crumpled wrinkle paper, newsprint B&W, or a jigsaw puzzle look.
-
-function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h) }
-function rng(seed) { let s = (seed || 1) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 } }
 
 // Newspaper look: two columns of gray "text" bars (varying lengths). In a 300x200
 // box, stretched over the photo with multiply so it reads as a printed article.

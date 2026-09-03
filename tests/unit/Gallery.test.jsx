@@ -59,4 +59,24 @@ describe("Gallery", () => {
     fireEvent.click(screen.getByTitle("Toggle theme"));
     expect(base.onToggleTheme).toHaveBeenCalled();
   });
+
+  it("shows a skeleton grid and no board cards while loading", () => {
+    const { container } = render(<Gallery {...base} boards={[]} loading />);
+    expect(container.querySelectorAll(".fx-skeleton").length).toBe(6);
+    expect(screen.queryByText("Case Alpha")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No boards yet/)).not.toBeInTheDocument();
+  });
+
+  it("shows an error card with a Retry button and calls onRetry when clicked", () => {
+    const onRetry = vi.fn();
+    render(<Gallery {...base} boards={[]} error="Could not load boards" onRetry={onRetry} />);
+    expect(screen.getByText("Could not load boards")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("shows the real empty state only when not loading and not errored", () => {
+    render(<Gallery {...base} boards={[]} />);
+    expect(screen.getByText(/No boards yet/)).toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { buildReport, detectLinks } from '../lib/report.js'
 import { ocrImage } from '../lib/ocr.js'
 
@@ -41,6 +41,21 @@ export function ReportModal({ title, nodes, edges, onClose }) {
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const closeBtnRef = useRef(null)
+
+  // Dialog semantics: focus the Close button on mount, Escape closes, and focus
+  // returns to whatever had it before the modal opened.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement
+    closeBtnRef.current?.focus()
+    const onKeyDown = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') previouslyFocused.focus()
+    }
+  }, [onClose])
+
   const ocrText = Object.values(ocr).join('\n')
   const allLinks = [...new Set([...r.links, ...detectLinks(ocrText)])]
   const ocrHits = imgs.map((n) => ({ label: n.data.label || 'Photo', text: ocr[n.id] })).filter((x) => x.text)
@@ -53,18 +68,24 @@ export function ReportModal({ title, nodes, edges, onClose }) {
   )
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
-        width: 'min(720px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--panel)',
-        border: '1px solid var(--border)', borderRadius: 18, padding: '26px 30px 30px', boxShadow: 'var(--shadow)',
-      }}>
+    <div className="fx-report-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div
+        className="fx-report-panel"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fx-report-title"
+        style={{
+          width: 'min(720px, 100%)', maxHeight: '86vh', overflowY: 'auto', background: 'var(--panel)',
+          border: '1px solid var(--border)', borderRadius: 18, padding: '26px 30px 30px', boxShadow: 'var(--shadow)',
+        }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.1em', color: 'var(--accent)', textTransform: 'uppercase' }}>Case Report</div>
-            <h2 className="mono" style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 0' }}>{r.title}</h2>
+            <h2 id="fx-report-title" className="mono" style={{ fontSize: 22, fontWeight: 700, margin: '4px 0 0' }}>{r.title}</h2>
           </div>
           <button onClick={() => window.print()} style={btn}>Print / PDF</button>
-          <button onClick={onClose} style={{ ...btn, background: 'transparent' }}>Close</button>
+          <button ref={closeBtnRef} onClick={onClose} style={{ ...btn, background: 'transparent' }}>Close</button>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 20, padding: '16px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>

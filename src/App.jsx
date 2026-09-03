@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
-import { useTheme } from './theme.js'
+import { useTheme, PHONE_MAX } from './theme.js'
 import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
 import { Toast } from './components/Toast.jsx'
@@ -33,7 +33,7 @@ const isTouchDevice = (() => {
   // "Request Desktop Site" spoofs a Mac UA, so also treat any real touchscreen on a
   // small screen as a phone/tablet (a big touch laptop stays editable).
   const touchSmall = (navigator.maxTouchPoints || 0) > 0 &&
-    typeof window !== 'undefined' && Math.min(window.screen.width, window.screen.height) <= 820
+    typeof window !== 'undefined' && Math.min(window.screen.width, window.screen.height) <= PHONE_MAX
   return iOS || android || touchSmall
 })()
 
@@ -43,16 +43,17 @@ export default function App() {
   const { theme: themeMode, toggle, t } = useTheme()
 
   const [view, setView] = useState('gallery') // 'gallery' | 'board' | 'trash'
-  const [boards, setBoards] = useState([])
+  const [boards, setBoards] = useState(null) // null = loading, else the array
+  const [boardsError, setBoardsError] = useState('')
   const [trash, setTrash] = useState([])
   const [active, setActive] = useState(null)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
   // Read-only whenever the VIEW is phone-sized (not just by device), so a narrow
   // window / mobile screen shows the lean view-only UI. Reacts live to resizing.
-  const [narrow, setNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 760 : false))
+  const [narrow, setNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= PHONE_MAX : false))
   useEffect(() => {
-    const onResize = () => setNarrow(window.innerWidth <= 760)
+    const onResize = () => setNarrow(window.innerWidth <= PHONE_MAX)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -77,9 +78,13 @@ export default function App() {
   }, [])
 
   const loadBoards = useCallback(() => {
-    listBoards().then((rows) => setBoards(rows.map(normalize))).catch(() => setBoards([]))
+    // Deferred so a loadBoards() call from inside an effect (initial mount) never
+    // sets state synchronously within that effect's body.
+    queueMicrotask(() => { setBoards(null); setBoardsError('') })
+    listBoards().then((rows) => setBoards(rows.map(normalize)))
+      .catch(() => { setBoardsError('Could not load boards'); showToast('Could not load boards') })
     listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => {}) // keeps the Trash badge count fresh
-  }, [])
+  }, [showToast])
 
   // Auth check + one-time OAuth redirect feedback. Toasts are deferred to a
   // microtask so no setState runs synchronously inside the effect body.
@@ -106,16 +111,25 @@ export default function App() {
       .catch(() => { setLoadError(true); setLoadingId(false) })
   }, [])
 
-  function openBoard(b) { setActive(b); setView('board'); setUrlId(b.id) }
+  // Gallery rows are a preview projection (no image bytes), so opening a board
+  // always fetches the full row first.
+  function openBoard(b) {
+    setLoadingId(true); setUrlId(b.id)
+    getBoard(b.id).then((r) => { setActive(normalize(r)); setView('board'); setLoadingId(false) })
+      .catch(() => { setLoadError(true); setLoadingId(false) })
+  }
 
   async function createNew() {
     setCreating(true)
     try {
       const row = await createBoard({ title: 'Untitled Board' })
       const b = normalize(row)
-      setBoards((bs) => [b, ...bs])
+      setBoards((bs) => [b, ...(bs || [])])
       openBoard(b)
-      import('canvas-confetti').then((m) => m.default({ particleCount: 90, spread: 70, origin: { y: 0.35 }, colors: ['#ff4438', '#f4f1ea'], zIndex: 9999 })).catch(() => {})
+      const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      if (!reducedMotion) {
+        import('canvas-confetti').then((m) => m.default({ particleCount: 90, spread: 70, origin: { y: 0.35 }, colors: ['#ff4438', '#f4f1ea'], zIndex: 9999 })).catch(() => {})
+      }
     } catch { showToast('Could not create board') }
     finally { setCreating(false) }
   }
@@ -200,9 +214,10 @@ export default function App() {
   return (
     <>
       <Gallery
-        boards={boards} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
+        boards={boards || []} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
         onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut}
         onOpenTrash={openTrash} trashCount={trash.length} creating={creating}
+        loading={boards === null} error={boardsError} onRetry={loadBoards}
       />
       <Toast {...toast} />
     </>

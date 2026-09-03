@@ -50,7 +50,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [edges, setEdges, onEdgesChange] = useEdgesState(board.edges || [])
   const [title, setTitle] = useState(board.title || 'Untitled Board')
   const [zoomPct, setZoomPct] = useState(100)
-  const { screenToFlowPosition, fitView, updateNodeData } = useReactFlow()
+  const { screenToFlowPosition, fitView, setViewport, updateNodeData, getViewport } = useReactFlow()
   const [sel, setSel] = useState(null) // { kind:'note'|'image'|'edge', id }
   const [multiCount, setMultiCount] = useState(0) // # of selected top-level nodes (for Group)
   const [showReport, setShowReport] = useState(false)
@@ -61,10 +61,29 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const vpRef = useRef(null)          // latest viewport {x,y,zoom} for the local draft
   const vpTimer = useRef(null)        // throttle for persisting the viewport
 
+  // `content` mirrors nodes/edges for snapshot purposes, EXCEPT while a drag is in
+  // flight, when it stays pinned to the pre-drag value and catches up the instant
+  // the drag ends. React Flow updates node positions on every pointermove, so
+  // without this freeze the whole board (incl. base64 image data) got re-stringified
+  // - and useUndoRedo re-recorded - on every single frame of a drag. Driven by the
+  // explicit drag start/stop callbacks (the per-change `dragging` flag is not
+  // reliable), and adjusted directly during render (React's documented pattern),
+  // not in an effect, so it never lags a frame behind.
+  const [dragging, setDragging] = useState(false)
+  const onDragStart = useCallback(() => setDragging(true), [])
+  const onDragStop = useCallback(() => setDragging(false), [])
+  // NodeResizer has no board-level callback, but React Flow flags the node with
+  // `resizing` on every dimension change, so a resize is frozen the same way.
+  const busy = dragging || nodes.some((n) => n.resizing)
+  const [content, setContent] = useState({ nodes, edges })
+  if (!busy && (nodes !== content.nodes || edges !== content.edges)) {
+    setContent({ nodes, edges })
+  }
+
   // Only re-serialize when the durable content actually changes. Without this memo
   // the whole board (incl. base64 image data) was re-stringified on EVERY render -
   // and zooming re-renders each frame - which is what made pan/zoom feel laggy.
-  const snapshot = useMemo(() => boardSnapshot({ title, nodes, edges }), [title, nodes, edges])
+  const snapshot = useMemo(() => boardSnapshot({ title, nodes: content.nodes, edges: content.edges }), [title, content])
 
   // Rewrite the live board from a parsed snapshot (undo/redo, draft restore).
   const restore = useCallback((d) => {
@@ -74,7 +93,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     setSel(null)
   }, [setNodes, setEdges, canEdit])
 
-  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast })
+  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast })
   const { undo, redo, canUndo, canRedo } = useUndoRedo({ snapshot, canEdit, restore })
 
   // Remember where the owner is looking (zoom/pan), throttled, so an accidental
@@ -204,10 +223,18 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       const c = n.classList
       return !c || (!c.contains('react-flow__minimap') && !c.contains('react-flow__controls') && !c.contains('fx-noexport'))
     }
-    import('html-to-image').then(({ toPng }) =>
-      toPng(el, { backgroundColor: theme.canvas, pixelRatio: 2, filter: hide })
+    // Export should capture the WHOLE board, not just whatever's currently in the
+    // viewport - so fit everything into view first, wait for it to paint, capture,
+    // then put the viewport back exactly where the owner had it.
+    const prevVp = getViewport()
+    fitView({ padding: 0.1, duration: 0 })
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      import('html-to-image')
+        .then(({ toPng }) => toPng(el, { backgroundColor: theme.canvas, pixelRatio: 2, filter: hide }))
         .then((url) => { const a = document.createElement('a'); a.href = url; a.download = `${(title || 'board').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.png`; a.click() })
-    ).catch(() => showToast('Export failed'))
+        .catch(() => showToast('Export failed'))
+        .finally(() => setViewport(prevVp, { duration: 0 }))
+    }))
   }
 
   function share() {
@@ -244,6 +271,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         }}
         onPaneClick={onPaneClick}
         onNodeDrag={canEdit ? onNodeDrag : undefined}
+        onNodeDragStart={onDragStart}
+        onNodeDragStop={onDragStop}
+        onSelectionDragStart={onDragStart}
+        onSelectionDragStop={onDragStop}
         onMove={onMove}
         colorMode={themeName}
         connectionMode="loose"
@@ -283,7 +314,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         </div>
       )}
 
-      {/* Bottom-left add menu (text / circle / person / draw / sticker / group) */}
+      {/* Bottom-left add menu (text / callout / circle / person / stamp / redact /
+          marker / wax seal / crosshair / spotlight / draw / group) */}
       {canEdit && <AddMenu onAdd={(type, extra) => addNodeOfType(type, centerPos(), extra)} onAddImage={() => fileRef.current?.click()} />}
 
       <BoardTopBar

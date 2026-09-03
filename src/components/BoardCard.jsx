@@ -7,8 +7,18 @@ import { Icon } from './Icon.jsx'
 function nodeEl(i) {
   const { id, x, y, w, h, type, data } = i
   const cx = x + w / 2, cy = y + h / 2
-  if (type === 'image' && data.src) {
-    return <image key={id} href={data.src} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />
+  if (type === 'image') {
+    if (data.src) {
+      return <image key={id} href={data.src} x={x} y={y} width={w} height={h} preserveAspectRatio="xMidYMid slice" />
+    }
+    // No src yet (server sends image nodes without data.src) - a 2-tone camera
+    // glyph placeholder so the card still reads as "a photo lives here".
+    const r = Math.min(w, h) * 0.14
+    return <g key={id}>
+      <rect x={x} y={y} width={w} height={h} fill="var(--panel-2)" />
+      <rect x={cx - r * 1.6} y={cy - r * 0.9} width={r * 3.2} height={r * 1.8} rx={r * 0.3} fill="none" stroke="var(--muted)" strokeWidth="2.4" />
+      <circle cx={cx} cy={cy} r={r * 0.6} fill="none" stroke="var(--muted)" strokeWidth="2.4" />
+    </g>
   }
   if (type === 'profile') {
     const name = data.name || 'N'
@@ -100,31 +110,33 @@ function BoardCard({ board, accent, onOpen, onDelete }) {
   const edges = board.edges || []
   return (
     <div
-      onClick={() => onOpen(board)}
+      className="fx-card"
       style={{
-        background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14,
-        overflow: 'hidden', cursor: 'pointer', boxShadow: 'var(--shadow-sm)',
-        transition: 'transform .14s ease, box-shadow .14s ease', animation: 'fx-rise .4s both',
+        position: 'relative', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14,
+        overflow: 'hidden', boxShadow: 'var(--shadow-sm)', animation: 'fx-rise .4s both',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = 'var(--shadow)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--shadow-sm)' }}
     >
-      <div style={{ borderBottom: '1px solid var(--border)' }}>
-        <Preview nodes={nodes} edges={edges} accent={accent} />
-      </div>
-      <div style={{ padding: '11px 13px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
+      <button
+        type="button"
+        onClick={() => onOpen(board)}
+        aria-label={board.title}
+        style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: 0, margin: 0, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
+      >
+        <div style={{ borderBottom: '1px solid var(--border)' }}>
+          <Preview nodes={nodes} edges={edges} accent={accent} />
+        </div>
+        <div style={{ padding: '11px 46px 11px 13px' }}>
           <div className="mono" style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{board.title}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
             {nodes.length} node{nodes.length === 1 ? '' : 's'} · {edges.length} link{edges.length === 1 ? '' : 's'} · {relativeTime(board.updatedAt)}
           </div>
         </div>
-        <button
-          title="Delete board"
-          onClick={(e) => { e.stopPropagation(); onDelete(board) }}
-          style={{ display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
-        ><Icon name="trash" size={15} /></button>
-      </div>
+      </button>
+      <button
+        title="Delete board"
+        onClick={() => onDelete(board)}
+        style={{ position: 'absolute', right: 13, bottom: 11, display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
+      ><Icon name="trash" size={15} /></button>
     </div>
   )
 }

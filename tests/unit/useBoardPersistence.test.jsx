@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
 
 vi.mock("../../src/lib/api.js", () => ({ updateBoard: vi.fn() }));
-vi.mock("../../src/lib/localBoard.js", () => ({ saveDraft: vi.fn(), loadDraft: vi.fn(), clearDraft: vi.fn() }));
+vi.mock("../../src/lib/localBoard.js", () => ({ saveDraft: vi.fn(), loadDraft: vi.fn(), clearDraft: vi.fn(), loadViewport: vi.fn() }));
 
 import { updateBoard } from "../../src/lib/api.js";
-import { saveDraft, loadDraft, clearDraft } from "../../src/lib/localBoard.js";
+import { saveDraft, loadDraft, clearDraft, loadViewport } from "../../src/lib/localBoard.js";
 import { useBoardPersistence } from "../../src/hooks/useBoardPersistence.js";
 import { boardSnapshot } from "../../src/lib/boardGraph.js";
 
@@ -15,18 +15,19 @@ const snap0 = boardSnapshot(board);
 const snap1 = boardSnapshot({ ...board, title: "Case 2" });
 
 function setup(props = {}) {
-  const restore = vi.fn(), fitView = vi.fn(), showToast = vi.fn();
+  const restore = vi.fn(), fitView = vi.fn(), setViewport = vi.fn(), showToast = vi.fn();
   const hook = renderHook(
-    ({ snapshot, canEdit }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast }),
+    ({ snapshot, canEdit }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast }),
     { initialProps: { snapshot: snap0, canEdit: true, ...props } },
   );
-  return { restore, fitView, showToast, ...hook };
+  return { restore, fitView, setViewport, showToast, ...hook };
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
   updateBoard.mockResolvedValue({});
   loadDraft.mockResolvedValue(null);
+  loadViewport.mockReturnValue(null);
   vi.stubGlobal("requestAnimationFrame", (cb) => cb());
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -107,5 +108,44 @@ describe("useBoardPersistence", () => {
     expect(updateBoard).not.toHaveBeenCalled();
     expect(saveDraft).not.toHaveBeenCalled();
     expect(loadDraft).not.toHaveBeenCalled();
+  });
+
+  it("refuses an oversized snapshot without calling updateBoard", async () => {
+    const { result, rerender } = setup();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); }); // restore-on-open settles
+    const huge = "x".repeat(4_300_001);
+    rerender({ snapshot: huge, canEdit: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(updateBoard).not.toHaveBeenCalled();
+    expect(result.current.save).toBe("toolarge");
+  });
+
+  it("maps a 413 rejection to the toolarge save state", async () => {
+    const err = new Error("HTTP 413");
+    err.status = 413;
+    updateBoard.mockRejectedValueOnce(err);
+    const { result, rerender } = setup();
+    rerender({ snapshot: snap1, canEdit: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(result.current.save).toBe("toolarge");
+  });
+
+  it("maps a 401 rejection to the unauth save state", async () => {
+    const err = new Error("HTTP 401");
+    err.status = 401;
+    updateBoard.mockRejectedValueOnce(err);
+    const { result, rerender } = setup();
+    rerender({ snapshot: snap1, canEdit: true });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(result.current.save).toBe("unauth");
+  });
+
+  it("restores the saved viewport on open instead of fitting", async () => {
+    const vp = { x: 10, y: 20, zoom: 1.5 };
+    loadViewport.mockReturnValue(vp);
+    const { setViewport, fitView } = setup();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(setViewport).toHaveBeenCalledWith(vp, { duration: 0 });
+    expect(fitView).not.toHaveBeenCalled();
   });
 });

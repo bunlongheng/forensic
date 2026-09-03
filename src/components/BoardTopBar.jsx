@@ -1,6 +1,10 @@
 import { Icon } from './Icon.jsx'
 
-const SAVE_LABEL = { saving: 'Saving…', saved: 'Saved', error: 'Offline · safe on this device', idle: '' }
+const SAVE_LABEL = {
+  saving: 'Saving…', saved: 'Saved', error: 'Offline · safe on this device', idle: '',
+  toolarge: 'Too large to sync - shrink or remove images', unauth: 'Signed out - sign in again to save',
+}
+const SAVE_ERROR_STATES = new Set(['error', 'toolarge', 'unauth'])
 
 const iconBtn = {
   display: 'grid', placeItems: 'center', width: 27, height: 27, borderRadius: 7,
@@ -39,7 +43,7 @@ export function BoardTopBar({
           <span className="mono fx-mobile-hide" style={{ fontSize: 13, fontWeight: 700 }}>{title}</span>
         )}
         {saveLabel && (
-          <span className="fx-mobile-hide" style={{ fontSize: 11, color: save === 'error' ? 'var(--accent)' : 'var(--muted)', marginLeft: 2 }}>· {saveLabel}</span>
+          <span className="fx-mobile-hide" style={{ fontSize: 11, color: SAVE_ERROR_STATES.has(save) ? 'var(--accent)' : 'var(--muted)', marginLeft: 2 }}>· {saveLabel}</span>
         )}
       </div>
       <div style={{ flex: 1 }} />
@@ -53,7 +57,7 @@ export function BoardTopBar({
         {canEdit && <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>}
         {canEdit && <button onClick={onAddImage} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
         {canEdit && <button onClick={onAddSticker} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
-        {canEdit && <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>}
+        <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>
       </div>
     </div>
   )

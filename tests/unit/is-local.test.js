@@ -5,14 +5,16 @@ import { isLocal } from "../../lib/is-local.js";
 const req = (ip) => ({ socket: { remoteAddress: ip } });
 
 describe("isLocal", () => {
-  const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV };
+  const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV, VERCEL: process.env.VERCEL };
   beforeEach(() => {
     delete process.env.NODE_ENV;
     delete process.env.LOCAL_DEV;
+    delete process.env.VERCEL;
   });
   afterEach(() => {
     process.env.NODE_ENV = orig.NODE_ENV;
     process.env.LOCAL_DEV = orig.LOCAL_DEV;
+    process.env.VERCEL = orig.VERCEL;
   });
 
   it("is true for loopback / LAN peers in dev", () => {
@@ -37,5 +39,11 @@ describe("isLocal", () => {
     expect(isLocal(req("127.0.0.1"))).toBe(false);
     process.env.LOCAL_DEV = "true";
     expect(isLocal(req("127.0.0.1"))).toBe(true);
+  });
+
+  it("is GATED OFF on any Vercel deployment, even with LOCAL_DEV=true", () => {
+    process.env.VERCEL = "1";
+    process.env.LOCAL_DEV = "true";
+    expect(isLocal(req("127.0.0.1"))).toBe(false);
   });
 });

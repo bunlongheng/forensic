@@ -1,12 +1,11 @@
 import { memo } from 'react'
 import { NodeResizer } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
+import { hash, rng } from '../lib/torn.js'
 
 // A realistic wax seal: an irregular organic blob (never a clean circle) with a few
 // drips, a domed satin gradient, and an embossed symbol pressed into the wax. The
 // shape is deterministic per node id, so each seal is unique but stable.
-function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h) }
-function rng(seed) { let s = (seed || 1) >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 } }
 
 // Smooth closed spline (Catmull-Rom -> cubic bezier) through points.
 function spline(p) {

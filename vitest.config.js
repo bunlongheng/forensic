@@ -11,12 +11,12 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text"],
       include: ["lib/**", "src/**"],
-      // Ratchet: set just below current (lines ~51%, statements ~47%, branches
-      // ~45%, functions ~42% under vitest 4's v8 counting) so coverage can only
+      // Ratchet: set just below current (lines ~57%, statements ~53%, branches
+      // ~52%, functions ~49% under vitest 4's v8 counting) so coverage can only
       // go up. `npm test` runs with --coverage so this is enforced in CI and the
       // pre-push hook. Raise these as more of App/Board/Gallery gets covered. The
       // canvas views resist jsdom unit tests; the Playwright e2e suite covers them.
-      thresholds: { lines: 50, statements: 46, branches: 44, functions: 40 },
+      thresholds: { lines: 55, statements: 52, branches: 50, functions: 47 },
     },
   },
 });

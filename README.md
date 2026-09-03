@@ -38,13 +38,13 @@ anything - like a detective's evidence board that lives in the browser.
 
 | Type | What it is | Type | What it is |
 |------|------------|------|------------|
-| `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint |
-| `text` | Typewriter text block | `clip` | Paper-clipped quick note (auto height) |
+| `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint (legacy/API-created type - no menu tool) |
+| `text` | Handwritten text block (Caveat) | `clip` | Paper-clipped quick note (auto height) |
 | `callout` | Speech-bubble emphasis | `stamp` | Circle ink stamp (APPROVED, SECRET, ...) |
 | `redaction` | Black bar | `marker` | Numbered crime-scene marker |
 | `wax` | Wax seal | `crosshair` | Target crosshair |
-| `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn arrow / circle |
-| `drawing` | Freehand ink | `sticker` | Emoji sticker |
+| `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn ring |
+| `drawing` | Freehand ink, in the add menu | `sticker` | Emoji sticker |
 | `profile` | Person card (name + color) | `container` | Titled section that groups children |
 
 ### Keyboard shortcuts
@@ -134,15 +134,17 @@ npm run prod              # vite build + Express server serving dist/ + the API
 |----------|----------|---------|
 | `DATABASE_URL` | yes | Postgres connection string |
 | `DATABASE_SSL` | no | `"true"` for a remote Postgres |
-| `FORENSIC_API_SECRET` | yes | Bearer token for the render-only `POST /api/ai/boards` |
+| `DATABASE_CA` | no | PEM CA certificate; when set, Postgres TLS is verified instead of skipped |
+| `FORENSIC_API_SECRET` | yes | Bearer token for `POST /api/ai/boards` (the only Bearer-auth route) |
 | `OWNER_USER_ID` | yes | `boards.user_id` for API-created boards |
-| `FORENSIC_APP_URL` | yes | Public base URL used in returned board links |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth web client |
 | `AUTH_SECRET` | yes | Session-cookie signing secret |
 | `OWNER_EMAIL` | yes | The only Google account allowed to sign in |
+| `SESSION_MIN_IAT` | no | Unix seconds; sessions issued before this are rejected (rotate after a suspected leak) |
 | `LOCAL_DEV` | no | Dev-only auth bypass on localhost / LAN. Never set in prod |
+| `PORT` | no | Server port, default `4336` |
 
-`lib/env.js` fails the build and the server fast when a required variable is missing. See `.env.example`.
+`lib/env.js` fails the build and the server fast when a required variable is missing - imported by both the Vite build and the server (`serve.mjs`). See `.env.example`.
 
 ## Test
 
@@ -161,17 +163,20 @@ health endpoint on a schedule.
 | Method | Route | Auth | Purpose |
 |--------|-------|------|---------|
 | `GET` | `/api/boards` | owner | list the owner's boards |
+| `GET` | `/api/boards?trash=1` | owner | list the owner's trashed boards |
 | `POST` | `/api/boards` | owner | create a board |
-| `GET` | `/api/boards/:id` | public | read a board (for shared links) |
+| `GET` | `/api/boards/:id` | public | read a board (for shared links); 404 if trashed |
 | `PUT` | `/api/boards/:id` | owner | update a board |
-| `DELETE` | `/api/boards/:id` | owner | delete a board (soft, to trash) |
-| `POST` | `/api/ai/boards` | Bearer | render-only create for programmatic callers |
+| `PUT` | `/api/boards/:id` `{restore:true}` | owner | restore a board out of trash |
+| `DELETE` | `/api/boards/:id` | owner | trash the board (3+ nodes), else hard-delete |
+| `DELETE` | `/api/boards/:id?purge=1` | owner | force a hard delete |
+| `POST` | `/api/ai/boards` | Bearer | the only Bearer-auth route - create for programmatic callers |
 | `GET` | `/api/auth/login` `/callback` `/me` | public | Google OAuth flow + session probe |
-| `POST` | `/api/auth/logout` | owner | clear the session |
+| `POST` | `/api/auth/logout` | public | clear the session |
 | `GET` | `/api/health` | public | liveness + readiness probe |
 
-All SQL is parameterized. Writes are gated on the signed owner session or the Bearer secret,
-and rate limited.
+All SQL is parameterized. Writes are gated on the signed owner session, the localhost dev
+bypass, or (for `POST /api/ai/boards` only) the Bearer secret - and rate limited.
 
 ## Deploy
 

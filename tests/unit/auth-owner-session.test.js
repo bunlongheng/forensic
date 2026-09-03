@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { authorizeOwner } from "../../lib/auth-owner.js";
-import { signSession } from "../../lib/auth-session.js";
+import { signSession, sessionCookieName } from "../../lib/auth-session.js";
 
 // A valid OWNER session cookie must authorize even admin-only routes
 // (allowBearer:false) - that is what lets the signed-in owner use AI generate in
 // prod - while a non-owner session must be rejected.
+// host is not localhost, so appOrigin() resolves secure:true - the cookie name
+// is the __Host- prefixed one.
+const COOKIE_NAME = sessionCookieName(true);
 const prodReq = (cookie) => ({
   headers: { host: "forensic-bheng.vercel.app", cookie },
 });
@@ -25,12 +28,12 @@ describe("authorizeOwner via Google owner session", () => {
   });
 
   it("authorizes the owner session on an admin-only route (allowBearer:false)", async () => {
-    const cookie = `fx_session=${signSession({ email: "owner@example.com" })}`;
+    const cookie = `${COOKIE_NAME}=${signSession({ email: "owner@example.com" })}`;
     expect(await authorizeOwner(prodReq(cookie), { allowBearer: false })).toBe(true);
   });
 
   it("rejects a non-owner session", async () => {
-    const cookie = `fx_session=${signSession({ email: "someone@else.com" })}`;
+    const cookie = `${COOKIE_NAME}=${signSession({ email: "someone@else.com" })}`;
     expect(await authorizeOwner(prodReq(cookie), { allowBearer: false })).toBe(false);
   });
 
@@ -40,7 +43,7 @@ describe("authorizeOwner via Google owner session", () => {
 
   it("rejects a forged (wrong-secret) owner cookie", async () => {
     process.env.AUTH_SECRET = "different-secret";
-    const forged = `fx_session=${signSession({ email: "owner@example.com" })}`;
+    const forged = `${COOKIE_NAME}=${signSession({ email: "owner@example.com" })}`;
     process.env.AUTH_SECRET = "test-auth-secret-0123456789";
     expect(await authorizeOwner(prodReq(forged), { allowBearer: false })).toBe(false);
   });

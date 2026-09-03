@@ -1,7 +1,11 @@
 // Thin fetch wrappers for the boards API. Every call returns parsed JSON or
 // throws on a non-2xx so callers can `.catch` into a toast.
 async function j(res) {
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  if (!res.ok) {
+    const err = new Error(`HTTP ${res.status}`)
+    err.status = res.status
+    throw err
+  }
   return res.json()
 }
 const JSON_HEADERS = { 'Content-Type': 'application/json' }

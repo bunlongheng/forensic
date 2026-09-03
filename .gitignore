@@ -38,3 +38,6 @@ playwright-report
 public/tesseract/worker.min.js
 public/tesseract/tesseract-core-simd-lstm.wasm
 public/tesseract/tesseract-core-simd-lstm.wasm.js
+
+# README screenshot written by the repo-audit skill
+docs/screenshots/

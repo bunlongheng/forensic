@@ -50,4 +50,12 @@ describe("AddMenu", () => {
     expect(onAddImage).toHaveBeenCalled();
     expect(onAdd).not.toHaveBeenCalled();
   });
+
+  it("calls onAdd with 'drawing' for the Draw item", () => {
+    const onAdd = vi.fn();
+    render(<AddMenu onAdd={onAdd} onAddImage={vi.fn()} />);
+    fireEvent.click(screen.getByTitle("Add to board"));
+    fireEvent.click(screen.getByTitle("Draw"));
+    expect(onAdd).toHaveBeenCalledWith("drawing");
+  });
 });

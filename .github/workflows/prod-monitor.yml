@@ -11,6 +11,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: prod-monitor
   cancel-in-progress: true
@@ -22,6 +25,27 @@ jobs:
     env:
       BASE_URL: https://forensic-bheng.vercel.app
     steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # Post-deploy race: a push-triggered run can start before Vercel finishes
+      # deploying, so the health check below would probe the OLD build and pass
+      # for the wrong reason. Only on push, poll until /api/health reports the
+      # VERSION that was just pushed (up to 2 minutes) before running checks.
+      - name: Wait for the deployed version to match this push (push only)
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          want=$(grep -oE "VERSION = '[^']+'" src/version.js | sed -E "s/VERSION = '([^']+)'/\1/")
+          echo "waiting for /api/health version to reach $want"
+          for i in $(seq 1 12); do
+            got=$(curl -sS --max-time 20 "$BASE_URL/api/health" | grep -oE '"version":"[^"]+"' | sed -E 's/"version":"([^"]+)"/\1/' || true)
+            echo "attempt $i/12: got ${got:-<none>}"
+            [ "$got" = "$want" ] && { echo "deployed version matches - proceeding"; exit 0; }
+            sleep 10
+          done
+          echo "::error::deployed /api/health version never reached $want after 12 attempts"
+          exit 1
+
       - name: Health endpoint is 200 + ok:true (API secret + owner + DB)
         run: |
           set -euo pipefail

@@ -1,19 +1,35 @@
 // Regenerate the full Forensic icon set from the master brand image
-// (public/icon-source.png - the red-pins-and-thread evidence-board mark).
+// (docs/icon-source.png - the red-pins-and-thread evidence-board mark).
 // Resizes it to every size the app references, builds favicon.ico, and renders
 // the 1200x630 OG/Twitter share card with the icon as its tile.
 //
 // Run: node scripts/gen-icons.mjs
-// Uses sharp from ~/Sites/bheng (not a repo dependency) - dev-only tooling.
+// sharp is not a repo dependency (dev-only tooling): prefer a local install,
+// falling back to the shared ~/Sites/bheng copy.
 import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const require = createRequire(import.meta.url);
-const sharp = require(process.env.HOME + "/Sites/bheng/node_modules/sharp");
-const pub = join(dirname(fileURLToPath(import.meta.url)), "..", "public");
-const SRC = join(pub, "icon-source.png");
+async function loadSharp() {
+  try {
+    return (await import("sharp")).default;
+  } catch {
+    // not installed in this repo - fall through to the shared copy
+  }
+  try {
+    const require = createRequire(import.meta.url);
+    return require(process.env.HOME + "/Sites/bheng/node_modules/sharp");
+  } catch {
+    console.error("sharp not found: run `npm i -D sharp` in this repo, or install it in ~/Sites/bheng.");
+    process.exit(1);
+  }
+}
+
+const sharp = await loadSharp();
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const pub = join(root, "public");
+const SRC = join(root, "docs", "icon-source.png");
 
 const BONE = "#f4f1ea";
 const RED = "#ff4438";

@@ -6,6 +6,7 @@ const query = vi.fn();
 vi.mock("../../lib/db.js", () => ({ default: { query: (...a) => query(...a) } }));
 
 const { default: health } = await import("../../lib/handlers/health.js");
+const { VERSION } = await import("../../src/version.js");
 
 function mockRes() {
   return {
@@ -59,6 +60,7 @@ describe("GET /api/health", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toEqual({
       ok: true,
+      version: VERSION,
       checks: {
         api_secret: true,
         owner_user_id: true,

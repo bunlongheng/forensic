@@ -2,12 +2,12 @@
 // rip is stable across renders but different on every card. Top and sides stay
 // clean; the bottom bites in with irregular, alternating sharp teeth (a real tear,
 // not a soft wave).
-function hash(s) {
+export function hash(s) {
   let h = 0
   for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0
   return Math.abs(h)
 }
-function rng(seed) {
+export function rng(seed) {
   let s = (seed || 1) >>> 0
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 }
 }

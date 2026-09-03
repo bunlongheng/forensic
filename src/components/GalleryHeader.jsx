@@ -23,7 +23,7 @@ export function GalleryHeader({ themeName, onToggleTheme, onCreate, onSignOut, o
           <span style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none', display: 'grid' }}><Icon name="search" size={15} /></span>
           <input
             value={q} onChange={(e) => setQ(e.target.value)} placeholder={trashActive ? 'Search trash' : 'Search boards'}
-            style={{ padding: '9px 12px 9px 32px', width: 200, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, outline: 'none' }}
+            style={{ padding: '9px 12px 9px 32px', width: 200, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 16, outline: 'none' }}
           />
         </div>
         <button onClick={onCreate} disabled={creating} title="New board"

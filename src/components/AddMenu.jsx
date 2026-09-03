@@ -19,6 +19,7 @@ const ITEMS = [
   { key: 'wax', icon: 'wax', label: 'Wax seal' },
   { key: 'crosshair', icon: 'crosshair', label: 'Crosshair' },
   { key: 'spotlight', icon: 'spotlight', label: 'Spotlight' },
+  { key: 'drawing', glyph: '✎', label: 'Draw' },
   { key: 'container', icon: 'group', label: 'Group' },
 ]
 const R = 112 // ring radius
@@ -127,7 +128,7 @@ export function AddMenu({ onAdd, onAddImage }) {
                     animation: 'fx-bloom .42s cubic-bezier(.22,.9,.28,1.12) both',
                     animationDelay: `${i * 0.035}s`,
                   }}
-                ><Icon name={it.icon} size={16} /></button>
+                >{it.glyph ? <span style={{ fontSize: 16 }}>{it.glyph}</span> : <Icon name={it.icon} size={16} />}</button>
               )
             })}
           </>

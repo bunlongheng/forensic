@@ -9,6 +9,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import pg from "pg";
+import { sslConfig } from "../lib/db.js";
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,10 +27,16 @@ async function main() {
 
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
+    ssl: process.env.DATABASE_SSL === "true" ? sslConfig() : false,
   });
 
+  // Advisory lock on a dedicated connection so two concurrent migrate runs
+  // (e.g. two deploys racing) never apply migrations at the same time.
+  // Advisory locks are session-scoped, so lock and unlock must share one client.
+  const lockClient = await pool.connect();
   try {
+    await lockClient.query("SELECT pg_advisory_lock(hashtext('boards_migrations'))");
+
     await pool.query(
       "CREATE TABLE IF NOT EXISTS boards_migrations (id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())",
     );
@@ -61,6 +68,8 @@ async function main() {
     }
     console.log("migrations up to date");
   } finally {
+    await lockClient.query("SELECT pg_advisory_unlock(hashtext('boards_migrations'))");
+    lockClient.release();
     await pool.end();
   }
 }

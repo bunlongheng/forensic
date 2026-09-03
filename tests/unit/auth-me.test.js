@@ -1,6 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import authMe from "../../lib/handlers/auth-me.js";
-import { signSession } from "../../lib/auth-session.js";
+import { signSession, sessionCookieName } from "../../lib/auth-session.js";
+
+// The req() host below is not localhost, so appOrigin() resolves secure:true -
+// the cookie name is the __Host- prefixed one.
+const COOKIE_NAME = sessionCookieName(true);
 
 const OWNER_EMAIL = "owner@example.com";
 
@@ -46,7 +50,7 @@ describe("GET /api/auth/me", () => {
   });
 
   it("with a valid owner session cookie returns 200 { authenticated: true, email }", async () => {
-    const cookie = `fx_session=${signSession({ email: OWNER_EMAIL })}`;
+    const cookie = `${COOKIE_NAME}=${signSession({ email: OWNER_EMAIL })}`;
     const res = mockRes();
     await authMe(req(cookie), res);
     expect(res.statusCode).toBe(200);
@@ -54,7 +58,7 @@ describe("GET /api/auth/me", () => {
   });
 
   it("with a cookie for a non-owner email returns { authenticated: false }", async () => {
-    const cookie = `fx_session=${signSession({ email: "someone@else.com" })}`;
+    const cookie = `${COOKIE_NAME}=${signSession({ email: "someone@else.com" })}`;
     const res = mockRes();
     await authMe(req(cookie), res);
     expect(res.statusCode).toBe(200);

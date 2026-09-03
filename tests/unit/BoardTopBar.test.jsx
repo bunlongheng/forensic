@@ -32,6 +32,10 @@ describe("BoardTopBar", () => {
     expect(screen.getByText(/Saving/)).toBeInTheDocument();
     rerender(<BoardTopBar {...base} save="error" />);
     expect(screen.getByText(/Offline/)).toBeInTheDocument();
+    rerender(<BoardTopBar {...base} save="toolarge" />);
+    expect(screen.getByText(/Too large to sync/)).toBeInTheDocument();
+    rerender(<BoardTopBar {...base} save="unauth" />);
+    expect(screen.getByText(/Signed out/)).toBeInTheDocument();
   });
 
   it("is read-only for viewers: static title, no editing tools, no share without an id", () => {
@@ -42,6 +46,7 @@ describe("BoardTopBar", () => {
     expect(screen.queryByTitle("Copy share link")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Case report")).not.toBeInTheDocument();
     expect(screen.getByTitle("Fit to view")).toBeInTheDocument();
+    expect(screen.getByTitle("Toggle theme")).toBeInTheDocument();
   });
 });
 

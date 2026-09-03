@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 
+// One breakpoint for "this is a phone/narrow view" - shared by App.jsx (both the
+// touch-device check and the resize-driven narrow state) and index.css.
+export const PHONE_MAX = 760
+
 // Two resolved palettes. Kept as plain JS objects (not only CSS vars) because the
 // canvas layer - React Flow's Background dots, edge stroke, minimap - needs real
 // color values in JS, not var(--x). The CSS-var mirror in index.css themes the
@@ -16,7 +20,7 @@ export const THEMES = {
   light: {
     canvas: '#e0cfa6', dot: '#cbb684', grid: '#d6c194',
     accent: '#d92b1f', accentSoft: 'rgba(217,43,31,0.12)',
-    text: '#1a1d21', muted: '#5c4a30',
+    text: '#1a1d21', muted: '#5f646c',
     panel: '#ffffff', panelBorder: '#e6e1d5',
     nodeBg: '#ffffff', nodeBorder: '#e2ddce',
     minimapBg: 'rgba(255,252,245,0.85)', minimapNode: '#8a6a3f',

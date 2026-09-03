@@ -4,6 +4,7 @@
 // the diagrams app's testing philosophy. One source of truth: the handlers in
 // lib/handlers are the exact code the Vercel functions in api/ import.
 import "dotenv/config";
+import "./lib/env.js";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +21,7 @@ import { withErrors } from "./lib/wrap.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-app.use(express.json({ limit: "12mb" }));
+app.use(express.json({ limit: "4.5mb" }));
 
 // Mirror the prod security headers (vercel.json) so local == prod, including the
 // strict CSP with NO 'unsafe-eval' and NO 'unsafe-inline' for scripts. Catches
@@ -48,7 +49,7 @@ app.get("/api/auth/me", withErrors(authMe));
 app.post("/api/auth/logout", withErrors(authLogout));
 app.post("/api/ai/boards", withErrors(createBoard));
 app.get("/api/boards", withErrors(listBoards));
-app.post("/api/boards", withErrors(createBoard));
+app.post("/api/boards", withErrors((req, res) => createBoard(req, res, { allowBearer: false })));
 app.get("/api/health", withErrors(health));
 app.all("/api/boards/:id", withErrors(boardById));
 

@@ -3,7 +3,7 @@ import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
 import { Paperclip } from './Paperclip.jsx'
-import { tornBottom } from '../lib/torn.js'
+import { tornBottom, hash } from '../lib/torn.js'
 import { useEditZoom } from '../lib/useEditZoom.js'
 
 // A case-note. Three paper styles (set from the inspector, or a sensible default):
@@ -12,8 +12,6 @@ import { useEditZoom } from '../lib/useEditZoom.js'
 //   sticky - a colored sticky card
 // Held by a pushpin (color configurable), tilted slightly. First line = headline.
 const CREAM = ['#f4efe1', '#efe7d4', '#f7f2e7', '#eee6d2']
-
-function hash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0; return Math.abs(h) }
 
 function NoteNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()

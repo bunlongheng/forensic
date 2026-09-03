@@ -9,15 +9,23 @@ export function detectLinks(text) {
     .map((u) => (/^https?:\/\//i.test(u) ? u : `https://${u}`))
 }
 
+const NOTE_TYPES = ['note', 'clip', 'text', 'callout']
+
 function headline(node) {
   if (!node) return 'Unknown'
   if (node.type === 'image') return node.data?.label || 'Photo'
-  return (node.data?.text || '').split('\n')[0] || 'Note'
+  if (node.type === 'profile') return node.data?.name || 'Person'
+  if (node.type === 'container') return node.data?.title || 'Section'
+  if (node.type === 'stamp') return node.data?.label || 'Stamp'
+  if (node.type === 'marker') return `Marker ${node.data?.number}`
+  const firstLine = (node.data?.text || '').split('\n')[0]
+  if (firstLine) return firstLine
+  return node.type ? node.type[0].toUpperCase() + node.type.slice(1) : 'Note'
 }
 
 export function buildReport(title, nodes, edges) {
   const byId = Object.fromEntries(nodes.map((n) => [n.id, n]))
-  const notes = nodes.filter((n) => n.type === 'note').map((n) => ({ id: n.id, text: n.data?.text || '' }))
+  const notes = nodes.filter((n) => NOTE_TYPES.includes(n.type)).map((n) => ({ id: n.id, text: n.data?.text || '' }))
   const images = nodes.filter((n) => n.type === 'image').map((n) => ({ id: n.id, label: n.data?.label || '' }))
 
   const textPool = [...notes.map((n) => n.text), ...images.map((i) => i.label)].join('\n')

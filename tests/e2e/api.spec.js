@@ -84,3 +84,68 @@ test("GET /api/boards -> 200 array (owner-only, localhost = owner)", async ({ re
   const rows = await res.json();
   expect(Array.isArray(rows)).toBe(true);
 });
+
+test("Trash lifecycle: create (3+ nodes) -> DELETE trashes -> hidden -> restore -> visible -> purge", async ({
+  request,
+}) => {
+  const create = await request.post("/api/boards", {
+    data: {
+      title: "E2E Trash Board",
+      nodes: [
+        { id: "n1", position: { x: 0, y: 0 } },
+        { id: "n2", position: { x: 100, y: 0 } },
+        { id: "n3", position: { x: 200, y: 0 } },
+      ],
+      edges: [],
+    },
+  });
+  expect(create.status()).toBe(201);
+  const { id } = await create.json();
+
+  // 3+ nodes -> soft-deleted to Trash, not hard-deleted.
+  const del = await request.delete(`/api/boards/${id}`);
+  expect(del.status()).toBe(200);
+  expect(await del.json()).toEqual({ trashed: true });
+
+  // A trashed board is hidden from the public GET.
+  const hidden = await request.get(`/api/boards/${id}`);
+  expect(hidden.status()).toBe(404);
+
+  // ...but listed under ?trash=1.
+  const trashList = await request.get("/api/boards?trash=1");
+  expect(trashList.status()).toBe(200);
+  const trashRows = await trashList.json();
+  expect(trashRows.some((r) => r.id === id)).toBe(true);
+
+  // Restore brings it back.
+  const restore = await request.put(`/api/boards/${id}`, { data: { restore: true } });
+  expect(restore.status()).toBe(200);
+  const visible = await request.get(`/api/boards/${id}`);
+  expect(visible.status()).toBe(200);
+
+  // Explicit purge hard-deletes it for good.
+  const purge = await request.delete(`/api/boards/${id}?purge=1`);
+  expect(purge.status()).toBe(200);
+  expect(await purge.json()).toEqual({ deleted: true });
+});
+
+test("GET /api/boards strips inline image bytes from the preview projection", async ({ request }) => {
+  const create = await request.post("/api/boards", {
+    data: { title: "E2E preview", nodes: [{ id: "img", type: "image", position: { x: 0, y: 0 }, data: { src: "data:image/png;base64,AAAA", label: "photo" } }], edges: [] },
+  });
+  expect(create.status()).toBe(201);
+  const { id } = await create.json();
+  try {
+    const rows = await (await request.get("/api/boards")).json();
+    const row = rows.find((r) => r.id === id);
+    expect(row).toBeTruthy();
+    expect(row.nodes[0].data.src).toBeUndefined();
+    expect(row.nodes[0].data.hasImage).toBe(true);
+    expect(row.nodes[0].data.label).toBe("photo");
+    // The full read still carries the bytes.
+    const full = await (await request.get(`/api/boards/${id}`)).json();
+    expect(full.nodes[0].data.src).toBe("data:image/png;base64,AAAA");
+  } finally {
+    await request.delete(`/api/boards/${id}?purge=1`);
+  }
+});

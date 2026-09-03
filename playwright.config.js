@@ -1,4 +1,9 @@
+import "dotenv/config";
 import { defineConfig } from "@playwright/test";
+
+// lib/env.js now validates required vars during `vite build` too (not just the
+// server), so .env must be loaded into process.env before the webServer command
+// spawns - the child process inherits it from here.
 
 // 4336 matches serve.mjs, so a stray sibling app on 4321 is never reused as "the server".
 const PORT = process.env.PORT || "4336";
@@ -11,7 +16,7 @@ export default defineConfig({
   use: { baseURL: BASE },
   projects: [
     { name: "api", testMatch: /api\.spec\.js/ },
-    { name: "browser", testMatch: /render\.spec\.js/, use: { browserName: "chromium" } },
+    { name: "browser", testMatch: /(render|board)\.spec\.js/, use: { browserName: "chromium" } },
   ],
   webServer: {
     // Prod build + prod-like server (NODE_ENV=production via `npm run start`),

@@ -24,6 +24,7 @@ npm audit                 # zero vulnerabilities
 - Put pure logic in `src/lib/` (no React, no DOM) and unit-test it. Stateful concerns go in `src/hooks/`.
 - New node types live in `src/components/`, get registered in `NODE_TYPES` in `src/views/Board.jsx`, and get a default size in `newNodeSpec` in `src/lib/boardGraph.js`.
 - API changes go in `lib/handlers/` (one source of truth for Vercel and `serve.mjs`) and get an e2e test in `tests/e2e/api.spec.js`.
+- Every new API route must be registered in both `api/*.js` (Vercel) and `serve.mjs` (local / CI) - one handler, two wire-ups.
 - Schema changes are a new timestamped file in `db/migrations/`. Never edit an applied migration.
 - Match the existing style: 2-space indent, single quotes in `src/`, double quotes in `lib/` and tests, no semicolons in `src/`.
 

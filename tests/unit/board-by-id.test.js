@@ -80,10 +80,18 @@ describe("/api/boards/:id (boardById)", () => {
       await boardById(remoteReq("GET", ID), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual(ROW);
+      expect(query).toHaveBeenCalledWith(expect.stringMatching(/AND trashed_at IS NULL/), [ID]);
     });
 
     it("404 when the row does not exist", async () => {
       query.mockResolvedValueOnce({ rows: [] });
+      const res = mockRes();
+      await boardById(remoteReq("GET", ID), res);
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("404 when the row is trashed (excluded by AND trashed_at IS NULL)", async () => {
+      query.mockResolvedValueOnce({ rows: [] }); // trashed rows never match the query
       const res = mockRes();
       await boardById(remoteReq("GET", ID), res);
       expect(res.statusCode).toBe(404);
@@ -112,10 +120,18 @@ describe("/api/boards/:id (boardById)", () => {
       await boardById(localReq("PUT", ID, { title: "New Title" }), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual(updated);
+      expect(query).toHaveBeenCalledWith(expect.stringMatching(/AND trashed_at IS NULL/), expect.any(Array));
     });
 
     it("404 when the row does not exist", async () => {
       query.mockResolvedValueOnce({ rows: [] });
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { title: "New Title" }), res);
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("404 when the row is trashed (a non-restore PUT cannot touch it)", async () => {
+      query.mockResolvedValueOnce({ rows: [] }); // WHERE ... AND trashed_at IS NULL excludes it
       const res = mockRes();
       await boardById(localReq("PUT", ID, { title: "New Title" }), res);
       expect(res.statusCode).toBe(404);

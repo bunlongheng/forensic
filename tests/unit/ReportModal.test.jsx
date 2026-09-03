@@ -52,4 +52,23 @@ describe("ReportModal", () => {
     fireEvent.click(screen.getByText("Print / PDF"));
     expect(printSpy).toHaveBeenCalled();
   });
+
+  it("renders the panel with dialog semantics", () => {
+    render(<ReportModal title="Case Alpha" nodes={nodes} edges={edges} onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", screen.getByText("Case Alpha").id);
+  });
+
+  it("focuses the Close button on mount", () => {
+    render(<ReportModal title="Case Alpha" nodes={nodes} edges={edges} onClose={vi.fn()} />);
+    expect(screen.getByText("Close")).toHaveFocus();
+  });
+
+  it("calls onClose when Escape is pressed", () => {
+    const onClose = vi.fn();
+    render(<ReportModal title="Case Alpha" nodes={nodes} edges={edges} onClose={onClose} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
 });

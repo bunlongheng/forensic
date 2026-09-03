@@ -6,9 +6,17 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -39,7 +47,6 @@ jobs:
       PGUSER: postgres
       DATABASE_SSL: "false"
       OWNER_USER_ID: 00000000-0000-0000-0000-000000000001
-      FORENSIC_APP_URL: https://forensic-bheng.vercel.app
       # Non-secret auth config so /api/health reports ok:true (the webServer
       # readiness probe). Google OAuth is never actually called in e2e - the
       # specs exercise unauthenticated/Bearer paths only.
@@ -47,14 +54,22 @@ jobs:
       OWNER_EMAIL: owner@example.com
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 22
           cache: npm
 
       - run: npm ci
+
+      - run: npm audit --audit-level=high
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-1.62.1
 
       # Throwaway secrets, generated fresh each run - never real credentials.
       - name: Generate throwaway e2e secrets
