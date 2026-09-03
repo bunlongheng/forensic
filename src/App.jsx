@@ -1,11 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useTheme } from './theme.js'
 import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
 import { Toast } from './components/Toast.jsx'
 import Gallery from './views/Gallery.jsx'
 import Trash from './views/Trash.jsx'
-import Board from './views/Board.jsx'
+// The canvas (React Flow + every node type) is by far the heaviest chunk - load it
+// only when a board is actually opened, so sign-in and the gallery stay light.
+const Board = lazy(() => import('./views/Board.jsx'))
 
 // Normalize an API row into the single board shape the whole UI speaks.
 const normalize = (r) => ({
@@ -166,8 +168,10 @@ export default function App() {
     const canEdit = (Boolean(user) || devBypass) && !isTouchDevice && !narrow
     return (
       <>
-        <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
-          onToggleTheme={toggle} onBack={backToGallery} showToast={showToast} />
+        <Suspense fallback={<Splash label="Loading board…" />}>
+          <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
+            onToggleTheme={toggle} onBack={backToGallery} showToast={showToast} />
+        </Suspense>
         <Toast {...toast} />
       </>
     )

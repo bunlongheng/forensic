@@ -22,12 +22,85 @@ anything - like a detective's evidence board that lives in the browser.
 
 - **Infinite canvas** - pan and zoom without limits (0.02x to 40x), powered by React Flow.
 - **Drop / paste / upload images** - drag image files onto the board, paste from the clipboard, or pick from disk. Large images are downscaled and re-encoded (WebP) so a board packed with photos stays fast.
-- **1-to-many connections** - drag from any node edge to wire it to as many others as you like. Connections render as clean red-thread beziers with arrowheads.
-- **Case notes** - double-click the canvas to drop an editable typewriter note; tint it, resize it, connect it.
-- **Resize & label** - every node resizes (images keep aspect ratio) and takes an inline caption.
-- **Boards** - a gallery of saved boards with live vector previews. Autosaves as you work; `Cmd/Ctrl+S` to force.
-- **Share** - copy a public read-only link to any board.
+- **Red threads** - drag from any node edge to wire it to as many others as you like. Threads attach to the nearest point on each card's boundary and light up when either end is selected.
+- **Auto-thread** - multi-select assets and hit **Chain** (nearest-neighbour path) or **Fan** (biggest asset out to the rest).
+- **Group / ungroup** - wrap a selection in a container so the whole set moves as one (`Cmd/Ctrl+G`, `Shift` to ungroup).
+- **16 evidence types** - see the table below. Every node resizes, and most take an inline caption, tint, lock, and send-to-back.
+- **In-browser OCR** - extract the text from any pinned image with tesseract.js, self-hosted, zero API cost.
+- **Case report** - one click renders the board as a readable report (images, notes, threads).
+- **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z` and `Cmd/Ctrl+Shift+Z`.
+- **Autosave + crash safety** - debounced saves to Postgres, a fast local draft on this device, and a retry the moment the connection returns.
+- **Boards** - a gallery of saved boards with live vector previews and a trash with restore.
+- **Share** - copy a public read-only link to any board. Phones and touch devices always open read-only.
 - **Light & dark** - the whole canvas + chrome theme together; your choice is remembered.
+
+### Evidence types
+
+| Type | What it is | Type | What it is |
+|------|------------|------|------------|
+| `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint |
+| `text` | Typewriter text block | `clip` | Paper-clipped quick note (auto height) |
+| `callout` | Speech-bubble emphasis | `stamp` | Circle ink stamp (APPROVED, SECRET, ...) |
+| `redaction` | Black bar | `marker` | Numbered crime-scene marker |
+| `wax` | Wax seal | `crosshair` | Target crosshair |
+| `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn arrow / circle |
+| `drawing` | Freehand ink | `sticker` | Emoji sticker |
+| `profile` | Person card (name + color) | `container` | Titled section that groups children |
+
+### Keyboard shortcuts
+
+| Keys | Action |
+|------|--------|
+| Double-click canvas | Drop a quick note, already open for typing |
+| `Cmd/Ctrl+S` | Save now |
+| `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` | Undo / redo |
+| `Cmd/Ctrl+C` then `Cmd/Ctrl+V` | Duplicate the selected node (an image on the clipboard always wins) |
+| `Cmd/Ctrl+G` / `Cmd/Ctrl+Shift+G` | Group / ungroup the selection |
+| `Shift` + drag | Snap a node into a straight line with the nodes it is wired to |
+| `Backspace` / `Delete` | Remove the selection |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    App[App.jsx<br/>auth + routing] --> Gallery
+    App --> Board[views/Board.jsx<br/>React Flow canvas]
+    Board --> Graph[lib/boardGraph.js<br/>pure node/edge logic]
+    Board --> Persist[hooks/useBoardPersistence<br/>autosave, drafts, restore]
+    Board --> Undo[hooks/useUndoRedo]
+    Persist --> IDB[(IndexedDB draft)]
+  end
+  Persist -->|PUT /api/boards/:id| API
+  App -->|GET /api/boards| API
+  subgraph Server
+    API[api/* Vercel functions<br/>= lib/handlers/*] --> PG[(Postgres)]
+    API --> Google[Google OAuth]
+  end
+```
+
+- **`src/views/Board.jsx`** owns the canvas: React Flow wiring, selection, drag/drop/paste, the inspector.
+- **`src/lib/boardGraph.js`** is the pure core - sanitize, group/ungroup, chain/fan threading, snap, z-order, edge styling. No React, fully unit-tested.
+- **`src/hooks/`** hold the stateful concerns: `useBoardPersistence` (server autosave, local draft, online retry, `Cmd+S`, restore-on-open) and `useUndoRedo` (snapshot history + keys).
+- **`src/components/`** are the node types plus the chrome (top bar, add menu, inspector, report modal).
+- **`lib/handlers/`** are the API handlers. `api/*.js` (Vercel) and `serve.mjs` (local / CI) both import them, so there is one source of truth.
+- The Board chunk is lazy-loaded: sign-in and the gallery never download React Flow or the node types.
+
+### Persistence model
+
+A board is `{ title, nodes[], edges[] }` in React Flow shape. Every change is reduced to a
+**durable snapshot** (selection, drag and hover state stripped) and that string drives everything:
+
+| Path | When | Where |
+|------|------|-------|
+| Local draft | 350 ms after any change | IndexedDB on this device |
+| Server save | 1100 ms after any change, or `Cmd+S` | `PUT /api/boards/:id` |
+| Online retry | The `online` event | Pushes the unconfirmed snapshot |
+| Restore on open | Once per open | Draft newer than the server copy wins, then autosave pushes it |
+| Undo history | Every snapshot | In memory, 100 entries |
+
+Image bytes live inline as downscaled data URLs (long edge 1800 px, WebP where supported),
+which keeps a board a single row and a single request.
 
 ## Stack
 
@@ -35,8 +108,9 @@ anything - like a detective's evidence board that lives in the browser.
 - **Express** prod-like server (`serve.mjs`) that mirrors the **Vercel** serverless functions in `api/`
 - **Postgres** (`pg`) for board persistence, with a tiny idempotent migration runner
 - **Google OAuth** owner sign-in (stateless HMAC session cookie); shared boards stay public to view
-- **Vitest** unit tests + **Playwright** e2e against a production build
-- Strict CSP (no `unsafe-eval`/`unsafe-inline` for scripts), rate limiting, fail-fast env validation
+- **tesseract.js** for OCR, vendored under `public/tesseract` so the CSP needs no external host
+- **Vitest** unit tests with a coverage ratchet + **Playwright** e2e against a production build
+- Strict CSP (no `unsafe-eval`/`unsafe-inline` for scripts), HSTS, Permissions-Policy, rate limiting, fail-fast env validation
 
 ## Run locally
 
@@ -54,13 +128,33 @@ Or run the exact production build locally:
 npm run prod              # vite build + Express server serving dist/ + the API
 ```
 
+### Environment
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DATABASE_URL` | yes | Postgres connection string |
+| `DATABASE_SSL` | no | `"true"` for a remote Postgres |
+| `FORENSIC_API_SECRET` | yes | Bearer token for the render-only `POST /api/ai/boards` |
+| `OWNER_USER_ID` | yes | `boards.user_id` for API-created boards |
+| `FORENSIC_APP_URL` | yes | Public base URL used in returned board links |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth web client |
+| `AUTH_SECRET` | yes | Session-cookie signing secret |
+| `OWNER_EMAIL` | yes | The only Google account allowed to sign in |
+| `LOCAL_DEV` | no | Dev-only auth bypass on localhost / LAN. Never set in prod |
+
+`lib/env.js` fails the build and the server fast when a required variable is missing. See `.env.example`.
+
 ## Test
 
 ```bash
-npm test                  # vitest unit tests + coverage
+npm test                  # vitest unit tests + coverage (thresholds ratchet upward only)
 npm run test:e2e          # Playwright: API + browser render against a prod build
 npm run lint
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, unit tests, migrations, and the e2e suite against
+a throwaway Postgres on every push and pull request. `prod-monitor.yml` probes the live
+health endpoint on a schedule.
 
 ## API
 
@@ -70,12 +164,20 @@ npm run lint
 | `POST` | `/api/boards` | owner | create a board |
 | `GET` | `/api/boards/:id` | public | read a board (for shared links) |
 | `PUT` | `/api/boards/:id` | owner | update a board |
-| `DELETE` | `/api/boards/:id` | owner | delete a board |
+| `DELETE` | `/api/boards/:id` | owner | delete a board (soft, to trash) |
 | `POST` | `/api/ai/boards` | Bearer | render-only create for programmatic callers |
+| `GET` | `/api/auth/login` `/callback` `/me` | public | Google OAuth flow + session probe |
+| `POST` | `/api/auth/logout` | owner | clear the session |
 | `GET` | `/api/health` | public | liveness + readiness probe |
 
-A board is a React Flow structure: `{ nodes[], edges[] }`. All SQL is parameterized;
-image bytes live inline as downscaled data URLs.
+All SQL is parameterized. Writes are gated on the signed owner session or the Bearer secret,
+and rate limited.
+
+## Deploy
+
+Every push to `main` deploys to Vercel. Production builds run `db/migrate.mjs` first, so a new
+migration in `db/migrations/` ships with the code that needs it. Commits prefixed
+`chore:`, `ci:`, `test:` or `docs:` skip the deploy (`vercel.json` `ignoreCommand`).
 
 ## License
 

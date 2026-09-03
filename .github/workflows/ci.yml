@@ -30,8 +30,11 @@ jobs:
       # Non-secret e2e boot config. NOTE: NODE_ENV is intentionally NOT set to
       # production here - that would make `npm ci` skip devDependencies (vitest,
       # playwright). The `npm run start` script sets NODE_ENV=production itself
-      # for the server process, so the local auth bypass is still gated OFF and
-      # the e2e specs exercise the real Bearer/owner gates.
+      # for the server process. LOCAL_DEV=true is the documented e2e setup (see
+      # tests/e2e/api.spec.js): requests from 127.0.0.1 count as the owner, so the
+      # full owner CRUD path is exercised without a Google session. The Bearer
+      # gate and input validation are exercised separately in the same spec.
+      LOCAL_DEV: "true"
       DATABASE_URL: postgres://localhost:5432/forensic
       PGUSER: postgres
       DATABASE_SSL: "false"
@@ -44,9 +47,9 @@ jobs:
       OWNER_EMAIL: owner@example.com
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

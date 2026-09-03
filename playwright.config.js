@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const PORT = process.env.PORT || "4321";
+// 4336 matches serve.mjs, so a stray sibling app on 4321 is never reused as "the server".
+const PORT = process.env.PORT || "4336";
 const BASE = `http://localhost:${PORT}`;
 
 export default defineConfig({
