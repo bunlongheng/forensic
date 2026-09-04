@@ -44,7 +44,7 @@ describe("BoardTopBar", () => {
     expect(screen.getByText("Case 1")).toBeInTheDocument();
     expect(screen.queryByTitle("Undo (Cmd/Ctrl+Z)")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Copy share link")).not.toBeInTheDocument();
-    expect(screen.queryByTitle("Case report")).not.toBeInTheDocument();
+    expect(screen.getByTitle("Case report")).toBeInTheDocument(); // viewers can read the report too
     expect(screen.getByTitle("Fit to view")).toBeInTheDocument();
     expect(screen.getByTitle("Toggle theme")).toBeInTheDocument();
   });

@@ -5,7 +5,7 @@ import { GalleryHeader } from '../components/GalleryHeader.jsx'
 // Trash: boards that were soft-deleted (3+ nodes go here instead of being
 // destroyed). Same top menu as the gallery - the trash button is lit and takes
 // you back. Each card can be restored to the gallery or deleted forever.
-export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, creating }) {
+export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, creating, loading = false, error = '', onRetry }) {
   const [q, setQ] = useState('')
   const filtered = boards.filter((b) => !q.trim() || (b.title || '').toLowerCase().includes(q.toLowerCase()))
 
@@ -25,9 +25,21 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
           Deleted boards with 3+ items land here so nothing is lost by accident. Bring one back, or remove it for good.
         </p>
 
-        {boards.length === 0 ? (
+        {loading && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 18 }} aria-busy="true" aria-label="Loading trash">
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="fx-skeleton" style={{ height: 195, borderRadius: 14 }} />)}
+          </div>
+        )}
+        {!loading && error && (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 14 }}>{error}</p>
+            <button onClick={onRetry} style={{ padding: '9px 20px', background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Retry</button>
+          </div>
+        )}
+        {!loading && !error && boards.length === 0 && (
           <p style={{ color: 'var(--muted)', fontSize: 14 }}>Trash is empty.</p>
-        ) : (
+        )}
+        {!loading && !error && boards.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 18 }}>
             {filtered.map((b) => (
               <div key={b.id} style={{ position: 'relative' }}>

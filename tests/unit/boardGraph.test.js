@@ -201,3 +201,17 @@ describe("styleNodes / styleEdges", () => {
     expect(e.style.strokeWidth).toBe(4.6);
   });
 });
+
+describe("sanitizeNodes keeps grouping and stacking", () => {
+  it("round-trips parentId, relative position and zIndex through boardSnapshot", () => {
+    const grouped = groupNodes([node("a", 100, 100, { selected: true, zIndex: 3 }), node("b", 300, 200, { selected: true })]);
+    const back = JSON.parse(boardSnapshot({ title: "t", nodes: grouped, edges: [] })).nodes;
+    const g = back.find((n) => n.type === "container");
+    const a = back.find((n) => n.id === "a");
+    expect(a.parentId).toBe(g.id);
+    expect(a.position).toEqual({ x: 26, y: 26 });
+    expect(a.zIndex).toBe(3);
+    expect(g.zIndex).toBe(0);
+    expect(back.find((n) => n.id === "b").parentId).toBe(g.id);
+  });
+});

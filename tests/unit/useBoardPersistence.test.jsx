@@ -113,7 +113,8 @@ describe("useBoardPersistence", () => {
   it("refuses an oversized snapshot without calling updateBoard", async () => {
     const { result, rerender } = setup();
     await act(async () => { await vi.advanceTimersByTimeAsync(0); }); // restore-on-open settles
-    const huge = "x".repeat(4_300_001);
+    // The guard measures the same thing the server does: the nodes JSON, 4 MB.
+    const huge = JSON.stringify({ title: "big", nodes: [{ id: "n", type: "image", position: { x: 0, y: 0 }, data: { src: "x".repeat(4_000_001) } }], edges: [] });
     rerender({ snapshot: huge, canEdit: true });
     await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
     expect(updateBoard).not.toHaveBeenCalled();

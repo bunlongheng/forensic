@@ -8,9 +8,9 @@ function segBtn(active) {
   }
 }
 
-function Swatch({ color, active, onClick, ring }) {
+function Swatch({ color, active, onClick, ring, name }) {
   return (
-    <button onClick={onClick} title={color} style={{
+    <button onClick={onClick} title={name || color} aria-label={name || `Color ${color}`} aria-pressed={Boolean(active)} style={{
       width: 20, height: 20, borderRadius: ring ? '50%' : 6, cursor: 'pointer', padding: 0,
       background: color, flexShrink: 0,
       border: active ? '2px solid var(--text)' : '1px solid rgba(0,0,0,0.2)',

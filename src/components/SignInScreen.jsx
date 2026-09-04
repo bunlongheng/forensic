@@ -63,7 +63,7 @@ export default function SignInScreen({ devBypass, loading }) {
 
       {!loading && (
         <div className="fx-card" style={{ position: 'relative', width: 384, maxWidth: 'calc(100vw - 32px)', background: 'rgba(20,23,29,0.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderRadius: 22, padding: '40px 36px 30px', boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)', textAlign: 'center' }}>
-          <img src="/icon.png" alt="Forensic" width={64} height={64} style={{ display: 'block', margin: '0 auto 18px', borderRadius: 16, boxShadow: '0 10px 26px rgba(0,0,0,0.5)' }} />
+          <img src="/icon-192.png" alt="Forensic" width={64} height={64} style={{ display: 'block', margin: '0 auto 18px', borderRadius: 16, boxShadow: '0 10px 26px rgba(0,0,0,0.5)' }} />
           <h1 className="mono" style={{ fontSize: 26, fontWeight: 700, letterSpacing: '0.16em', color: '#f4f1ea', margin: 0 }}>FORENSIC</h1>
           <div style={{ width: 40, height: 4, borderRadius: 3, background: '#ff4438', margin: '12px auto 16px' }} />
           <p style={{ fontSize: 13.5, color: '#9aa2ad', margin: '0 0 26px', lineHeight: 1.55 }}>

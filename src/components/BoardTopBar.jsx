@@ -3,8 +3,9 @@ import { Icon } from './Icon.jsx'
 const SAVE_LABEL = {
   saving: 'Saving…', saved: 'Saved', error: 'Offline · safe on this device', idle: '',
   toolarge: 'Too large to sync - shrink or remove images', unauth: 'Signed out - sign in again to save',
+  failed: 'Save failed - will retry on the next change',
 }
-const SAVE_ERROR_STATES = new Set(['error', 'toolarge', 'unauth'])
+const SAVE_ERROR_STATES = new Set(['error', 'toolarge', 'unauth', 'failed'])
 
 const iconBtn = {
   display: 'grid', placeItems: 'center', width: 27, height: 27, borderRadius: 7,
@@ -54,7 +55,7 @@ export function BoardTopBar({
         <button onClick={onFit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>
         <button onClick={onExport} title="Export PNG" style={iconBtn}><Icon name="download" size={16} /></button>
         {onShare && <button onClick={onShare} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}
-        {canEdit && <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>}
+        <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>
         {canEdit && <button onClick={onAddImage} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
         {canEdit && <button onClick={onAddSticker} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
         <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>

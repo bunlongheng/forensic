@@ -117,6 +117,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   }, [canEdit])
 
   const fit = useCallback(() => fitView({ padding: 0.2, duration: 400 }), [fitView])
+  const closeReport = useCallback(() => setShowReport(false), []) // stable so the modal's focus effect runs once
 
   // ── Add content ────────────────────────────────────────────────────────────
   const addImageFiles = useCallback(async (files, at) => {
@@ -351,7 +352,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           still pans/zooms inside. */}
       {canEdit && <Decorations />}
 
-      {showReport && <ReportModal title={title} nodes={nodes} edges={edges} onClose={() => setShowReport(false)} />}
+      {showReport && <ReportModal title={title} nodes={nodes} edges={edges} onClose={closeReport} />}
     </div>
   )
 }

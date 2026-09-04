@@ -1,7 +1,7 @@
 // Pure board-graph helpers shared by the Board view and its hooks. No React and
 // no DOM: every function takes plain nodes/edges and returns new values, so the
 // canvas logic is unit-testable without a canvas.
-import { PROFILE_NAMES, PROFILE_COLORS, STICKER_EMOJIS, CONTAINER_TINTS } from './constants.js'
+import { PROFILE_NAMES, PROFILE_COLORS, STICKER_EMOJIS, CONTAINER_TINTS, NOTE_TINTS } from './constants.js'
 
 // Written to the system clipboard on Cmd/Ctrl+C of a node, so a following Cmd/Ctrl+V
 // reliably fires a 'paste' event (which we use to duplicate the node) without ever
@@ -29,7 +29,11 @@ export function sanitizeNodes(nodes) {
       const h = n.height ?? n.style?.height
       if (h != null) style.height = h
     }
-    return { id: n.id, type: n.type, position: n.position, style, data }
+    const out = { id: n.id, type: n.type, position: n.position, style, data }
+    // Durable React Flow fields beyond the basics: a grouped child's parent (its
+    // position is relative to it), explicit stacking, and any extent/expandParent.
+    for (const k of ['parentId', 'zIndex', 'extent', 'expandParent']) if (n[k] != null) out[k] = n[k]
+    return out
   })
 }
 
@@ -58,6 +62,7 @@ export const nodeH = (n) => (typeof n.style?.height === 'number' ? n.style.heigh
 export function newNodeSpec(type, nds) {
   const count = (t) => nds.filter((n) => n.type === t).length
   switch (type) {
+    case 'note': return { style: { width: 200, height: 140 }, data: { text: '', color: NOTE_TINTS[0], editable: true } }
     case 'text': return { style: { width: 180, height: 90 }, data: { text: '', editable: true } }
     case 'clip': return { style: { width: 210 }, data: { text: '', color: '#fbfaf6', editable: true } } // no height - auto-fits
     case 'callout': return { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } }

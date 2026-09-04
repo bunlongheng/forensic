@@ -6,6 +6,8 @@ import { STAMP_LABELS } from '../lib/constants.js'
 // into a full ring around it; drag the ring to spin it like a knob. A tool with
 // `choices` opens a small chooser first (present options before adding).
 const ITEMS = [
+  { key: 'clip', icon: 'clip', label: 'Quick note' },
+  { key: 'note', icon: 'note', label: 'Sticky' },
   { key: 'text', icon: 'text', label: 'Text' },
   { key: 'callout', icon: 'callout', label: 'Callout' },
   { key: 'annotation', icon: 'circle', label: 'Circle' },

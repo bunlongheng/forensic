@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTheme, PHONE_MAX } from './theme.js'
 import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
@@ -45,7 +45,8 @@ export default function App() {
   const [view, setView] = useState('gallery') // 'gallery' | 'board' | 'trash'
   const [boards, setBoards] = useState(null) // null = loading, else the array
   const [boardsError, setBoardsError] = useState('')
-  const [trash, setTrash] = useState([])
+  const [trash, setTrash] = useState([]) // null while the Trash view is loading
+  const [trashError, setTrashError] = useState('')
   const [active, setActive] = useState(null)
   const [user, setUser] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
@@ -72,9 +73,11 @@ export default function App() {
   const [loadError, setLoadError] = useState(false)
   const [toast, setToast] = useState({ message: '', visible: false })
 
+  const toastTimer = useRef(null)
   const showToast = useCallback((message) => {
     setToast({ message, visible: true })
-    setTimeout(() => setToast((x) => ({ ...x, visible: false })), 2400)
+    clearTimeout(toastTimer.current) // a second toast gets its full 2.4s, not the remainder of the first
+    toastTimer.current = setTimeout(() => setToast((x) => ({ ...x, visible: false })), 2400)
   }, [])
 
   const loadBoards = useCallback(() => {
@@ -149,16 +152,18 @@ export default function App() {
   }
 
   const loadTrash = useCallback(() => {
-    listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => setTrash([]))
-  }, [])
+    setTrash(null); setTrashError('')
+    listTrash().then((rows) => setTrash(rows.map(normalize)))
+      .catch(() => { setTrash([]); setTrashError('Could not load the trash'); showToast('Could not load the trash') })
+  }, [showToast])
   function openTrash() { loadTrash(); setView('trash') }
   function restoreOne(b) {
-    restoreBoard(b.id).then(() => { setTrash((t) => t.filter((x) => x.id !== b.id)); showToast('Restored'); loadBoards() })
+    restoreBoard(b.id).then(() => { setTrash((t) => (t || []).filter((x) => x.id !== b.id)); showToast('Restored'); loadBoards() })
       .catch(() => showToast('Restore failed'))
   }
   function purgeOne(b) {
     if (!window.confirm(`Permanently delete "${b.title}"? This cannot be undone.`)) return
-    purgeBoard(b.id).then(() => { setTrash((t) => t.filter((x) => x.id !== b.id)); showToast('Deleted forever') })
+    purgeBoard(b.id).then(() => { setTrash((t) => (t || []).filter((x) => x.id !== b.id)); showToast('Deleted forever') })
       .catch(() => showToast('Delete failed'))
   }
 
@@ -201,7 +206,7 @@ export default function App() {
   if (view === 'trash') {
     return (
       <>
-        <Trash boards={trash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
+        <Trash boards={trash || []} loading={trash === null} error={trashError} onRetry={loadTrash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
           onCreate={createNew} onSignOut={signOut} creating={creating}
           onBack={() => { setView('gallery'); loadBoards() }}
           onRestore={restoreOne} onPurge={purgeOne} />
@@ -216,7 +221,7 @@ export default function App() {
       <Gallery
         boards={boards || []} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
         onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut}
-        onOpenTrash={openTrash} trashCount={trash.length} creating={creating}
+        onOpenTrash={openTrash} trashCount={(trash || []).length} creating={creating}
         loading={boards === null} error={boardsError} onRetry={loadBoards}
       />
       <Toast {...toast} />

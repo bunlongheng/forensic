@@ -13,7 +13,7 @@ export function GalleryHeader({ themeName, onToggleTheme, onCreate, onSignOut, o
     <header style={{ position: 'sticky', top: 0, zIndex: 5, background: 'color-mix(in srgb, var(--bg) 88%, transparent)', backdropFilter: 'blur(10px)', borderBottom: '1px solid var(--border)' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: 'calc(14px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) 14px calc(20px + env(safe-area-inset-left))', display: 'flex', alignItems: 'center', gap: 14 }}>
         <button onClick={onHome} title="Your boards" style={{ display: 'flex', alignItems: 'center', gap: 14, background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--text)', marginRight: 'auto' }}>
-          <img src="/icon.png" alt="" width={30} height={30} style={{ borderRadius: 8 }} />
+          <img src="/icon-192.png" alt="" width={30} height={30} style={{ borderRadius: 8 }} />
           <span style={{ textAlign: 'left' }}>
             <span className="mono" style={{ display: 'block', fontSize: 18, fontWeight: 700, letterSpacing: '.14em' }}>FORENSIC</span>
             <span style={{ display: 'block', fontSize: 11, color: 'var(--muted)', marginTop: 1 }}>Wire the evidence together</span>

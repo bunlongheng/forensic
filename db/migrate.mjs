@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import pg from "pg";
-import { sslConfig } from "../lib/db.js";
+import { sslConfig, connectionString } from "../lib/db.js";
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,7 +26,7 @@ async function main() {
   }
 
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: connectionString(),
     ssl: process.env.DATABASE_SSL === "true" ? sslConfig() : false,
   });
 

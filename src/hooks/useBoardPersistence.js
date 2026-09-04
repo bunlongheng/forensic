@@ -6,7 +6,7 @@ import { boardSnapshot } from '../lib/boardGraph.js'
 // A board this large would blow past most hosts' request-body limit (and the
 // server's own 413), so we refuse to even try and tell the owner why instead of
 // spinning on a save that can never land.
-const MAX_SNAPSHOT_BYTES = 4_300_000
+const MAX_NODES_BYTES = 4_000_000 // mirrors lib/validate.js
 
 // Everything that gets a board from memory to somewhere durable, owner only:
 //   - debounced autosave to the server (only when DURABLE content changes)
@@ -25,16 +25,23 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
   // the PUT, and the bookkeeping (savedSnap / local draft / save state) that the
   // debounced save, the online retry and Cmd+S all used to duplicate.
   const push = useCallback(async (snap, { toast } = {}) => {
-    if (snap.length > MAX_SNAPSHOT_BYTES) { setSave('toolarge'); return }
+    const body = JSON.parse(snap)
+    // Same measure as lib/validate.js (nodes only, 4 MB) so the pill and the 400 agree.
+    if (JSON.stringify(body.nodes).length > MAX_NODES_BYTES) { setSave('toolarge'); return }
     setSave('saving')
     try {
-      await updateBoard(board.id, JSON.parse(snap))
+      await updateBoard(board.id, body)
       savedSnap.current = snap
       clearDraft(board.id) // server has it now - drop the local draft so a reload never restores stale work
       setSave('saved')
       if (toast) showToast(toast)
     } catch (e) {
-      setSave(e?.status === 413 ? 'toolarge' : e?.status === 401 ? 'unauth' : 'error')
+      // No HTTP status (or the browser says so) = offline. Anything else is the
+      // server refusing the save - say that, not 'offline'.
+      if (e?.status === 413) setSave('toolarge')
+      else if (e?.status === 401) setSave('unauth')
+      else if (!e?.status || navigator.onLine === false) setSave('error')
+      else setSave('failed')
     }
   }, [board.id, showToast])
 

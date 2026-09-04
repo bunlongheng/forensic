@@ -63,13 +63,13 @@ jobs:
 
       - run: npm ci
 
-      - run: npm audit --audit-level=high
+      - run: npm audit # zero vulnerabilities, same bar as CONTRIBUTING
 
       - name: Cache Playwright browsers
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-1.62.1
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       # Throwaway secrets, generated fresh each run - never real credentials.
       - name: Generate throwaway e2e secrets

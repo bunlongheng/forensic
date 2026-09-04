@@ -37,7 +37,7 @@ const RED = "#ff4438";
 const SIZES = {
   "icon-512.png": 512, "icon-192.png": 192, "icon-180.png": 180,
   "apple-touch-icon.png": 180, "icon-96.png": 96, "icon-48.png": 48,
-  "icon-32.png": 32, "icon-16.png": 16, "icon.png": 512, "favicon.png": 48,
+  "icon-32.png": 32, "icon-16.png": 16, "favicon.png": 48,
 };
 
 async function buildPngs() {

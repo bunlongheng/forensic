@@ -30,8 +30,6 @@ playwright-report
 *.sln
 *.sw?
 .vercel
-.env*
-.env.local
 
 # tesseract runtime assets - restored from node_modules by scripts/vendor-tesseract.mjs
 # (postinstall). Only eng.traineddata.gz is committed; it has no npm source.

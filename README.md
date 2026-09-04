@@ -25,8 +25,8 @@ anything - like a detective's evidence board that lives in the browser.
 - **Red threads** - drag from any node edge to wire it to as many others as you like. Threads attach to the nearest point on each card's boundary and light up when either end is selected.
 - **Auto-thread** - multi-select assets and hit **Chain** (nearest-neighbour path) or **Fan** (biggest asset out to the rest).
 - **Group / ungroup** - wrap a selection in a container so the whole set moves as one (`Cmd/Ctrl+G`, `Shift` to ungroup).
-- **16 evidence types** - see the table below. Every node resizes, and most take an inline caption, tint, lock, and send-to-back.
-- **In-browser OCR** - extract the text from any pinned image with tesseract.js, self-hosted, zero API cost.
+- **16 evidence types** - see the table below. Every node except the auto-height quick note resizes; most take a tint, photos take a caption, and the annotation ring supports lock and send-to-back.
+- **In-browser OCR** - the case report runs tesseract.js over every pinned photo, self-hosted, zero API cost.
 - **Case report** - one click renders the board as a readable report (images, notes, threads).
 - **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z` and `Cmd/Ctrl+Shift+Z`.
 - **Autosave + crash safety** - debounced saves to Postgres, a fast local draft on this device, and a retry the moment the connection returns.
@@ -40,7 +40,7 @@ anything - like a detective's evidence board that lives in the browser.
 |------|------------|------|------------|
 | `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint (legacy/API-created type - no menu tool) |
 | `text` | Handwritten text block (Caveat) | `clip` | Paper-clipped quick note (auto height) |
-| `callout` | Speech-bubble emphasis | `stamp` | Circle ink stamp (APPROVED, SECRET, ...) |
+| `callout` | Speech-bubble emphasis | `stamp` | Slanted or circle ink stamp (APPROVED, SECRET, ...) |
 | `redaction` | Black bar | `marker` | Numbered crime-scene marker |
 | `wax` | Wax seal | `crosshair` | Target crosshair |
 | `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn ring |
