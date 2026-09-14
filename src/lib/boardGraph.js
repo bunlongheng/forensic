@@ -15,49 +15,105 @@ export const uid = (p) => `${p}-${Date.now().toString(36)}-${(SEQ++).toString(36
 // Crucial: NodeResizer writes the new size to n.width/n.height (NOT n.style), so
 // fold the current rendered size back into style - otherwise a resize is never
 // saved and the node snaps back to its original size on reload.
-export function sanitizeNodes(nodes) {
-  return nodes.map((n) => {
-    const data = { ...(n.data || {}) }
-    delete data.editable
-    const w = n.width ?? n.measured?.width ?? n.style?.width
-    const style = { ...n.style }
-    if (w != null) style.width = w
-    // Persist a height ONLY when the node owns an explicit one (a resize, or a
-    // fixed-size node). Auto-height nodes (quick notes) keep none so they stay
-    // content-sized on reload instead of freezing at a measured height.
-    if (n.style?.height != null || n.height != null) {
-      const h = n.height ?? n.style?.height
-      if (h != null) style.height = h
-    }
-    const out = { id: n.id, type: n.type, position: n.position, style, data }
-    // Durable React Flow fields beyond the basics: a grouped child's parent (its
-    // position is relative to it), explicit stacking, and any extent/expandParent.
-    for (const k of ['parentId', 'zIndex', 'extent', 'expandParent']) if (n[k] != null) out[k] = n[k]
+// Postgres jsonb stores object keys in ITS own order (length, then bytes), so a
+// board read back from the server stringifies differently from the identical
+// board held on the client. That made the draft-vs-server comparison in
+// useBoardPersistence fire on content that had not changed. Canonicalise the key
+// order and the two agree.
+function sortDeep(v) {
+  if (Array.isArray(v)) return v.map(sortDeep)
+  if (v && typeof v === 'object') {
+    const out = {}
+    for (const k of Object.keys(v).sort()) out[k] = sortDeep(v[k])
     return out
-  })
+  }
+  return v
 }
 
-export function sanitizeEdges(edges) {
-  return edges.map((e) => {
-    const c = { ...e }
-    delete c.selected
-    return c
-  })
+export function sanitizeNode(n) {
+  const data = { ...(n.data || {}) }
+  delete data.editable
+  const w = n.width ?? n.measured?.width ?? n.style?.width
+  const style = { ...n.style }
+  if (w != null) style.width = w
+  // Persist a height ONLY when the node owns an explicit one (a resize, or a
+  // fixed-size node). Auto-height nodes (quick notes) keep none so they stay
+  // content-sized on reload instead of freezing at a measured height.
+  if (n.style?.height != null || n.height != null) {
+    const h = n.height ?? n.style?.height
+    if (h != null) style.height = h
+  }
+  const out = { id: n.id, type: n.type, position: sortDeep(n.position), style: sortDeep(style), data: sortDeep(data) }
+  // Durable React Flow fields beyond the basics: a grouped child's parent (its
+  // position is relative to it), explicit stacking, and any extent/expandParent.
+  for (const k of ['parentId', 'zIndex', 'extent', 'expandParent']) if (n[k] != null) out[k] = n[k]
+  return out
 }
+
+export const sanitizeNodes = (nodes) => nodes.map(sanitizeNode)
+
+export function sanitizeEdge(e) {
+  const c = { ...e }
+  delete c.selected
+  return sortDeep(c)
+}
+
+export const sanitizeEdges = (edges) => edges.map(sanitizeEdge)
 
 export function withEditable(nodes, editable) {
   return nodes.map((n) => ({ ...n, data: { ...n.data, editable } }))
 }
 
+// Per-item snapshot cache, keyed on the node/edge OBJECT. Boards carry base64
+// image data, so re-stringifying the whole board on every touch (a click, a hover,
+// a measure) burned megabytes of JSON per interaction - that was the single biggest
+// source of the lag. React Flow replaces only the objects it actually changed, so
+// re-stringify only those and reuse the rest. WeakMap keys, so nothing is retained.
+// The width/height guard covers the case where a resize lands on the same object.
+const NODE_JSON = new WeakMap()
+const EDGE_JSON = new WeakMap()
+
+function nodeJson(n) {
+  const w = n.width ?? n.measured?.width
+  const h = n.height ?? n.measured?.height
+  const hit = NODE_JSON.get(n)
+  if (hit && hit.w === w && hit.h === h) return hit.json
+  const json = JSON.stringify(sanitizeNode(n))
+  NODE_JSON.set(n, { json, w, h })
+  return json
+}
+
+function edgeJson(e) {
+  let json = EDGE_JSON.get(e)
+  if (json === undefined) { json = JSON.stringify(sanitizeEdge(e)); EDGE_JSON.set(e, json) }
+  return json
+}
+
+// One-entry memo of the assembled string. The per-item cache above kills the
+// stringify walk, but joining a few MB of parts back together is itself expensive,
+// and a mere selection change hands us a brand-new nodes ARRAY of unchanged parts.
+// Comparing the parts by reference is O(n) pointer checks, so an interaction that
+// changed nothing durable now costs nothing at all.
+let LAST = { title: null, nodes: [], edges: [], out: '' }
+const samePairs = (a, b) => a.length === b.length && a.every((x, i) => x === b[i])
+
 // The durable, comparable form of a board. Identical content => identical string,
-// which is what autosave, drafts and undo all key on.
-export const boardSnapshot = ({ title, nodes, edges }) =>
-  JSON.stringify({ title: title || 'Untitled Board', nodes: sanitizeNodes(nodes || []), edges: sanitizeEdges(edges || []) })
+// which is what autosave, drafts and undo all key on. Byte-for-byte the same output
+// as JSON.stringify over the sanitized board - just assembled from cached parts.
+export function boardSnapshot({ title, nodes, edges }) {
+  const t = title || 'Untitled Board'
+  const np = (nodes || []).map(nodeJson)
+  const ep = (edges || []).map(edgeJson)
+  if (t === LAST.title && samePairs(np, LAST.nodes) && samePairs(ep, LAST.edges)) return LAST.out
+  const out = `{"title":${JSON.stringify(t)},"nodes":[${np.join(',')}],"edges":[${ep.join(',')}]}`
+  LAST = { title: t, nodes: np, edges: ep, out }
+  return out
+}
 
 export const nodeW = (n) => (typeof n.style?.width === 'number' ? n.style.width : (n.measured?.width || n.width || 150))
 export const nodeH = (n) => (typeof n.style?.height === 'number' ? n.style.height : (n.measured?.height || n.height || 90))
 
-// Default size + data for each FAB object type. Numbered/named types (marker,
+// Default size + data for each object type. Named types (
 // profile, container, sticker) pick their next value from what's already on the board.
 export function newNodeSpec(type, nds) {
   const count = (t) => nds.filter((n) => n.type === t).length
@@ -68,10 +124,7 @@ export function newNodeSpec(type, nds) {
     case 'callout': return { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } }
     case 'stamp': return { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } }
     case 'redaction': return { style: { width: 170, height: 26 }, data: { color: '#111111', editable: true } }
-    case 'marker': return { style: { width: 52, height: 52 }, data: { number: count('marker') + 1, color: '#8b1e3f', editable: true } }
-    case 'wax': return { style: { width: 84, height: 84 }, data: { symbol: '★', color: '#8b1e3f', editable: true } }
     case 'crosshair': return { style: { width: 90, height: 90 }, data: { color: '#e5231b', editable: true } }
-    case 'spotlight': return { style: { width: 220, height: 220 }, data: { dim: 0.72, editable: true }, zIndex: 50 }
     case 'annotation': return { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } }
     case 'drawing': return { style: { width: 220, height: 160 }, data: { paths: [], editable: true } }
     case 'sticker': return { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } }
@@ -87,11 +140,13 @@ export function newNodeSpec(type, nds) {
 // Drop one of the FAB object types at `at`. Containers slide to the BACK of the
 // stack (they group visually and must sit under the evidence); everything else
 // lands on top where you added it.
-export function addNode(nds, type, at, extra) {
+export function addNode(nds, type, at, extra, exact = false) {
   const spec = newNodeSpec(type, nds)
   if (!spec) return nds
   // Cascade each new object so they never land in one stack (which buries them).
-  const off = (nds.length % 8) * 28
+  // `exact` turns that off: when the owner picked the spot (the CMD cursor ring)
+  // the node belongs on it, not 100px down-right of it.
+  const off = exact ? 0 : (nds.length % 8) * 28
   const node = { id: uid(type), type, position: { x: at.x + off, y: at.y + off }, ...spec }
   if (extra) node.data = { ...node.data, ...extra }
   if (type === 'container') { node.position = { x: at.x - 160, y: at.y - 120 }; node.zIndex = 0; return [node, ...nds] }
@@ -116,10 +171,14 @@ export function groupNodes(nds) {
   const sel = nds.filter((n) => n.selected && n.type !== 'container' && !n.parentId)
   if (sel.length < 2) return nds
   const pad = 26
-  const minX = Math.min(...sel.map((n) => n.position.x)) - pad
-  const minY = Math.min(...sel.map((n) => n.position.y)) - pad
-  const maxX = Math.max(...sel.map((n) => n.position.x + nodeW(n))) + pad
-  const maxY = Math.max(...sel.map((n) => n.position.y + nodeH(n))) + pad
+  // Rounded on purpose. Positions are fractional at any zoom other than 100%, and
+  // React Flow re-measures the rendered container with an INTEGER offsetWidth - so
+  // a fractional box came back a different size on the next frame, which recorded
+  // a phantom undo entry (eating the redo tail) and triggered a save on mere open.
+  const minX = Math.round(Math.min(...sel.map((n) => n.position.x)) - pad)
+  const minY = Math.round(Math.min(...sel.map((n) => n.position.y)) - pad)
+  const maxX = Math.round(Math.max(...sel.map((n) => n.position.x + nodeW(n))) + pad)
+  const maxY = Math.round(Math.max(...sel.map((n) => n.position.y + nodeH(n))) + pad)
   const gid = uid('container')
   const group = {
     id: gid, type: 'container', position: { x: minX, y: minY }, zIndex: 0, selected: true,
@@ -134,8 +193,16 @@ export function groupNodes(nds) {
 }
 
 // Ungroup selected container(s): free their children back to absolute positions.
+// A selected CHILD counts as selecting its group - clicking a photo inside a group
+// selects the photo, not the container, so without this Cmd+G would look dead.
 export function ungroupNodes(nds) {
+  const byId = new Map(nds.map((n) => [n.id, n]))
   const groups = nds.filter((n) => n.selected && n.type === 'container')
+  for (const n of nds) {
+    if (!n.selected || !n.parentId) continue
+    const p = byId.get(n.parentId)
+    if (p?.type === 'container' && !groups.includes(p)) groups.push(p)
+  }
   if (!groups.length) return nds
   const gids = new Set(groups.map((g) => g.id))
   const gpos = Object.fromEntries(groups.map((g) => [g.id, g.position]))
@@ -178,6 +245,13 @@ export function addThreads(eds, pairs) {
   return add.length ? eds.concat(add) : eds
 }
 
+// The size React Flow is actually rendering a node at, with a sane fallback for
+// a node that has not been measured yet.
+export const nodeSize = (n) => ({
+  w: n.measured?.width ?? n.width ?? n.style?.width ?? 200,
+  h: n.measured?.height ?? n.height ?? n.style?.height ?? 140,
+})
+
 // SHIFT-drag snap: align a node's center on X or Y with the node(s) it's wired
 // to, so the thread runs perfectly horizontal or vertical. Returns the snapped
 // position, or null when nothing is within range.
@@ -185,20 +259,45 @@ export function snapToConnected(node, nodes, edges, SNAP = 34) {
   const conn = new Set()
   edges.forEach((ed) => { if (ed.source === node.id) conn.add(ed.target); if (ed.target === node.id) conn.add(ed.source) })
   if (!conn.size) return null
-  const dim = (n) => ({ w: n.measured?.width ?? n.width ?? n.style?.width ?? 200, h: n.measured?.height ?? n.height ?? n.style?.height ?? 140 })
-  const d = dim(node)
+  const d = nodeSize(node)
   const cx = node.position.x + d.w / 2
   const cy = node.position.y + d.h / 2
   let nx = node.position.x, ny = node.position.y, bestX = SNAP, bestY = SNAP
   for (const n of nodes) {
     if (!conn.has(n.id)) continue
-    const nd = dim(n)
+    const nd = nodeSize(n)
     const dx = Math.abs(cx - (n.position.x + nd.w / 2))
     const dy = Math.abs(cy - (n.position.y + nd.h / 2))
     if (dx < bestX) { bestX = dx; nx = n.position.x + nd.w / 2 - d.w / 2 }
     if (dy < bestY) { bestY = dy; ny = n.position.y + nd.h / 2 - d.h / 2 }
   }
   return nx !== node.position.x || ny !== node.position.y ? { x: nx, y: ny } : null
+}
+
+// Drag-time line-up target: the nearest OTHER photo, reported as the height to
+// match and the top edge to sit on - so a row of evidence prints lines up at one
+// height instead of a ragged staircase. Width follows the dragged photo's OWN
+// aspect ratio so nothing is squashed. `same: true` means the heights already
+// agree and only the top edge needs aligning. Returns null when nothing is close.
+// Grouped children are skipped: their position is relative to the parent, so the
+// distance maths (and the on-screen ghost) would not line up.
+export function matchHeightHint(node, nodes, RADIUS = 900, TOL = 3) {
+  if (node.type !== 'image' || node.parentId) return null
+  const d = nodeSize(node)
+  if (!d.h) return null
+  const cx = node.position.x + d.w / 2
+  const cy = node.position.y + d.h / 2
+  let best = null, bestDist = RADIUS
+  for (const n of nodes) {
+    if (n.id === node.id || n.type !== 'image' || n.parentId) continue
+    const s = nodeSize(n)
+    const dist = Math.hypot(cx - (n.position.x + s.w / 2), cy - (n.position.y + s.h / 2))
+    if (dist < bestDist) { bestDist = dist; best = { ...s, y: n.position.y } }
+  }
+  if (!best) return null
+  // `y` is the neighbour's TOP edge, so the caller can line the two up on it.
+  const out = { y: best.y, h: Math.round(best.h), w: Math.round(d.w * (best.h / d.h)) }
+  return Math.abs(best.h - d.h) <= TOL ? { ...out, w: Math.round(d.w), h: Math.round(d.h), same: true } : out
 }
 
 // Apply per-node lock (not draggable) and send-to-back (renders behind others).

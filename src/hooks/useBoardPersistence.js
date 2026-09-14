@@ -8,6 +8,12 @@ import { boardSnapshot } from '../lib/boardGraph.js'
 // spinning on a save that can never land.
 const MAX_NODES_BYTES = 4_000_000 // mirrors lib/validate.js
 
+// Byte size of a draft's nodes, using the same measure as the save guard.
+// A corrupt draft counts as infinite so it is never preferred.
+function draftNodesBytes(snapshot) {
+  try { return JSON.stringify(JSON.parse(snapshot).nodes || []).length } catch { return Infinity }
+}
+
 // Everything that gets a board from memory to somewhere durable, owner only:
 //   - debounced autosave to the server (only when DURABLE content changes)
 //   - a fast local draft on this device (crash / offline safety)
@@ -16,15 +22,37 @@ const MAX_NODES_BYTES = 4_000_000 // mirrors lib/validate.js
 //   - restore-on-open: bring back an unsynced draft, then frame the board
 // Returns the save state for the pill and `restoreReady`, which gates local
 // writes until we've checked for an existing draft.
-export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast }) {
+export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast, makeThumb }) {
   const [save, setSave] = useState('idle') // idle | saving | saved | error | toolarge | unauth
   const savedSnap = useRef(null)
   const restoreReady = useRef(false)
+  const thumbBusy = useRef(false)
+  const snapRef = useRef(snapshot)   // the latest snapshot, for the clearDraft guard
+  const queued = useRef(null)        // the next save to run once the current one lands
+  const running = useRef(false)
+
+  // The gallery card is a real snapshot of the canvas. Capturing it costs
+  // 150-600ms of main thread on a heavy board, so it runs ONLY on an explicit
+  // Cmd/Ctrl+S - never on autosave, and never on a timer. The card can therefore
+  // lag behind the board, which is the deliberate trade: no background capture
+  // ever stutters an edit, and no idle tab quietly hammers the server.
+  // It rides its own tiny PUT (thumbnail only, no nodes), so a board too large to
+  // sync its content still keeps a card. Best-effort: a failed capture is never
+  // worth a toast, and never blocks or fails the save itself.
+  const pushThumb = useCallback(async () => {
+    if (!makeThumb || !board.id || thumbBusy.current) return
+    thumbBusy.current = true
+    try {
+      const thumbnail = await makeThumb()
+      if (thumbnail) await updateBoard(board.id, { thumbnail })
+    } catch { /* best effort */ }
+    finally { thumbBusy.current = false }
+  }, [makeThumb, board.id])
 
   // Single place that actually pushes a snapshot to the server: the size guard,
   // the PUT, and the bookkeeping (savedSnap / local draft / save state) that the
   // debounced save, the online retry and Cmd+S all used to duplicate.
-  const push = useCallback(async (snap, { toast } = {}) => {
+  const sendOne = useCallback(async (snap, { toast } = {}) => {
     const body = JSON.parse(snap)
     // Same measure as lib/validate.js (nodes only, 4 MB) so the pill and the 400 agree.
     if (JSON.stringify(body.nodes).length > MAX_NODES_BYTES) { setSave('toolarge'); return }
@@ -32,7 +60,11 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     try {
       await updateBoard(board.id, body)
       savedSnap.current = snap
-      clearDraft(board.id) // server has it now - drop the local draft so a reload never restores stale work
+      // Only drop the device's safety net when what we just stored IS the current
+      // board. Clearing unconditionally deleted the draft of an edit made WHILE
+      // the request was in flight, so an offline pill could claim "safe on this
+      // device" with nothing actually on the device.
+      if (snap === snapRef.current) clearDraft(board.id)
       setSave('saved')
       if (toast) showToast(toast)
     } catch (e) {
@@ -45,10 +77,29 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     }
   }, [board.id, showToast])
 
+  // Saves are SERIALIZED, never fired in parallel. Two overlapping PUTs have no
+  // ordering guarantee: a slow save of an older snapshot could land after a newer
+  // one and overwrite it, while the pill happily said "Saved". Only one request is
+  // ever in flight, and whatever arrives while it runs collapses into a single
+  // follow-up carrying the NEWEST state.
+  const push = useCallback(async (snap, opts) => {
+    queued.current = { snap, opts }
+    if (running.current) return
+    running.current = true
+    try {
+      while (queued.current) {
+        const next = queued.current
+        queued.current = null
+        await sendOne(next.snap, next.opts)
+      }
+    } finally { running.current = false }
+  }, [sendOne])
+
   // Persist only when the durable content changes. `snapshot` strips selection /
   // drag / hover state, so merely opening or clicking a board never re-saves and
   // never bumps its gallery order.
   useEffect(() => {
+    snapRef.current = snapshot
     if (!canEdit || !board.id) return
     if (savedSnap.current === null) { savedSnap.current = snapshot; return } // initial load - never save
     if (snapshot === savedSnap.current) return                              // no real change
@@ -87,11 +138,12 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
         e.preventDefault()
         if (!board.id) return
         push(snapshot, { toast: 'Board saved' })
+        pushThumb() // an explicit save is the ONLY thing that refreshes the gallery card
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, board.id, snapshot, push])
+  }, [canEdit, board.id, snapshot, push, pushThumb])
 
   // Auto-hide the "Saved" pill 3s after a save settles.
   useEffect(() => {
@@ -111,13 +163,36 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
       if (!alive) return
       let hasContent = (board.nodes || []).length > 0
       if (draft?.snapshot && draft.snapshot !== serverSnap) {
-        try {
-          const d = JSON.parse(draft.snapshot)
-          restore(d)
-          savedSnap.current = serverSnap // baseline = server, so autosave re-pushes the restored draft
-          showToast('Restored your unsaved changes')
-          hasContent = (d.nodes || []).length > 0
-        } catch { /* corrupt draft - fall through to the server copy */ }
+        // NEWEST WINS. This used to restore the local draft unconditionally, which
+        // meant an hour-old draft on this device silently overwrote work saved
+        // from another device - reproduced, and it destroyed the remote version
+        // with no prompt. A draft only wins when it is genuinely newer than what
+        // the server holds.
+        const serverTs = Date.parse(board.updatedAt || '') || 0
+        // A draft bigger than the save cap can NEVER reach the server. Restoring
+        // one traps the board in "Too large to sync" forever: the fat draft is
+        // rewritten on every edit, so it stays the newest copy and wins every
+        // reload. If the server has a version that actually fits, that one wins
+        // regardless of age - a copy that can sync beats one that cannot.
+        const draftFits = draftNodesBytes(draft.snapshot) <= MAX_NODES_BYTES
+        const serverFits = JSON.stringify(board.nodes || []).length <= MAX_NODES_BYTES
+        if (!draftFits && serverFits) {
+          clearDraft(board.id)
+          showToast('Your device held an oversized copy - loaded the synced version')
+        } else if (draft.ts > serverTs) {
+          try {
+            const d = JSON.parse(draft.snapshot)
+            restore(d)
+            savedSnap.current = serverSnap // baseline = server, so autosave re-pushes the restored draft
+            showToast('Restored your unsaved changes')
+            hasContent = (d.nodes || []).length > 0
+          } catch { /* corrupt draft - fall through to the server copy */ }
+        } else {
+          // The server moved on after this draft was written. Keep the newer copy
+          // and drop the stale one, so it cannot clobber anything on a later open.
+          clearDraft(board.id)
+          showToast('Loaded a newer version saved elsewhere')
+        }
       }
       // A saved viewport (zoom/pan) beats fitView - the owner (or a returning
       // viewer) reopens exactly where they left off instead of snapping to fit.

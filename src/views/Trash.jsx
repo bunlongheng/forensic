@@ -5,7 +5,7 @@ import { GalleryHeader } from '../components/GalleryHeader.jsx'
 // Trash: boards that were soft-deleted (3+ nodes go here instead of being
 // destroyed). Same top menu as the gallery - the trash button is lit and takes
 // you back. Each card can be restored to the gallery or deleted forever.
-export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, creating, loading = false, error = '', onRetry }) {
+export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, creating, loading = false, error = '', onRetry , narrow = false }) {
   const [q, setQ] = useState('')
   const filtered = boards.filter((b) => !q.trim() || (b.title || '').toLowerCase().includes(q.toLowerCase()))
 
@@ -13,7 +13,7 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <GalleryHeader
         themeName={themeName} onToggleTheme={onToggleTheme} onCreate={onCreate} onSignOut={onSignOut}
-        onTrash={onBack} trashActive onHome={onBack} q={q} setQ={setQ} creating={creating}
+        onTrash={onBack} trashActive onHome={onBack} q={q} setQ={setQ} creating={creating} narrow={narrow}
       />
 
       <main style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 20px 80px' }}>

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   sanitizeNodes, sanitizeEdges, withEditable, boardSnapshot, uid, nodeW, nodeH,
   newNodeSpec, addNode, duplicateNode, arrangeZ, groupNodes, ungroupNodes,
-  threadPairs, addThreads, snapToConnected, styleNodes, styleEdges,
+  threadPairs, addThreads, snapToConnected, matchHeightHint, styleNodes, styleEdges,
 } from "../../src/lib/boardGraph.js";
 
 const node = (id, x, y, extra = {}) => ({ id, type: "image", position: { x, y }, style: { width: 100, height: 50 }, data: {}, ...extra });
@@ -40,6 +40,33 @@ describe("sanitizeEdges / withEditable / boardSnapshot", () => {
     expect(JSON.parse(a).title).toBe("Untitled Board");
   });
 
+  it("boardSnapshot matches a plain stringify of the sanitized board (the cache is transparent)", () => {
+    const board = {
+      title: "Case",
+      nodes: [node("a", 0, 0, { data: { src: "data:image/png;base64,AAAA" } }), node("b", 10, 20, { parentId: "a", zIndex: 4 })],
+      edges: [{ id: "e", source: "a", target: "b", selected: true }],
+    };
+    const naive = JSON.stringify({ title: board.title, nodes: sanitizeNodes(board.nodes), edges: sanitizeEdges(board.edges) });
+    expect(boardSnapshot(board)).toBe(naive);
+  });
+
+  it("boardSnapshot picks up a resize written back onto the SAME node object", () => {
+    const n = node("a", 0, 0);
+    const before = boardSnapshot({ title: "t", nodes: [n], edges: [] });
+    n.width = 400; n.height = 300; // NodeResizer-style write, same object identity
+    const after = boardSnapshot({ title: "t", nodes: [n], edges: [] });
+    expect(after).not.toBe(before);
+    expect(JSON.parse(after).nodes[0].style).toEqual({ width: 400, height: 300 });
+  });
+
+  it("canonicalises key order so a jsonb round trip compares equal", () => {
+    // Postgres jsonb reorders object keys; without sorting, the same board read
+    // back from the server produced a different snapshot string than the client's.
+    const a = boardSnapshot({ title: "t", nodes: [node("a", 0, 0, { data: { label: "L", color: "#fff", zebra: 1 } })], edges: [] });
+    const b = boardSnapshot({ title: "t", nodes: [node("a", 0, 0, { data: { zebra: 1, color: "#fff", label: "L" } })], edges: [] });
+    expect(a).toBe(b);
+  });
+
   it("uid is unique and prefixed", () => {
     const a = uid("img"), b = uid("img");
     expect(a).toMatch(/^img-/);
@@ -55,11 +82,14 @@ describe("sanitizeEdges / withEditable / boardSnapshot", () => {
 });
 
 describe("newNodeSpec / addNode", () => {
-  it("numbers markers and cycles profile names from what is already on the board", () => {
-    const nds = [{ type: "marker" }, { type: "marker" }, { type: "profile" }];
-    expect(newNodeSpec("marker", nds).data.number).toBe(3);
+  it("cycles profile names from what is already on the board", () => {
+    const nds = [{ type: "profile" }, { type: "note" }];
     expect(newNodeSpec("profile", nds).data.name).not.toBe(newNodeSpec("profile", []).data.name);
     expect(newNodeSpec("nope", nds)).toBeNull();
+  });
+
+  it("has no spec for the retired marker, wax seal and spotlight types", () => {
+    for (const t of ["marker", "wax", "spotlight"]) expect(newNodeSpec(t, [])).toBeNull();
   });
 
   it("cascades new objects and merges extra data", () => {
@@ -135,6 +165,15 @@ describe("groupNodes / ungroupNodes", () => {
     const nds = sel();
     expect(ungroupNodes(nds)).toBe(nds);
   });
+
+  it("ungroups from a selected CHILD too - clicking a photo inside a group selects the photo", () => {
+    const grouped = groupNodes([node("a", 100, 100, { selected: true }), node("b", 300, 200, { selected: true })]);
+    const withChildSelected = grouped.map((n) => (n.id === "a" ? { ...n, selected: true } : { ...n, selected: false }));
+    const freed = ungroupNodes(withChildSelected);
+    expect(freed.some((n) => n.type === "container")).toBe(false);
+    expect(freed.find((n) => n.id === "a").position).toEqual({ x: 100, y: 100 });
+    expect(freed.find((n) => n.id === "a").parentId).toBeUndefined();
+  });
 });
 
 describe("threadPairs / addThreads", () => {
@@ -203,6 +242,18 @@ describe("styleNodes / styleEdges", () => {
 });
 
 describe("sanitizeNodes keeps grouping and stacking", () => {
+  it("groups on integer bounds - a fractional box gets re-measured and records a phantom undo entry", () => {
+    const grouped = groupNodes([
+      { id: "a", type: "clip", position: { x: 10.42, y: 20.77 }, style: { width: 100.3, height: 50.9 }, data: {}, selected: true },
+      { id: "b", type: "clip", position: { x: 300.61, y: 20.15 }, style: { width: 100.2, height: 50.4 }, data: {}, selected: true },
+    ]);
+    const g = grouped.find((n) => n.type === "container");
+    expect(Number.isInteger(g.position.x)).toBe(true);
+    expect(Number.isInteger(g.position.y)).toBe(true);
+    expect(Number.isInteger(g.style.width)).toBe(true);
+    expect(Number.isInteger(g.style.height)).toBe(true);
+  });
+
   it("round-trips parentId, relative position and zIndex through boardSnapshot", () => {
     const grouped = groupNodes([node("a", 100, 100, { selected: true, zIndex: 3 }), node("b", 300, 200, { selected: true })]);
     const back = JSON.parse(boardSnapshot({ title: "t", nodes: grouped, edges: [] })).nodes;
@@ -213,5 +264,34 @@ describe("sanitizeNodes keeps grouping and stacking", () => {
     expect(a.zIndex).toBe(3);
     expect(g.zIndex).toBe(0);
     expect(back.find((n) => n.id === "b").parentId).toBe(g.id);
+  });
+});
+
+describe("matchHeightHint", () => {
+  const img = (id, x, y, w, h) => ({ id, type: "image", position: { x, y }, style: { width: w, height: h } });
+
+  it("reports the nearest photo's height and top edge, scaling width by the dragged aspect ratio", () => {
+    const dragged = img("a", 0, 40, 300, 200);
+    const near = img("b", 340, 90, 450, 300);
+    expect(matchHeightHint(dragged, [dragged, near])).toEqual({ w: 450, h: 300, y: 90 });
+  });
+
+  it("flags `same` when the heights already agree, so only the top edge lines up", () => {
+    const dragged = img("a", 0, 40, 300, 200);
+    const hint = matchHeightHint(dragged, [dragged, img("b", 340, 90, 260, 200)]);
+    expect(hint).toEqual({ w: 300, h: 200, y: 90, same: true });
+  });
+
+  it("ignores photos beyond the radius and non-image nodes", () => {
+    const dragged = img("a", 0, 0, 300, 200);
+    expect(matchHeightHint(dragged, [dragged, img("far", 5000, 0, 400, 400)])).toBeNull();
+    expect(matchHeightHint(dragged, [dragged, { ...img("n", 340, 0, 400, 400), type: "note" }])).toBeNull();
+  });
+
+  it("skips grouped children on both sides", () => {
+    const dragged = { ...img("a", 0, 0, 300, 200), parentId: "g" };
+    expect(matchHeightHint(dragged, [dragged, img("b", 340, 0, 400, 400)])).toBeNull();
+    const free = img("a", 0, 0, 300, 200);
+    expect(matchHeightHint(free, [free, { ...img("b", 340, 0, 400, 400), parentId: "g" }])).toBeNull();
   });
 });

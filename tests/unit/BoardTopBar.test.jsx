@@ -2,19 +2,28 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { ReactFlowProvider } from "@xyflow/react";
 import { BoardTopBar, MultiSelectBar } from "../../src/components/BoardTopBar.jsx";
 
 afterEach(cleanup);
 
+// The zoom badge reads the live viewport off the React Flow store (so a pan/zoom
+// re-renders that span alone, not the whole board), so the bar needs a provider.
+const TopBar = (props) => (
+  <ReactFlowProvider>
+    <BoardTopBar {...props} />
+  </ReactFlowProvider>
+);
+
 const base = {
-  canEdit: true, title: "Case 1", onTitle: vi.fn(), save: "idle", zoomPct: 100, onBack: vi.fn(),
+  canEdit: true, title: "Case 1", onTitle: vi.fn(), save: "idle", onBack: vi.fn(),
   undo: vi.fn(), redo: vi.fn(), canUndo: true, canRedo: false, onFit: vi.fn(), onExport: vi.fn(),
   onShare: vi.fn(), onReport: vi.fn(), onAddImage: vi.fn(), onAddSticker: vi.fn(), onToggleTheme: vi.fn(), themeName: "light",
 };
 
 describe("BoardTopBar", () => {
   it("shows the editable title, zoom and full tool cluster for the owner", () => {
-    render(<BoardTopBar {...base} />);
+    render(<TopBar {...base} />);
     const input = screen.getByLabelText("Board title");
     fireEvent.change(input, { target: { value: "Case 2" } });
     expect(base.onTitle).toHaveBeenCalledWith("Case 2");
@@ -28,18 +37,18 @@ describe("BoardTopBar", () => {
   });
 
   it("renders the save pill states", () => {
-    const { rerender } = render(<BoardTopBar {...base} save="saving" />);
+    const { rerender } = render(<TopBar {...base} save="saving" />);
     expect(screen.getByText(/Saving/)).toBeInTheDocument();
-    rerender(<BoardTopBar {...base} save="error" />);
+    rerender(<TopBar {...base} save="error" />);
     expect(screen.getByText(/Offline/)).toBeInTheDocument();
-    rerender(<BoardTopBar {...base} save="toolarge" />);
+    rerender(<TopBar {...base} save="toolarge" />);
     expect(screen.getByText(/Too large to sync/)).toBeInTheDocument();
-    rerender(<BoardTopBar {...base} save="unauth" />);
+    rerender(<TopBar {...base} save="unauth" />);
     expect(screen.getByText(/Signed out/)).toBeInTheDocument();
   });
 
   it("is read-only for viewers: static title, no editing tools, no share without an id", () => {
-    render(<BoardTopBar {...base} canEdit={false} onShare={null} />);
+    render(<TopBar {...base} canEdit={false} onShare={null} />);
     expect(screen.queryByLabelText("Board title")).not.toBeInTheDocument();
     expect(screen.getByText("Case 1")).toBeInTheDocument();
     expect(screen.queryByTitle("Undo (Cmd/Ctrl+Z)")).not.toBeInTheDocument();

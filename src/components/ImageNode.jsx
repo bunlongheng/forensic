@@ -59,6 +59,20 @@ function ImageNode({ id, data, selected }) {
   function commit() { setEditing(false); updateNodeData(id, { label: draft }); restore() }
 
   const showCap = data.showCaption === true   // off unless the owner enables it
+
+  // Flicking Caption ON is a request to WRITE one, so go straight there: zoom to
+  // the photo and open the field for typing. Otherwise the owner has to flip the
+  // switch, hunt for the photo on the board, and double-click the strip. Only on
+  // the off -> on transition, and only when there is no caption yet, so re-showing
+  // an existing caption just shows it.
+  const wasShowing = useRef(showCap)
+  useEffect(() => {
+    if (showCap && !wasShowing.current && editable && !data.label) startEdit()
+    wasShowing.current = showCap
+    // startEdit is stable enough here; re-running on anything else would re-open
+    // the field while the owner is typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCap])
   const rip = data.rip === true
   const ripClip = rip ? tornBottom(id) : 'none'
   // Photo style: original | wrinkle | newspaper | puzzle. (data.grayscale/.wrinkle

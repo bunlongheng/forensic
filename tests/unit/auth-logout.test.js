@@ -25,6 +25,15 @@ function req() {
 }
 
 describe("POST /api/auth/logout", () => {
+  // Vercel routes every method to the same function, so without a guard a plain
+  // GET cleared the cookie - an <img> tag anywhere could sign the owner out.
+  it("405s a GET and leaves the cookie alone", async () => {
+    const res = mockRes();
+    await authLogout({ ...req(), method: "GET" }, res);
+    expect(res.statusCode).toBe(405);
+    expect(res.headers["Set-Cookie"]).toBeUndefined();
+  });
+
   it("returns 200 and clears the session cookie (__Host- prefixed since the request is not local/http)", async () => {
     const res = mockRes();
     await authLogout(req(), res);

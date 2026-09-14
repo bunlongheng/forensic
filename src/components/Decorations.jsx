@@ -18,10 +18,13 @@ export function Decorations() {
         position: 'absolute', inset: 30, pointerEvents: 'none', zIndex: 3,
         background: 'radial-gradient(125% 120% at 50% 38%, rgba(255,246,225,0.10) 0%, transparent 46%, rgba(74,52,28,0.30) 100%)',
       }} />
+      {/* Plain opacity, NOT mix-blend-mode: a full-viewport blend layer forces the
+          browser to re-composite the whole board on every frame of a pan/zoom, and
+          at 6% the two look the same. */}
       <div className="fx-frame" style={{
         position: 'absolute', inset: 30, pointerEvents: 'none', zIndex: 3,
         backgroundImage: `url("${GRAIN}")`, backgroundSize: '140px 140px',
-        mixBlendMode: 'multiply', opacity: 0.06,
+        opacity: 0.055,
       }} />
       {/* Wooden embossed frame. */}
       <div className="fx-frame" style={{

@@ -63,8 +63,13 @@ function nodeEl(i) {
       <text x={cx} y={cy} fontSize={h * 0.3} fontWeight="800" textAnchor="middle" dominantBaseline="central" fill="#1a1712">{(data.text || '!').slice(0, 14)}</text>
     </g>
   }
-  // note / text - paper cards (cream for plain paper, the tint for stickies)
-  const fill = type === 'text' ? '#f7f2e6' : (data.variant === 'sticky' ? (data.color || '#fef3c7') : '#f2ece0')
+  // The 'ink' text style has no paper behind it - draw the lettering itself.
+  if (type === 'text' && data.variant === 'ink') {
+    return <text key={id} x={x} y={cy} fontFamily="var(--font-ransom)" fontSize={h * 0.5} textAnchor="start"
+      dominantBaseline="central" fill={data.ink || '#111111'}>{(data.text || 'TEXT').slice(0, 18)}</text>
+  }
+  // note / text scrap - paper cards (cream for plain paper, the tint for stickies)
+  const fill = type === 'text' ? (data.color || '#f7f2e6') : (data.variant === 'sticky' ? (data.color || '#fef3c7') : '#f2ece0')
   return <rect key={id} x={x} y={y} width={w} height={h} rx="4" fill={fill} stroke="rgba(0,0,0,0.12)" strokeWidth="2" />
 }
 
@@ -123,7 +128,13 @@ function BoardCard({ board, accent, onOpen, onDelete }) {
         style={{ display: 'block', width: '100%', background: 'none', border: 'none', padding: 0, margin: 0, textAlign: 'left', font: 'inherit', color: 'inherit', cursor: 'pointer' }}
       >
         <div style={{ borderBottom: '1px solid var(--border)' }}>
-          <Preview nodes={nodes} edges={edges} accent={accent} />
+          {/* One flat snapshot painted when the board saved. The vector projection
+              stays as the fallback for a board that has not been opened since
+              thumbnails shipped - the list API strips image bytes, so that path
+              can only ever draw placeholders where the photos are. */}
+          {board.thumbnail
+            ? <img src={board.thumbnail} alt="" loading="lazy" style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block', background: 'var(--panel-2)' }} />
+            : <Preview nodes={nodes} edges={edges} accent={accent} />}
         </div>
         <div style={{ padding: '11px 46px 11px 13px' }}>
           <div className="mono" style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{board.title}</div>

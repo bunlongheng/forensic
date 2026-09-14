@@ -30,11 +30,16 @@ function ClipNode({ id, data }) {
     restore()
   }
   // Freshly dropped (double-click on the board) notes open straight into edit mode.
-  // Deferred a frame so we don't setState synchronously inside the mount effect.
+  // Deferred so we don't setState synchronously inside the mount effect - and, on
+  // a DOUBLE-click, so focus lands after the gesture is over. Focusing on the next
+  // frame put the textarea up ~10ms in, mid-gesture; the tail of the double-click
+  // then stole focus, and commit() deletes a blurred EMPTY note - so the note you
+  // just dropped vanished about two times in three. Waiting out the gesture means
+  // there is nothing focused for it to steal.
   useEffect(() => {
     if (!data.autoEdit) return
-    const raf = requestAnimationFrame(() => { updateNodeData(id, { autoEdit: undefined }); startEdit() })
-    return () => cancelAnimationFrame(raf)
+    const t = setTimeout(() => { updateNodeData(id, { autoEdit: undefined }); startEdit() }, 140)
+    return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

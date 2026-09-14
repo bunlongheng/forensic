@@ -6,38 +6,88 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// jsdom has no real FileReader / image decode / canvas pipeline, so stand all
+// three up: a reader that hands back `dataUrl`, an <img> that reports w x h, and
+// a canvas whose toDataURL honors only the types listed in `encodes`.
+function stubPipeline({ dataUrl, w = 10, h = 10, encodes = ["image/webp"], out = "X", alpha = false }) {
+  class FakeFileReader {
+    readAsDataURL() { this.result = dataUrl; this.onload?.(); }
+  }
+  class FakeImage {
+    set src(_v) { this.width = w; this.height = h; this.onload?.(); }
+  }
+  vi.stubGlobal("FileReader", FakeFileReader);
+  vi.stubGlobal("Image", FakeImage);
+
+  const calls = [];
+  const canvas = {
+    width: 0, height: 0,
+    getContext: () => ({
+      drawImage: () => {},
+      // 4 pixels; the alpha byte is what hasTransparency() samples.
+      getImageData: () => ({ data: new Uint8ClampedArray([0, 0, 0, alpha ? 0 : 255]) }),
+    }),
+    toDataURL: (type, q) => {
+      calls.push({ type, q });
+      // An engine that does not support `type` silently returns a PNG instead.
+      return encodes.includes(type) ? `data:${type};base64,${out}` : "data:image/png;base64,PNGPNGPNG";
+    },
+  };
+  vi.spyOn(document, "createElement").mockImplementation((tag) =>
+    (tag === "canvas" ? canvas : document.createElement.wrappedMethod?.call(document, tag) ?? {}),
+  );
+  return calls;
+}
+
+const pngFile = (name = "shot.png") => {
+  const f = new File(["x"], name, { type: "image/png" });
+  Object.defineProperty(f, "size", { value: 100 });
+  return f;
+};
+
 describe("fileToImage", () => {
   it("rejects a non-image File", async () => {
     const file = new File(["hello"], "notes.txt", { type: "text/plain" });
     await expect(fileToImage(file)).rejects.toThrow("Not an image");
   });
 
-  it("returns { src, width, height } for a small image that needs no downscaling", async () => {
-    const dataUrl = "data:image/png;base64,AAAA";
+  it("re-encodes a PNG to WebP - the whole point, since a pasted screenshot is a PNG", async () => {
+    const calls = stubPipeline({ dataUrl: "data:image/png;base64," + "A".repeat(500) });
+    const result = await fileToImage(pngFile());
+    expect(calls[0].type).toBe("image/webp");
+    expect(result.src.startsWith("data:image/webp")).toBe(true);
+  });
 
-    // jsdom has no real FileReader/Image decode pipeline - stub both so the
-    // "no downscale needed" branch (which never touches <canvas>) can be
-    // exercised deterministically.
-    class FakeFileReader {
-      readAsDataURL() {
-        this.result = dataUrl;
-        this.onload?.();
-      }
-    }
-    class FakeImage {
-      set src(_v) {
-        this.width = 10;
-        this.height = 10;
-        this.onload?.();
-      }
-    }
-    vi.stubGlobal("FileReader", FakeFileReader);
-    vi.stubGlobal("Image", FakeImage);
+  it("re-encodes even a small image, so EXIF/ICC is always stripped on the way in", async () => {
+    const calls = stubPipeline({ dataUrl: "data:image/jpeg;base64,AA", w: 8, h: 8 });
+    await fileToImage(new File(["x"], "p.jpg", { type: "image/jpeg" }));
+    expect(calls.length).toBeGreaterThan(0); // it went through the canvas, not straight through
+  });
 
-    const file = new File(["tiny"], "pin.png", { type: "image/png" });
-    Object.defineProperty(file, "size", { value: 100 });
+  it("falls back to JPEG (not PNG) when WebP is unsupported and the bitmap is opaque", async () => {
+    const calls = stubPipeline({ dataUrl: "data:image/png;base64,AA", encodes: ["image/jpeg"], alpha: false });
+    const result = await fileToImage(pngFile());
+    expect(calls.map((c) => c.type)).toEqual(["image/webp", "image/jpeg"]);
+    expect(result.src.startsWith("data:image/jpeg")).toBe(true);
+  });
 
-    const result = await fileToImage(file);
-    expect(result).toEqual({ src: dataUrl, width: 10, height: 10 });
+  it("falls back to PNG when WebP is unsupported and the bitmap really uses alpha", async () => {
+    const calls = stubPipeline({ dataUrl: "data:image/png;base64,AA", encodes: ["image/png"], alpha: true });
+    await fileToImage(pngFile("logo.png"));
+    expect(calls.map((c) => c.type)).toEqual(["image/webp", "image/png"]);
+  });
+
+  it("keeps the original when a small lossy source would only grow", async () => {
+    const dataUrl = "data:image/jpeg;base64,AA";
+    stubPipeline({ dataUrl, out: "B".repeat(400) });
+    const result = await fileToImage(new File(["x"], "tiny.jpg", { type: "image/jpeg" }));
+    expect(result.src).toBe(dataUrl);
+  });
+
+  it("passes an SVG straight through - there is no raster size to shrink", async () => {
+    const dataUrl = "data:image/svg+xml;base64,AA";
+    stubPipeline({ dataUrl, w: 64, h: 64 });
+    const result = await fileToImage(new File(["x"], "i.svg", { type: "image/svg+xml" }));
+    expect(result).toEqual({ src: dataUrl, width: 64, height: 64 });
   });
 });
