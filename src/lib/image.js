@@ -1,10 +1,18 @@
-// Turn a dropped/pasted image File into a canvas-ready node payload. Large images
-// are downscaled to MAX px on the long edge and re-encoded (WebP where supported,
-// else PNG) so a board packed with photos stays light in Postgres and fast to
-// pan/zoom. Returns { src, width, height } - width/height are the natural pixels
-// used to seed the node's on-canvas size while preserving aspect ratio.
+// Turn a dropped/pasted image File into a canvas-ready node payload. Images are
+// downscaled to MAX px on the long edge and ALWAYS re-encoded to WebP, so a board
+// packed with photos stays light in Postgres and fast to pan/zoom. Returns
+// { src, width, height } - width/height are the natural pixels used to seed the
+// node's on-canvas size while preserving aspect ratio.
+//
+// WebP for everything, deliberately. This used to keep PNG sources as PNG "for
+// the alpha channel", but WebP carries alpha perfectly well and a pasted 1800px
+// screenshot is a PNG - which is how boards ended up at 8-12 MB of base64 and hit
+// the 4 MB save cap. Same resolution, same visual quality, roughly 85% smaller.
+//
+// Re-encoding unconditionally also strips EXIF/ICC on the way through (canvas
+// only carries pixels), so camera metadata - GPS included - never reaches the DB.
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
-const RECODE_OVER = 350_000 // bytes: recode anything bigger even if it fits MAX
+const QUALITY = 0.82
 
 const readAsDataURL = (file) =>
   new Promise((resolve, reject) => {
@@ -22,6 +30,17 @@ const loadImage = (src) =>
     img.src = src
   })
 
+// Does the bitmap actually use its alpha channel? A pasted screenshot is a PNG but
+// is fully opaque, so it can safely fall back to JPEG. Sampled, not exhaustive -
+// a 1800px scan of every pixel is not worth the milliseconds.
+function hasTransparency(ctx, w, h) {
+  try {
+    const { data } = ctx.getImageData(0, 0, w, h)
+    for (let i = 3; i < data.length; i += 40) if (data[i] < 250) return true
+    return false
+  } catch { return true } // can't tell - assume alpha and keep a lossless fallback
+}
+
 export async function fileToImage(file) {
   if (!file.type.startsWith('image/')) throw new Error('Not an image')
   const dataUrl = await readAsDataURL(file)
@@ -32,9 +51,6 @@ export async function fileToImage(file) {
   }
   const img = await loadImage(dataUrl)
   const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-  const needsWork = scale < 1 || file.size > RECODE_OVER
-  if (!needsWork) return { src: dataUrl, width: img.width, height: img.height }
-
   const w = Math.max(1, Math.round(img.width * scale))
   const h = Math.max(1, Math.round(img.height * scale))
   const canvas = document.createElement('canvas')
@@ -42,11 +58,19 @@ export async function fileToImage(file) {
   canvas.height = h
   const ctx = canvas.getContext('2d')
   ctx.drawImage(img, 0, 0, w, h)
-  const hasAlpha = file.type === 'image/png' || file.type === 'image/gif'
-  const type = hasAlpha ? 'image/png' : 'image/webp'
-  let out = canvas.toDataURL(type, 0.8)
-  // Some engines silently ignore webp and hand back a data: URL of another type;
-  // fall back to jpeg if webp wasn't honored and we don't need alpha.
-  if (!hasAlpha && !out.startsWith('data:image/webp')) out = canvas.toDataURL("image/jpeg", 0.8)
+
+  let out = canvas.toDataURL('image/webp', QUALITY)
+  // Some engines silently ignore webp and hand back a data: URL of another type.
+  // Then it's JPEG, unless the bitmap really does use its alpha - only then PNG,
+  // which is the expensive one we are trying to avoid.
+  if (!out.startsWith('data:image/webp')) {
+    out = hasTransparency(ctx, w, h) ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', QUALITY)
+  }
+  // A tiny, already-optimised source can survive the round trip larger than it
+  // started. Keep whichever is smaller, as long as the original was already a
+  // metadata-free lossy format.
+  if (out.length > dataUrl.length && (file.type === 'image/webp' || file.type === 'image/jpeg')) {
+    return { src: dataUrl, width: img.width, height: img.height }
+  }
   return { src: out, width: w, height: h }
 }

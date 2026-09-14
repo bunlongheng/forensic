@@ -21,6 +21,11 @@ function openDB() {
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error)
   })
+  // Do NOT cache a rejection. Safari can fail indexedDB.open transiently right
+  // after launch; caching that failure silently disabled every draft write for
+  // the rest of the session, while the save pill still promised the work was
+  // "safe on this device". Clearing it lets the next call try again.
+  dbPromise.catch(() => { dbPromise = null })
   return dbPromise
 }
 

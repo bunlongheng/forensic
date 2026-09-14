@@ -1,4 +1,4 @@
-import { NOTE_TINTS, BRIGHT_TINTS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, MARKER_COLORS, WAX_COLORS, CROSSHAIR_COLORS } from '../lib/constants.js'
+import { NOTE_TINTS, BRIGHT_TINTS, TEXT_STYLES, INK_COLORS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, CROSSHAIR_COLORS } from '../lib/constants.js'
 
 function segBtn(active) {
   return {
@@ -29,7 +29,7 @@ function Row({ label, children }) {
 }
 
 // A single-line labeled text input - used for the 4 kinds that just need to name
-// something (person, group, marker number, wax emboss).
+// something (person, group, stamp label).
 function TextField({ label, value, onChange, placeholder, maxLength }) {
   return (
     <div style={{ marginTop: 9 }}>
@@ -83,7 +83,7 @@ function PinControl({ data, onNode, pin }) {
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
 export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, width = 264 }) {
-  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', marker: 'Marker', wax: 'Wax seal', crosshair: 'Crosshair', spotlight: 'Spotlight' }[kind] || 'Item'
+  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', crosshair: 'Crosshair' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
 
@@ -194,10 +194,25 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
 
       {kind === 'text' && (
         <>
-          <Row label="Paper color">
-            {BRIGHT_TINTS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#f7f2e6') === c} onClick={() => onNode({ color: c })} />)}
+          <Row label="Style">
+            {TEXT_STYLES.map((t) => (
+              <button key={t.key} onClick={() => onNode({ variant: t.key })} style={segBtn((data?.variant || 'rip') === t.key)}>{t.label}</button>
+            ))}
           </Row>
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Double-click the scrap to write.</div>
+          {data?.variant === 'ink' ? (
+            <Row label="Ink color">
+              {INK_COLORS.map((c) => <Swatch key={c} color={c} active={(data?.ink || '#111111') === c} onClick={() => onNode({ ink: c })} />)}
+            </Row>
+          ) : (
+            <Row label="Paper color">
+              {BRIGHT_TINTS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#f7f2e6') === c} onClick={() => onNode({ color: c })} />)}
+            </Row>
+          )}
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>
+            {data?.variant === 'ink'
+              ? 'Bare lettering straight on the board - no paper behind it.'
+              : 'A scrap ripped off a notepad. Double-click to write.'}
+          </div>
         </>
       )}
 
@@ -247,40 +262,12 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
         </>
       )}
 
-      {kind === 'marker' && (
-        <>
-          <TextField label="Number" value={data?.number} onChange={(v) => onNode({ number: v })} placeholder="1" />
-          <Row label="Badge color">
-            {MARKER_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
-          </Row>
-        </>
-      )}
-
-      {kind === 'wax' && (
-        <>
-          <TextField label="Emboss (letter or symbol)" value={data?.symbol} onChange={(v) => onNode({ symbol: v })} placeholder="★" maxLength={2} />
-          <Row label="Wax color">
-            {WAX_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
-          </Row>
-        </>
-      )}
-
       {kind === 'crosshair' && (
         <Row label="Reticle color">
           {CROSSHAIR_COLORS.map((c) => <Swatch key={c} color={c} active={(data?.color || '#e5231b') === c} onClick={() => onNode({ color: c })} />)}
         </Row>
       )}
 
-      {kind === 'spotlight' && (
-        <>
-          <Row label="Dim">
-            {[['0.55', 'Soft'], ['0.72', 'Medium'], ['0.88', 'Dark']].map(([v, l]) => (
-              <button key={v} onClick={() => onNode({ dim: Number(v) })} style={segBtn((data?.dim ?? 0.72) === Number(v))}>{l}</button>
-            ))}
-          </Row>
-          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Drag the lit spot to move it; resize to widen the beam.</div>
-        </>
-      )}
     </div>
   )
 }

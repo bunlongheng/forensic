@@ -12,7 +12,8 @@ const Board = lazy(() => import('./views/Board.jsx'))
 // Normalize an API row into the single board shape the whole UI speaks.
 const normalize = (r) => ({
   id: r.id, title: r.title || 'Untitled Board',
-  nodes: r.nodes || [], edges: r.edges || [], updatedAt: r.updated_at || r.created_at,
+  nodes: r.nodes || [], edges: r.edges || [], thumbnail: r.thumbnail || null,
+  updatedAt: r.updated_at || r.created_at,
 })
 
 function setUrlId(id) {
@@ -209,7 +210,7 @@ export default function App() {
         <Trash boards={trash || []} loading={trash === null} error={trashError} onRetry={loadTrash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
           onCreate={createNew} onSignOut={signOut} creating={creating}
           onBack={() => { setView('gallery'); loadBoards() }}
-          onRestore={restoreOne} onPurge={purgeOne} />
+          onRestore={restoreOne} onPurge={purgeOne} narrow={narrow} />
         <Toast {...toast} />
       </>
     )
@@ -222,7 +223,7 @@ export default function App() {
         boards={boards || []} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
         onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut}
         onOpenTrash={openTrash} trashCount={(trash || []).length} creating={creating}
-        loading={boards === null} error={boardsError} onRetry={loadBoards}
+        loading={boards === null} error={boardsError} onRetry={loadBoards} narrow={narrow}
       />
       <Toast {...toast} />
     </>

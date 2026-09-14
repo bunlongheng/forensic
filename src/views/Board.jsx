@@ -15,21 +15,22 @@ import CalloutNode from '../components/CalloutNode.jsx'
 import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
-import MarkerNode from '../components/MarkerNode.jsx'
-import WaxSealNode from '../components/WaxSealNode.jsx'
 import CrosshairNode from '../components/CrosshairNode.jsx'
-import SpotlightNode from '../components/SpotlightNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
 import { ReportModal } from '../components/ReportModal.jsx'
-import { AddMenu } from '../components/AddMenu.jsx'
+import { CursorTools, RING_SAFE } from '../components/CursorTools.jsx'
+import { SnapGuides } from '../components/SnapGuides.jsx'
 import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
 import { fileToImage } from '../lib/image.js'
 import { saveViewport } from '../lib/localBoard.js'
+import { makeThumbnail } from '../lib/thumbnail.js'
+import { snapAlign } from '../lib/snapAlign.js'
+import { TOOL_ITEMS } from '../lib/tools.js'
 import {
   uid, withEditable, boardSnapshot, addNode, arrangeZ,
-  groupNodes, ungroupNodes, threadPairs, addThreads, snapToConnected, styleNodes, styleEdges,
+  groupNodes, ungroupNodes, threadPairs, addThreads, snapToConnected, matchHeightHint, styleNodes, styleEdges,
 } from '../lib/boardGraph.js'
 import { useBoardPersistence } from '../hooks/useBoardPersistence.js'
 import { useUndoRedo } from '../hooks/useUndoRedo.js'
@@ -39,18 +40,20 @@ const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
   callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
-  marker: MarkerNode, wax: WaxSealNode, crosshair: CrosshairNode, spotlight: SpotlightNode,
+  crosshair: CrosshairNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
+// How long CMD has to be held still before the cursor ring blooms. Long enough
+// that CMD+G / CMD+S / a CMD-drag never flash it, short enough to feel instant.
+const RING_DWELL = 260
 
 function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, showToast }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(withEditable(board.nodes || [], canEdit))
   const [edges, setEdges, onEdgesChange] = useEdgesState(board.edges || [])
   const [title, setTitle] = useState(board.title || 'Untitled Board')
-  const [zoomPct, setZoomPct] = useState(100)
-  const { screenToFlowPosition, fitView, setViewport, updateNodeData, getViewport } = useReactFlow()
+  const { screenToFlowPosition, flowToScreenPosition, fitView, setViewport, updateNodeData, getViewport } = useReactFlow()
   const [sel, setSel] = useState(null) // { kind:'note'|'image'|'edge', id }
   const [multiCount, setMultiCount] = useState(0) // # of selected top-level nodes (for Group)
   const [showReport, setShowReport] = useState(false)
@@ -70,11 +73,56 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // reliable), and adjusted directly during render (React's documented pattern),
   // not in an effect, so it never lags a frame behind.
   const [dragging, setDragging] = useState(false)
+  const [sizeHint, setSizeHint] = useState(null) // { id, w, h, x, y, same } - CMD line-up ghost
+  const hintRef = useRef(null)                   // same value, readable from onDragStop
+  const [guides, setGuides] = useState([])       // CMD snap-align lines, in board coords
+  const nodesRef = useRef(nodes)                 // live layout for the per-frame drag path
+  const metaRef = useRef(false)                  // CMD/Ctrl held right now
   const onDragStart = useCallback(() => setDragging(true), [])
-  const onDragStop = useCallback(() => setDragging(false), [])
+  // Releasing with the line-up ghost up commits it: the photo takes the
+  // neighbour's height. NodeResizer writes to n.width/n.height (NOT n.style), so
+  // set both - sanitizeNode folds them together when the board saves.
+  const onDragStop = useCallback(() => {
+    setDragging(false)
+    const h = hintRef.current
+    if (h) {
+      if (!h.same) {
+        setNodes((nds) => nds.map((n) => (n.id === h.id
+          ? { ...n, width: h.w, height: h.h, style: { ...n.style, width: h.w, height: h.h } }
+          : n)))
+      }
+    }
+    hintRef.current = null
+    setSizeHint(null)
+    setGuides((g) => (g.length ? [] : g))
+  }, [setNodes])
+  // Safety net, and it is load-bearing: React Flow ABORTS a drag without calling
+  // onNodeDragStop when the dragged node vanishes mid-gesture (delete it while
+  // holding it) or a second finger lands. `dragging` then stayed true forever,
+  // `content` stayed frozen, and the board silently stopped saving, undoing and
+  // drafting for the rest of the session - no error, no pill, everything lost on
+  // refresh. A pointer that is no longer down cannot be a drag in progress.
+  useEffect(() => {
+    if (!dragging) return
+    // Same abort path leaves the snap guide and the size ghost painted on a line
+    // the node is no longer on, so they come down with it.
+    const clear = () => {
+      setDragging(false)
+      hintRef.current = null
+      setSizeHint(null)
+      setGuides((g) => (g.length ? [] : g))
+    }
+    window.addEventListener('pointerup', clear)
+    window.addEventListener('pointercancel', clear)
+    return () => {
+      window.removeEventListener('pointerup', clear)
+      window.removeEventListener('pointercancel', clear)
+    }
+  }, [dragging])
   // NodeResizer has no board-level callback, but React Flow flags the node with
   // `resizing` on every dimension change, so a resize is frozen the same way.
-  const busy = dragging || nodes.some((n) => n.resizing)
+  const isResizing = nodes.some((n) => n.resizing)
+  const busy = dragging || isResizing
   const [content, setContent] = useState({ nodes, edges })
   if (!busy && (nodes !== content.nodes || edges !== content.edges)) {
     setContent({ nodes, edges })
@@ -93,13 +141,25 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     setSel(null)
   }, [setNodes, setEdges, canEdit])
 
-  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast })
+  // Snapshots the live canvas fitted to the whole board. The fit is an override
+  // passed to the capture, not a real viewport move, so the owner's zoom and pan
+  // stay exactly where they are.
+  const contentRef = useRef(content)
+  useEffect(() => { contentRef.current = content }, [content])
+  const makeThumb = useCallback(
+    () => makeThumbnail(contentRef.current.nodes, theme.canvas),
+    [theme.canvas],
+  )
+
+  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast, makeThumb })
   const { undo, redo, canUndo, canRedo } = useUndoRedo({ snapshot, canEdit, restore })
 
   // Remember where the owner is looking (zoom/pan), throttled, so an accidental
   // refresh reopens at the exact same spot instead of snapping back to fit.
+  // Deliberately does NO setState - it fires on every frame of a pan/zoom, so the
+  // zoom % badge subscribes to the React Flow store itself (see BoardTopBar) rather
+  // than re-rendering the whole board 60x a second.
   const onMove = useCallback((_, vp) => {
-    setZoomPct(Math.round(vp.zoom * 100))
     vpRef.current = vp
     if (!board.id || !restoreReady.current || vpTimer.current) return
     vpTimer.current = setTimeout(() => { vpTimer.current = null; saveViewport(board.id, vpRef.current) }, 300)
@@ -140,7 +200,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
-  const addNodeOfType = useCallback((type, at, extra) => setNodes((nds) => addNode(nds, type, at, extra)), [setNodes])
+  const addNodeOfType = useCallback((type, at, extra, exact) => setNodes((nds) => addNode(nds, type, at, extra, exact)), [setNodes])
 
   const centerPos = useCallback(() => {
     const r = wrapRef.current?.getBoundingClientRect()
@@ -175,44 +235,254 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (pairs.length) setEdges((eds) => addThreads(eds, pairs))
   }, [nodes, setEdges])
 
-  // Cmd/Ctrl+G groups the selection; add Shift to ungroup.
+  // Cmd/Ctrl+G TOGGLES: with a group selected it ungroups, otherwise it groups.
+  // Hitting the same keys again to undo the grouping is the reflex, and having to
+  // remember a second Shift variant for it never was. Shift still forces ungroup.
   useEffect(() => {
     if (!canEdit) return
     const onKey = (e) => {
       if (typing() || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'g') return
       e.preventDefault()
-      if (e.shiftKey) ungroupSelected(); else groupSelected()
+      const onGroup = nodes.some((n) => n.selected && (n.type === 'container' || n.parentId))
+      if (e.shiftKey || onGroup) ungroupSelected(); else groupSelected()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, groupSelected, ungroupSelected])
+  }, [canEdit, nodes, groupSelected, ungroupSelected])
 
-  // DOUBLE-click/tap empty canvas to drop a note, already open for typing. We count
-  // taps in a short window ourselves rather than trust e.detail, which is unreliable
-  // on touch. onPaneClick only fires on the pane, so nodes are never affected.
+  // Hold SHIFT while dragging a node to snap it into a straight line with the
+  // node(s) it's wired to. FloatingEdge draws boundary-to-boundary, so aligned
+  // centers give a clean straight string.
+  // DOUBLE-click/tap empty canvas to drop a note, already open for typing, exactly
+  // where you tapped. Two paths on purpose, both funnelling through dropNote,
+  // which de-dupes so they can never both add:
+  //  - MOUSE: the real dblclick. React Flow runs selectionOnDrag and intermittently
+  //    swallows one of the two pane clicks, so tap-counting alone dropped roughly
+  //    one double-click in three. Listened for on the CAPTURE phase: d3-zoom stops
+  //    the event propagating, so a plain bubbling onDoubleClick never sees it.
+  //  - TOUCH: tap counting, because dblclick and e.detail are both unreliable there.
   const paneTaps = useRef([])
+  const lastDrop = useRef(-Infinity)
+  const dropNote = useCallback((clientX, clientY, t) => {
+    if (!canEdit || t - lastDrop.current < 500) return
+    lastDrop.current = t
+    paneTaps.current = []
+    addNodeOfType('clip', screenToFlowPosition({ x: clientX, y: clientY }), { autoEdit: true }, true)
+  }, [canEdit, addNodeOfType, screenToFlowPosition])
+
   const onPaneClick = useCallback((e) => {
     if (!canEdit) return
     const t = e.timeStamp
     paneTaps.current = paneTaps.current.filter((x) => t - x < 450)
     paneTaps.current.push(t)
-    if (paneTaps.current.length >= 2) {
-      paneTaps.current = []
-      addNodeOfType('clip', screenToFlowPosition({ x: e.clientX, y: e.clientY }), { autoEdit: true })
-    }
-  }, [canEdit, addNodeOfType, screenToFlowPosition])
+    if (paneTaps.current.length >= 2) dropNote(e.clientX, e.clientY, t)
+  }, [canEdit, dropNote])
 
-  // Hold SHIFT while dragging a node to snap it into a straight line with the
-  // node(s) it's wired to. FloatingEdge draws boundary-to-boundary, so aligned
-  // centers give a clean straight string.
+  // Only the bare canvas: a dblclick on a node is that node's own business.
+  const onPaneDoubleClick = useCallback((e) => {
+    if (!e.target?.classList?.contains('react-flow__pane')) return
+    dropNote(e.clientX, e.clientY, e.timeStamp)
+  }, [dropNote])
+
+  // CMD also proposes a SIZE, not just an alignment: drag a photo near another
+  // photo with CMD held and a dashed ghost shows the height it would take to
+  // match. Release to commit it; let go of CMD first and nothing is resized.
+  // The position snapping itself is snapAlign's job, in onNodesChange below.
   const onNodeDrag = useCallback((e, node) => {
-    if (!e.shiftKey) return
-    const pos = snapToConnected(node, nodes, edges)
-    if (pos) setNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: pos } : n)))
+    if (e.shiftKey) {
+      const pos = snapToConnected(node, nodes, edges)
+      if (pos) setNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, position: pos } : n)))
+      hintRef.current = null
+      setSizeHint((prev) => (prev === null ? prev : null))
+      return
+    }
+    const hint = (e.metaKey || e.ctrlKey) ? matchHeightHint(node, nodes) : null
+    if (!hint) {
+      hintRef.current = null
+      setSizeHint((prev) => (prev === null ? prev : null))
+      return
+    }
+    // Magnet the top edges together so the row reads as one line. Only within
+    // range - a far-off neighbour still suggests its height without yanking the
+    // photo across the board.
+    const next = { id: node.id, w: hint.w, h: hint.h, same: hint.same === true, x: node.position.x, y: node.position.y }
+    hintRef.current = next
+    setSizeHint(next) // fires per pointermove; the board already re-renders each frame of a drag
   }, [nodes, edges, setNodes])
+
+  useEffect(() => { nodesRef.current = nodes }, [nodes])
+
+  // Hold CMD (Ctrl on Windows) while dragging and the node latches onto the
+  // nearest edge/center line of another node, with a guide drawn on that line.
+  // Rewriting the position CHANGE - rather than the node afterwards - is what
+  // makes the snap STICK: React Flow's own drag position is applied after any
+  // node we write, so a post-hoc correction gets overwritten on release.
+  const onNodesChangeSnap = useCallback((changes) => {
+    const drags = changes.filter((c) => c.type === 'position' && c.position)
+    const drag = drags[0]
+    let applied = changes
+    // Single-node drags only. Rewriting one position out of a multi-node drag
+    // would shear the selection apart.
+    if (drag && drags.length === 1 && metaRef.current) {
+      const dragged = nodesRef.current.find((n) => n.id === drag.id)
+      if (dragged && !dragged.parentId) {
+        const { position, guides: g } = snapAlign({ ...dragged, position: drag.position }, nodesRef.current)
+        applied = changes.map((c) => (c === drag ? { ...c, position } : c))
+        setGuides(drag.dragging === false ? [] : g)
+      }
+    } else if (drag) {
+      setGuides((g) => (g.length ? [] : g))
+    }
+    onNodesChange(applied)
+  }, [onNodesChange])
+
+  // ─── CMD cursor ring ──────────────────────────────────────────────────────
+  // Hold CMD over BARE CANVAS and the add-tools bloom around the pointer, so a
+  // note lands where you are looking. Canvas only, on purpose: over a node CMD
+  // already means drag-to-align or resize-to-match, and a ring blooming there
+  // buries the handles you are reaching for. The toolbar + covers the case where
+  // nothing bare is in view. Any other key cancels the dwell, so CMD+G, CMD+S,
+  // CMD+C and CMD+Z never flash it, and a pointerdown closes an open ring.
+  const [ring, setRing] = useState(null)     // {x,y} in screen coords, or null
+  const [ringClosing, setRingClosing] = useState(false) // playing its exit sweep
+  const cursorRef = useRef({ x: 0, y: 0 })
+  const downRef = useRef(false)              // a pointer button is held
+  const dwellRef = useRef(null)
+  const summonRef = useRef(0)                // bumped per summon so the ring remounts
+  useEffect(() => {
+    if (!canEdit) return
+    const cancel = () => { clearTimeout(dwellRef.current); dwellRef.current = null }
+    const track = (e) => { cursorRef.current = { x: e.clientX, y: e.clientY } }
+    const pdown = () => { downRef.current = true; cancel(); setRing(null); setRingClosing(false) }
+    const pup = () => { downRef.current = false }
+    const key = (e) => {
+      if (e.key !== 'Meta' && e.key !== 'Control') { cancel(); if (ring && !ringClosing) setRingClosing(true); return }
+      if (e.repeat) return
+      // CMD again is a dismiss - same key closes what it opened, sweeping the
+      // tools back into the centre rather than blinking them out. If it is ALREADY
+      // sweeping shut, fall through instead: a second CMD there means "bring it
+      // back", and swallowing it left the ring unreachable for half a second.
+      if (ring && !ringClosing) { cancel(); setRingClosing(true); return }
+      if (dwellRef.current || downRef.current) return
+      const { x, y } = cursorRef.current
+      // Nodes own CMD for align/resize; the chrome (toolbar, inspector, minimap)
+      // would have the ring bloom underneath it. Bare canvas only.
+      if (document.elementFromPoint(x, y)?.closest('.react-flow__node, .fx-noexport')) return
+      dwellRef.current = setTimeout(() => {
+        dwellRef.current = null
+        // Pull the summon point in from the edges so no tool ends up off-screen.
+        const clamp = (v, max) => Math.min(Math.max(v, RING_SAFE), max - RING_SAFE)
+        setRingClosing(false)
+        setRing({ x: clamp(x, window.innerWidth), y: clamp(y, window.innerHeight), n: ++summonRef.current })
+      }, RING_DWELL)
+    }
+    window.addEventListener('pointermove', track)
+    window.addEventListener('pointerdown', pdown)
+    window.addEventListener('pointerup', pup)
+    window.addEventListener('keydown', key)
+    window.addEventListener('keyup', cancel)
+    window.addEventListener('blur', cancel)
+    return () => {
+      cancel()
+      window.removeEventListener('pointermove', track)
+      window.removeEventListener('pointerdown', pdown)
+      window.removeEventListener('pointerup', pup)
+      window.removeEventListener('keydown', key)
+      window.removeEventListener('keyup', cancel)
+      window.removeEventListener('blur', cancel)
+    }
+  }, [canEdit, ring, ringClosing])
+
+  // Drop the picked tool on the exact spot the ring's crosshair marked.
+  const pickRingTool = useCallback((it) => {
+    const at = screenToFlowPosition(ring)
+    // Do NOT clear `ring` here - the ring plays its own retract and calls
+    // onClose when the sweep lands. Nulling it here unmounted it mid-animation.
+    if (it.action === 'image' || it.key === 'image') { fileRef.current?.click(); return }
+    addNodeOfType(it.key, at, it.extra, true)
+  }, [ring, screenToFlowPosition, addNodeOfType])
+
+  // The toolbar's + summons the same ring over the middle of the canvas, so the
+  // pointer path is short and there is only ever ONE tool UI to learn.
+  const closeRing = useCallback(() => { setRing(null); setRingClosing(false) }, [])
+  const openRingAtCenter = useCallback(() => {
+    const r = wrapRef.current?.getBoundingClientRect()
+    setRingClosing(false)
+    setRing({ x: (r?.left || 0) + (r?.width || 800) / 2, y: (r?.top || 0) + (r?.height || 600) / 2, n: ++summonRef.current })
+  }, [])
+
+  // A NodeResizer drag never reaches this component, so CMD has to be tracked
+  // globally to know whether a resize wants the line-up guide.
+  const [metaDown, setMetaDown] = useState(false)
+  useEffect(() => {
+    if (!canEdit) return
+    const sync = (e) => { metaRef.current = e.metaKey || e.ctrlKey; setMetaDown(metaRef.current); if (!metaRef.current) setGuides((g) => (g.length ? [] : g)) }
+    const off = () => { metaRef.current = false; setMetaDown(false); setGuides((g) => (g.length ? [] : g)) }
+    window.addEventListener('keydown', sync)
+    window.addEventListener('keyup', sync)
+    window.addEventListener('blur', off) // cmd+tab away and the key never "lifts"
+    return () => {
+      window.removeEventListener('keydown', sync)
+      window.removeEventListener('keyup', sync)
+      window.removeEventListener('blur', off)
+    }
+  }, [canEdit])
+
+  // Same line-up guide for a RESIZE: hold CMD while pulling a photo's corner and
+  // the nearest photo's height is suggested, then snapped to on release.
+  const resizeHint = useMemo(() => {
+    if (!metaDown) return null
+    const n = nodes.find((x) => x.resizing)
+    const hint = n && matchHeightHint(n, nodes)
+    if (!hint || hint.same) return null
+    return { id: n.id, w: hint.w, h: hint.h, same: false, x: n.position.x, y: n.position.y }
+  }, [metaDown, nodes])
+
+  // Hold the last suggestion so it survives into the frame the resize ends on -
+  // by then the node is no longer `resizing` and resizeHint is already null.
+  const resizeRef = useRef(null)
+  useEffect(() => { if (resizeHint) resizeRef.current = resizeHint }, [resizeHint])
+  useEffect(() => {
+    if (isResizing) return
+    const h = resizeRef.current
+    resizeRef.current = null
+    if (!h) return
+    setNodes((nds) => nds.map((n) => (n.id === h.id
+      ? { ...n, width: h.w, height: h.h, style: { ...n.style, width: h.w, height: h.h } }
+      : n)))
+  }, [isResizing, setNodes])
+
+  // One ghost serves both gestures - only one can be in flight at a time.
+  const ghost = sizeHint || resizeHint
+
+  // The ghost lives in screen space (the wrapper is fixed at inset 0), so map the
+  // flow position across and scale the box by the live zoom.
+  const hintBox = useMemo(() => {
+    if (!ghost) return null
+    const { x, y } = flowToScreenPosition({ x: ghost.x, y: ghost.y })
+    const { zoom } = getViewport()
+    return { left: x, top: y, width: ghost.w * zoom, height: ghost.h * zoom }
+  }, [ghost, flowToScreenPosition, getViewport])
 
   // Memoized: zoom/pan re-renders every frame (zoomPct), so keep these arrays
   // referentially stable unless their inputs change - React Flow then skips diffing.
+  // Stable object/function props for <ReactFlow>: a fresh literal on every render
+  // makes React Flow re-run its own prop diffing for nothing.
+  const onSelectionChange = useCallback(({ nodes: ns, edges: es }) => {
+    const next = ns.length === 1
+      ? { kind: ns[0].type, id: ns[0].id }
+      : es.length === 1 ? { kind: 'edge', id: es[0].id } : null
+    // Return the SAME reference when unchanged so React bails out - otherwise
+    // a fresh object every fire loops against the glow re-render.
+    setSel((prev) => (prev?.id === next?.id && prev?.kind === next?.kind ? prev : next))
+    setMultiCount(ns.filter((n) => !n.parentId).length)
+  }, [])
+  const connectionLineStyle = useMemo(() => ({ stroke: theme.accent, strokeWidth: 2.4 }), [theme.accent])
+  const minimap = useMemo(() => ({
+    mask: themeName === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)',
+    style: { background: theme.minimapBg, border: `1px solid ${theme.panelBorder}`, right: 42, bottom: 42, width: 118, height: 82 },
+  }), [themeName, theme.minimapBg, theme.panelBorder])
+
   const styledNodes = useMemo(() => styleNodes(nodes), [nodes])
   const styledEdges = useMemo(() => styleEdges(edges, sel, theme.accent), [edges, sel, theme.accent])
 
@@ -245,7 +515,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   return (
     <div ref={wrapRef} style={{ position: 'fixed', inset: 0, background: theme.canvas }}
-      onDrop={onDrop} onDragOver={onDragOver}>
+      onDrop={onDrop} onDragOver={onDragOver} onDoubleClickCapture={canEdit ? onPaneDoubleClick : undefined}>
       {/* Crumpled-paper warp used by images with the Wrinkle option on. */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden>
         <filter id="fx-wrinkle" x="-6%" y="-6%" width="112%" height="112%">
@@ -258,18 +528,10 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         edges={styledEdges}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        onNodesChange={canEdit ? onNodesChange : undefined}
+        onNodesChange={canEdit ? onNodesChangeSnap : undefined}
         onEdgesChange={canEdit ? onEdgesChange : undefined}
         onConnect={onConnect}
-        onSelectionChange={({ nodes: ns, edges: es }) => {
-          const next = ns.length === 1
-            ? { kind: ns[0].type, id: ns[0].id }
-            : es.length === 1 ? { kind: 'edge', id: es[0].id } : null
-          // Return the SAME reference when unchanged so React bails out - otherwise
-          // a fresh object every fire loops against the glow re-render.
-          setSel((prev) => (prev?.id === next?.id && prev?.kind === next?.kind ? prev : next))
-          setMultiCount(ns.filter((n) => !n.parentId).length)
-        }}
+        onSelectionChange={onSelectionChange}
         onPaneClick={onPaneClick}
         onNodeDrag={canEdit ? onNodeDrag : undefined}
         onNodeDragStart={onDragStart}
@@ -280,7 +542,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         colorMode={themeName}
         connectionMode="loose"
         connectionLineType="straight"
-        connectionLineStyle={{ stroke: theme.accent, strokeWidth: 2.4 }}
+        connectionLineStyle={connectionLineStyle}
         connectionRadius={34}
         zoomOnDoubleClick={false}
         minZoom={0.02}
@@ -293,15 +555,35 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         panOnScroll
         proOptions={{ hideAttribution: true }}
       >
+        <SnapGuides guides={guides} color={theme.accent} />
         <Background variant={BackgroundVariant.Dots} gap={26} size={1.6} color={theme.dot} />
         <MiniMap
           className="fx-minimap fx-mobile-hide" pannable zoomable position="bottom-right"
-          maskColor={themeName === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.55)'}
-          style={{ background: theme.minimapBg, border: `1px solid ${theme.panelBorder}`, right: 42, bottom: 42, width: 118, height: 82 }}
+          maskColor={minimap.mask}
+          style={minimap.style}
           nodeColor={theme.minimapNode}
           nodeStrokeColor={theme.accent}
         />
       </ReactFlow>
+
+      {/* CMD line-up: a dashed ghost at the height of the nearest photo. */}
+      {hintBox && (
+        <div className="fx-noexport" style={{
+          position: 'fixed', left: hintBox.left, top: hintBox.top,
+          width: hintBox.width, height: hintBox.height,
+          border: `2px dashed ${theme.accent}`, borderRadius: 3,
+          pointerEvents: 'none', zIndex: 6,
+        }}>
+          <span className="mono" style={{
+            position: 'absolute', left: 0, top: -25, whiteSpace: 'nowrap',
+            background: theme.accent, color: '#fff', fontSize: 10, fontWeight: 700,
+            letterSpacing: 0.4, padding: '3px 7px', borderRadius: 4,
+            boxShadow: '0 3px 10px rgba(0,0,0,.35)',
+          }}>
+            {ghost.same ? `lined up - height ${ghost.h}` : `line up - height ${ghost.h}`}
+          </span>
+        </div>
+      )}
 
       {/* Empty-state hint */}
       {canEdit && nodes.length === 0 && (
@@ -316,13 +598,14 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       )}
 
       {/* Bottom-left add menu (text / callout / circle / person / stamp / redact /
-          marker / wax seal / crosshair / spotlight / draw / group) */}
-      {canEdit && <AddMenu onAdd={(type, extra) => addNodeOfType(type, centerPos(), extra)} onAddImage={() => fileRef.current?.click()} />}
+          crosshair / draw / group) */}
+      {canEdit && <CursorTools key={ring ? ring.n : "shut"} at={ring} items={TOOL_ITEMS} closing={ringClosing} onPick={pickRingTool} onClose={closeRing} />}
 
       <BoardTopBar
-        canEdit={canEdit} title={title} onTitle={setTitle} save={save} zoomPct={zoomPct} onBack={onBack} toolbarRef={toolbarRef}
+        canEdit={canEdit} title={title} onTitle={setTitle} save={save} onBack={onBack} toolbarRef={toolbarRef}
         undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
         onFit={fit} onExport={exportPng} onShare={board.id ? share : null} onReport={() => setShowReport(true)}
+        onAddTool={openRingAtCenter}
         onAddImage={() => fileRef.current?.click()} onAddSticker={() => addNodeOfType('sticker', centerPos())}
         onToggleTheme={onToggleTheme} themeName={themeName}
       />

@@ -18,6 +18,10 @@ test("localhost renders the dev-mode gallery under the strict CSP", async ({ pag
   await page.goto("/");
 
   await expect(page.getByText("FORENSIC")).toBeVisible();
+  // "New board" is deliberately hidden until you Cmd/Ctrl+click the brand
+  // (GalleryHeader), so reveal it before asserting it renders.
+  await expect(page.getByRole("button", { name: "New board" })).toHaveCount(0);
+  await page.getByTitle("Your boards").click({ modifiers: ["Meta"] });
   await expect(page.getByRole("button", { name: "New board" })).toBeVisible();
   await expect(page).toHaveTitle(/Forensic/);
 

@@ -4,7 +4,7 @@ import { GalleryHeader } from '../components/GalleryHeader.jsx'
 
 // The signed-in owner's home: every saved board as a live snapshot, plus create /
 // search / sign-out. New boards open straight into the canvas.
-export default function Gallery({ boards, accent, themeName, onToggleTheme, onOpen, onCreate, onDelete, onSignOut, onOpenTrash, trashCount = 0, creating, loading = false, error = '', onRetry }) {
+export default function Gallery({ boards, accent, themeName, onToggleTheme, onOpen, onCreate, onDelete, onSignOut, onOpenTrash, trashCount = 0, creating, loading = false, error = '', onRetry , narrow = false }) {
   const [q, setQ] = useState('')
   const filtered = boards.filter((b) => !q.trim() || (b.title || '').toLowerCase().includes(q.toLowerCase()))
 
@@ -13,7 +13,7 @@ export default function Gallery({ boards, accent, themeName, onToggleTheme, onOp
       <GalleryHeader
         themeName={themeName} onToggleTheme={onToggleTheme} onCreate={onCreate} onSignOut={onSignOut}
         onTrash={onOpenTrash} trashCount={trashCount} trashActive={false} onHome={() => {}}
-        q={q} setQ={setQ} creating={creating}
+        q={q} setQ={setQ} creating={creating} narrow={narrow}
       />
 
       <main style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 20px 80px' }}>

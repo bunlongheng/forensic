@@ -143,6 +143,62 @@ describe("/api/boards/:id (boardById)", () => {
       expect(res.statusCode).toBe(400);
       expect(query).not.toHaveBeenCalled();
     });
+
+    it("writes a thumbnail-only PUT without touching nodes (so an oversized board still gets a card)", async () => {
+      const res = mockRes();
+      const thumbnail = "data:image/webp;base64,UklGRhoAAABXRUJQ";
+      query.mockResolvedValueOnce({ rows: [{ id: ID }] });
+      await boardById(localReq("PUT", ID, { thumbnail }), res);
+      expect(res.statusCode).toBe(200);
+      const [sql, values] = query.mock.calls[0];
+      expect(sql).toContain("thumbnail = $1");
+      expect(sql).not.toContain("nodes =");
+      expect(values[0]).toBe(thumbnail);
+    });
+
+    it("a thumbnail-only PUT does NOT bump updated_at (no gallery reshuffle for a repaint)", async () => {
+      const res = mockRes();
+      query.mockResolvedValueOnce({ rows: [{ id: ID }] });
+      await boardById(localReq("PUT", ID, { thumbnail: "data:image/webp;base64,UklGRhoAAABXRUJQ" }), res);
+      expect(res.statusCode).toBe(200);
+      expect(query.mock.calls[0][0]).not.toContain("updated_at = now()");
+    });
+
+    it("a content PUT still bumps updated_at", async () => {
+      const res = mockRes();
+      query.mockResolvedValueOnce({ rows: [{ id: ID }] });
+      await boardById(localReq("PUT", ID, { title: "New", thumbnail: "data:image/webp;base64,UklGRhoAAABXRUJQ" }), res);
+      expect(query.mock.calls[0][0]).toContain("updated_at = now()");
+    });
+
+    it("400 when a PUT carries no updatable field at all", async () => {
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, {}), res);
+      expect(res.statusCode).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it("400 for a thumbnail that is not an image data URL", async () => {
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { thumbnail: "https://evil.example/x.png" }), res);
+      expect(res.statusCode).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it("400 for an oversized thumbnail", async () => {
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { thumbnail: `data:image/png;base64,${"A".repeat(400_001)}` }), res);
+      expect(res.statusCode).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    });
+
+    it("accepts null to clear the thumbnail", async () => {
+      const res = mockRes();
+      query.mockResolvedValueOnce({ rows: [{ id: ID }] });
+      await boardById(localReq("PUT", ID, { thumbnail: null }), res);
+      expect(res.statusCode).toBe(200);
+      expect(query.mock.calls[0][1][0]).toBe(null);
+    });
   });
 
   describe("DELETE (owner)", () => {
@@ -169,6 +225,18 @@ describe("/api/boards/:id (boardById)", () => {
       await boardById(localReq("DELETE", ID), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual({ trashed: true });
+    });
+
+    it("a repeat non-purge DELETE on an ALREADY-trashed board is a no-op, not a hard delete", async () => {
+      // A stale gallery tab sends the same "Move to Trash" request twice. The
+      // second one used to fall through and destroy the board for good, while the
+      // confirm dialog promised it could be restored.
+      const res = mockRes();
+      query.mockResolvedValueOnce({ rows: [{ n: 5, trashed_at: new Date() }] });
+      await boardById(localReq("DELETE", ID), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ trashed: true });
+      expect(query).toHaveBeenCalledTimes(1); // no second query = nothing was deleted
     });
 
     it("purge=1 hard-deletes even a large board", async () => {

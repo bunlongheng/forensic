@@ -23,21 +23,21 @@ describe("buildReport", () => {
     expect(r.images).toEqual([{ id: "a", label: "Suspect car" }, { id: "b", label: "" }]);
   });
 
-  it("headlines profile, stamp and marker nodes", () => {
+  it("headlines profile and stamp nodes", () => {
     const nodes = [
       node("p", "profile", { name: "Jane Doe" }),
       node("p2", "profile", {}),
       node("s", "stamp", { label: "URGENT" }),
-      node("m", "marker", { number: 3 }),
+      node("c", "crosshair", {}),
     ];
     const edges = [
       { source: "p", target: "s" },
-      { source: "p2", target: "m" },
+      { source: "p2", target: "c" },
     ];
     const r = buildReport("Case", nodes, edges);
     expect(r.connections).toEqual([
       { from: "Jane Doe", to: "URGENT" },
-      { from: "Person", to: "Marker 3" },
+      { from: "Person", to: "Crosshair" },
     ]);
   });
 

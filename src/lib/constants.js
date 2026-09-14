@@ -5,18 +5,20 @@ export const NOTE_TINTS = ['#fef3c7', '#fca5a5', '#dbeafe', '#dcfce7', '#fce7f3'
 // (no washed-out pastels), a proper vivid yellow. Dark ink stays readable on all.
 export const BRIGHT_TINTS = ['#ffffff', '#ffe600', '#ff9500', '#ff3b30', '#ff2d95', '#a259ff', '#0a84ff', '#30d158']
 
+// The two looks a text node can take: the original scrap ripped off a notepad, or
+// bare ransom-note ink floating straight on the board with no paper behind it.
+export const TEXT_STYLES = [{ key: 'rip', label: 'Rip' }, { key: 'ink', label: 'Ink' }]
+
+// Ink colours for the FLOATING text style (no paper behind it) - black first, plus
+// a white for the dark cork, and a few high-contrast accents.
+export const INK_COLORS = ['#111111', '#ffffff', '#d0342c', '#1f5c8b', '#1f9d55', '#b8860b']
+
 // Pushpin colors (glossy dome tints).
 export const PIN_COLORS = ['#ff3b30', '#2f6fed', '#22c55e', '#f5a623', '#a45cff', '#111827']
 
 // Evidence stamps - the imprint text and the four ink colors (black/red/green/blue).
 export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'CLASSIFIED', 'PROJECT+', 'PROGRESS', 'BLOCKED']
 export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
-
-// Numbered evidence markers - crime-scene badge colors (maroon default).
-export const MARKER_COLORS = ['#8b1e3f', '#b23a2e', '#1f5c8b', '#2f7d4f', '#1a1a1a', '#b8860b']
-
-// Wax seal colors - deep sealing-wax reds plus a few classic tints.
-export const WAX_COLORS = ['#8b1e3f', '#7a1220', '#a02c2c', '#5b3a1a', '#1f3a5c', '#2f5d3f']
 
 // Crosshair reticle colors - red / white / black / amber.
 export const CROSSHAIR_COLORS = ['#e5231b', '#ffffff', '#111111', '#f5c518']

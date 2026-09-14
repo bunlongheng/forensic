@@ -1,3 +1,4 @@
+import { useStore } from '@xyflow/react'
 import { Icon } from './Icon.jsx'
 
 const SAVE_LABEL = {
@@ -18,13 +19,24 @@ const pillBtn = {
   cursor: 'pointer', fontSize: 12.5, fontWeight: 700,
 }
 
+// Live zoom %, read straight from the React Flow store. Kept as its own component
+// on purpose: the viewport changes on EVERY frame of a pan/zoom, and holding that
+// number in Board state re-rendered the whole board (canvas, toolbar, inspector,
+// add-menu) 60x a second. Only this <span> re-renders now.
+const selectZoomPct = (s) => Math.round(s.transform[2] * 100)
+
+function ZoomPct() {
+  const pct = useStore(selectZoomPct)
+  return <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)', padding: '0 5px', minWidth: 40, textAlign: 'center' }}>{pct}%</span>
+}
+
 // The floating chrome over the canvas: title + save pill on the left, the tool
 // cluster on the right. `toolbarRef` is measured by the Board so the inspector
 // lines up with the toolbar's width.
 export function BoardTopBar({
-  canEdit, title, onTitle, save, zoomPct, onBack, toolbarRef,
+  canEdit, title, onTitle, save, onBack, toolbarRef,
   undo, redo, canUndo, canRedo, onFit, onExport, onShare, onReport,
-  onAddImage, onAddSticker, onToggleTheme, themeName,
+  onAddTool, onAddImage, onAddSticker, onToggleTheme, themeName,
 }) {
   const saveLabel = SAVE_LABEL[save]
   const dim = (on) => ({ ...iconBtn, opacity: on ? 1 : 0.35, cursor: on ? 'pointer' : 'default' })
@@ -37,6 +49,7 @@ export function BoardTopBar({
             value={title}
             onChange={(e) => onTitle(e.target.value)}
             aria-label="Board title"
+            maxLength={200}
             className="mono fx-mobile-hide"
             style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 700, width: Math.min(320, Math.max(120, title.length * 9 + 20)), color: 'var(--text)' }}
           />
@@ -49,7 +62,13 @@ export function BoardTopBar({
       </div>
       <div style={{ flex: 1 }} />
       <div ref={toolbarRef} style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '4px 6px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
-        <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)', padding: '0 5px', minWidth: 40, textAlign: 'center' }}>{zoomPct}%</span>
+        {canEdit && (
+          <button
+            onClick={onAddTool} title="Add to board - or hold Cmd anywhere on the canvas"
+            style={{ ...iconBtn, width: 27, height: 27, background: 'var(--accent)', color: 'var(--accent-ink)', marginRight: 3 }}
+          ><Icon name="plus" size={17} /></button>
+        )}
+        <ZoomPct />
         {canEdit && <button onClick={undo} disabled={!canUndo} title="Undo (Cmd/Ctrl+Z)" style={dim(canUndo)}><Icon name="undo" size={16} /></button>}
         {canEdit && <button onClick={redo} disabled={!canRedo} title="Redo (Cmd/Ctrl+Shift+Z)" style={dim(canRedo)}><Icon name="redo" size={16} /></button>}
         <button onClick={onFit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>

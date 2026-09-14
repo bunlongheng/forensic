@@ -9,7 +9,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // it isn't re-recorded.
 // Cmd/Ctrl+Z = undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y = redo. Ignored while typing
 // so the browser's native text undo still works inside a note.
-export function useUndoRedo({ snapshot, canEdit, restore, limit = 100 }) {
+// `maxBytes` is the real cap: a board full of base64 photos makes each snapshot a
+// few MB, so a 100-deep stack of them was holding hundreds of MB of strings alive
+// for the whole session. Bound the stack by weight as well as by count - but never
+// below `minDepth` entries, or a board whose single snapshot already exceeds the
+// budget would collapse to one entry and lose undo entirely.
+export function useUndoRedo({ snapshot, canEdit, restore, limit = 100, maxBytes = 32_000_000, minDepth = 5 }) {
   const history = useRef([])          // undo stack of durable snapshots (JSON strings)
   const histIdx = useRef(-1)          // current position in the stack
   const isRestoring = useRef(false)   // set while undo/redo writes state, so it isn't re-recorded
@@ -20,10 +25,15 @@ export function useUndoRedo({ snapshot, canEdit, restore, limit = 100 }) {
     if (isRestoring.current) { isRestoring.current = false; return }
     history.current = history.current.slice(0, histIdx.current + 1) // drop any redo tail
     history.current.push(snapshot)
-    if (history.current.length > limit) history.current.shift()      // cap long sessions
+    // Drop the oldest entries until the stack fits BOTH caps (entries and bytes).
+    let bytes = 0
+    for (const s of history.current) bytes += s.length
+    while (history.current.length > minDepth && (history.current.length > limit || bytes > maxBytes)) {
+      bytes -= history.current.shift().length
+    }
     histIdx.current = history.current.length - 1
     setHist({ canUndo: histIdx.current > 0, canRedo: false })
-  }, [snapshot, canEdit, limit])
+  }, [snapshot, canEdit, limit, maxBytes, minDepth])
 
   const go = useCallback((delta) => {
     const next = histIdx.current + delta
