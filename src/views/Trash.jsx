@@ -5,7 +5,7 @@ import { GalleryHeader } from '../components/GalleryHeader.jsx'
 // Trash: boards that were soft-deleted (3+ nodes go here instead of being
 // destroyed). Same top menu as the gallery - the trash button is lit and takes
 // you back. Each card can be restored to the gallery or deleted forever.
-export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, creating, loading = false, error = '', onRetry , narrow = false }) {
+export default function Trash({ boards, accent, themeName, onToggleTheme, onCreate, onSignOut, onBack, onRestore, onPurge, onEmpty, emptying = false, creating, loading = false, error = '', onRetry , narrow = false }) {
   const [q, setQ] = useState('')
   const filtered = boards.filter((b) => !q.trim() || (b.title || '').toLowerCase().includes(q.toLowerCase()))
 
@@ -20,6 +20,19 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 8 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.02em' }}>Trash</h1>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>{boards.length} item{boards.length === 1 ? '' : 's'}</span>
+          {/* Only offered when there is something to empty, so it can never be a
+              dead button sitting over an empty list. */}
+          {boards.length > 0 && !loading && !error && (
+            <button
+              onClick={onEmpty} disabled={emptying}
+              title="Permanently delete everything in the Trash"
+              style={{
+                marginLeft: 'auto', padding: '7px 14px', fontSize: 12.5, fontWeight: 700, borderRadius: 9,
+                background: 'transparent', color: 'var(--accent)', border: '1px solid var(--border)',
+                cursor: emptying ? 'wait' : 'pointer', opacity: emptying ? 0.6 : 1,
+              }}
+            >{emptying ? 'Emptying…' : 'Empty trash'}</button>
+          )}
         </div>
         <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>
           Deleted boards with 3+ items land here so nothing is lost by accident. Bring one back, or remove it for good.

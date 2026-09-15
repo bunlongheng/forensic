@@ -21,7 +21,7 @@ export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'CLASSIFIED',
 export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
 
 // Crosshair reticle colors - red / white / black / amber.
-export const CROSSHAIR_COLORS = ['#e5231b', '#ffffff', '#111111', '#f5c518']
+export const CROSSHAIR_COLORS = ['#e5231b', '#ffffff', '#111111', '#f5c518', '#22c55e', '#2f6fed']
 
 // Red thread first, then alternates for edges.
 export const THREAD_COLORS = ['#e5231b', '#111827', '#2f6fed', '#22c55e', '#f5a623', '#e7e0cf']
