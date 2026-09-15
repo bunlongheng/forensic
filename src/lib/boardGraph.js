@@ -120,6 +120,9 @@ export function newNodeSpec(type, nds) {
   switch (type) {
     case 'note': return { style: { width: 200, height: 140 }, data: { text: '', color: NOTE_TINTS[0], editable: true } }
     case 'text': return { style: { width: 180, height: 90 }, data: { text: '', editable: true } }
+    // An exhibit card (link / PDF / audio / video / doc). No height - it fits its
+    // own two lines; the caller fills in kind/name/url or src.
+    case 'file': return { style: { width: 240 }, data: { kind: 'link', name: 'Link', editable: true } }
     case 'clip': return { style: { width: 210 }, data: { text: '', color: '#fbfaf6', editable: true } } // no height - auto-fits
     case 'callout': return { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } }
     case 'stamp': return { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } }

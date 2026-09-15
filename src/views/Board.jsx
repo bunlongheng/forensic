@@ -16,6 +16,7 @@ import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
 import CrosshairNode from '../components/CrosshairNode.jsx'
+import FileNode from '../components/FileNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
@@ -24,7 +25,7 @@ import { CursorTools, RING_SAFE } from '../components/CursorTools.jsx'
 import { SnapGuides } from '../components/SnapGuides.jsx'
 import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
 import { fileToImage } from '../lib/image.js'
-import { saveViewport } from '../lib/localBoard.js'
+import { fileToAttachment, parseLink, ATTACH_MAX, prettySize } from '../lib/attach.js'
 import { makeThumbnail } from '../lib/thumbnail.js'
 import { snapAlign } from '../lib/snapAlign.js'
 import { TOOL_ITEMS } from '../lib/tools.js'
@@ -40,9 +41,20 @@ const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
   callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
-  crosshair: CrosshairNode,
+  crosshair: CrosshairNode, file: FileNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
+
+// Paste lands at the centre of the view, so two pasted exhibits would sit exactly
+// on top of each other - and the newer card would cover the older one's Open
+// button. Stack them as a short COLUMN instead (a card is ~96px tall), so every
+// exhibit on the pile stays clickable. Counted over exhibits only, and wrapped,
+// so a paste never walks off the far side of the board.
+const EXHIBIT_STEP = 108
+const cascade = (at, nds) => {
+  const i = nds.filter((n) => n.type === 'file').length % 5
+  return { x: at.x + i * 24, y: at.y + i * EXHIBIT_STEP }
+}
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
 // How long CMD has to be held still before the cursor ring blooms. Long enough
@@ -61,8 +73,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const fileRef = useRef(null)
   const toolbarRef = useRef(null)
   const [panelW, setPanelW] = useState(264) // inspector matches the toolbar's width
-  const vpRef = useRef(null)          // latest viewport {x,y,zoom} for the local draft
-  const vpTimer = useRef(null)        // throttle for persisting the viewport
 
   // `content` mirrors nodes/edges for snapshot purposes, EXCEPT while a drag is in
   // flight, when it stays pinned to the pre-drag value and catches up the instant
@@ -151,19 +161,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     [theme.canvas],
   )
 
-  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast, makeThumb })
+  const { save } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb })
   const { undo, redo, canUndo, canRedo } = useUndoRedo({ snapshot, canEdit, restore })
-
-  // Remember where the owner is looking (zoom/pan), throttled, so an accidental
-  // refresh reopens at the exact same spot instead of snapping back to fit.
-  // Deliberately does NO setState - it fires on every frame of a pan/zoom, so the
-  // zoom % badge subscribes to the React Flow store itself (see BoardTopBar) rather
-  // than re-rendering the whole board 60x a second.
-  const onMove = useCallback((_, vp) => {
-    vpRef.current = vp
-    if (!board.id || !restoreReady.current || vpTimer.current) return
-    vpTimer.current = setTimeout(() => { vpTimer.current = null; saveViewport(board.id, vpRef.current) }, 300)
-  }, [board.id, restoreReady])
 
   // Keep the inspector the same width as the top-right toolbar so they line up.
   useEffect(() => {
@@ -200,6 +199,47 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
+  // Everything that is NOT a photo - a PDF, an audio or video file, a document -
+  // becomes one exhibit card you click to open. The bytes ride in the board JSON,
+  // so an oversized file is refused up front with the reason, not a failed save.
+  const addAttachFiles = useCallback(async (files, at) => {
+    let i = 0
+    for (const file of files) {
+      try {
+        const data = await fileToAttachment(file)
+        setNodes((nds) => nds.concat({
+          id: uid('file'), type: 'file', position: cascade(at, nds), style: { width: 240 },
+          data: { ...data, editable: true },
+        }))
+        i++
+      } catch (err) {
+        showToast(err?.code === 'too-large'
+          ? `${file.name} is over ${prettySize(ATTACH_MAX)} - pin a link to it instead`
+          : `Could not read ${file.name}`)
+      }
+    }
+    if (i) showToast(`Pinned ${i} file${i > 1 ? 's' : ''}`)
+  }, [setNodes, showToast])
+
+  // One entry point for dropped/pasted/picked files: photos pin as photos,
+  // everything else pins as an exhibit card.
+  const addFiles = useCallback((files, at) => {
+    const list = [...files]
+    const imgs = list.filter((f) => f.type.startsWith('image/'))
+    const rest = list.filter((f) => !f.type.startsWith('image/'))
+    if (imgs.length) addImageFiles(imgs, at)
+    if (rest.length) addAttachFiles(rest, imgs.length ? { x: at.x + 40, y: at.y + 40 } : at)
+  }, [addImageFiles, addAttachFiles])
+
+  // A pasted (or dragged) URL lands as a link card - click its icon to open it.
+  const addLink = useCallback((link, at) => {
+    setNodes((nds) => nds.concat({
+      id: uid('file'), type: 'file', position: cascade(at, nds), style: { width: 240 },
+      data: { ...link, editable: true },
+    }))
+    showToast('Pinned a link')
+  }, [setNodes, showToast])
+
   const addNodeOfType = useCallback((type, at, extra, exact) => setNodes((nds) => addNode(nds, type, at, extra, exact)), [setNodes])
 
   const centerPos = useCallback(() => {
@@ -211,12 +251,15 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     e.preventDefault()
     if (!canEdit) return
     const at = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-    if (e.dataTransfer.files?.length) addImageFiles(e.dataTransfer.files, at)
-  }, [canEdit, screenToFlowPosition, addImageFiles])
+    if (e.dataTransfer.files?.length) { addFiles(e.dataTransfer.files, at); return }
+    // A link dragged in from another tab/app.
+    const link = parseLink(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text'))
+    if (link) addLink(link, at)
+  }, [canEdit, screenToFlowPosition, addFiles, addLink])
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles, centerPos, showToast })
+  useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, centerPos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.
@@ -538,7 +581,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         onNodeDragStop={onDragStop}
         onSelectionDragStart={onDragStart}
         onSelectionDragStop={onDragStop}
-        onMove={onMove}
         colorMode={themeName}
         connectionMode="loose"
         connectionLineType="straight"
@@ -591,7 +633,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <div style={{ textAlign: 'center', color: theme.muted, animation: 'fx-rise .5s both' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🧵</div>
             <div className="mono" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: theme.text }}>DROP EVIDENCE ONTO THE BOARD</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or double-click to add a note.</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Drag in images, PDFs, audio or links - paste from the clipboard - or double-click to add a note.</div>
             <div style={{ fontSize: 13, marginTop: 2 }}>Drag from a node's edge to wire connections.</div>
           </div>
         </div>
@@ -609,8 +651,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         onAddImage={() => fileRef.current?.click()} onAddSticker={() => addNodeOfType('sticker', centerPos())}
         onToggleTheme={onToggleTheme} themeName={themeName}
       />
-      {canEdit && <input ref={fileRef} type="file" accept="image/*" multiple hidden
-        onChange={(e) => { if (e.target.files?.length) addImageFiles(e.target.files, centerPos()); e.target.value = '' }} />}
+      {canEdit && <input ref={fileRef} type="file" accept="image/*,application/pdf,audio/*,video/*,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" multiple hidden
+        onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files, centerPos()); e.target.value = '' }} />}
 
       {canEdit && multiCount >= 2 && (
         <MultiSelectBar count={multiCount} onChain={() => connectSelected('chain')} onFan={() => connectSelected('fan')} onGroup={groupSelected} />

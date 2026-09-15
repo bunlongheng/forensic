@@ -17,6 +17,7 @@ function headline(node) {
   if (node.type === 'profile') return node.data?.name || 'Person'
   if (node.type === 'container') return node.data?.title || 'Section'
   if (node.type === 'stamp') return node.data?.label || 'Stamp'
+  if (node.type === 'file') return node.data?.label || node.data?.name || 'Attachment'
   const firstLine = (node.data?.text || '').split('\n')[0]
   if (firstLine) return firstLine
   return node.type ? node.type[0].toUpperCase() + node.type.slice(1) : 'Note'

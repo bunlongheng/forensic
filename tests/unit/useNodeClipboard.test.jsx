@@ -9,10 +9,10 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const node = { id: "a", type: "note", position: { x: 10, y: 10 }, data: { text: "hi" } };
 
 function setup(sel = { kind: "note", id: "a" }, canEdit = true) {
-  const setNodes = vi.fn(), addImageFiles = vi.fn(), showToast = vi.fn();
+  const setNodes = vi.fn(), addFiles = vi.fn(), addLink = vi.fn(), showToast = vi.fn();
   const centerPos = () => ({ x: 0, y: 0 });
-  renderHook(() => useNodeClipboard({ canEdit, sel, nodes: [node], setNodes, addImageFiles, centerPos, showToast }));
-  return { setNodes, addImageFiles, showToast };
+  renderHook(() => useNodeClipboard({ canEdit, sel, nodes: [node], setNodes, addFiles, addLink, centerPos, showToast }));
+  return { setNodes, addFiles, addLink, showToast };
 }
 
 const paste = (items = [], text = "") => {
@@ -38,13 +38,34 @@ describe("useNodeClipboard", () => {
     expect(showToast).toHaveBeenCalledWith("Pasted a copy");
   });
 
-  it("an image on the clipboard always wins over a copied node", () => {
+  it("a file on the clipboard always wins over a copied node", () => {
     vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn().mockResolvedValue() } });
-    const { setNodes, addImageFiles } = setup();
+    const { setNodes, addFiles } = setup();
     act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true })); });
     const file = new File(["x"], "shot.png", { type: "image/png" });
     act(() => { paste([{ kind: "file", type: "image/png", getAsFile: () => file }], NODE_COPY_MARKER); });
-    expect(addImageFiles).toHaveBeenCalledWith([file], { x: 0, y: 0 });
+    expect(addFiles).toHaveBeenCalledWith([file], { x: 0, y: 0 });
+    expect(setNodes).not.toHaveBeenCalled();
+  });
+
+  it("pins a pasted PDF as an exhibit, not just an image", () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn() } });
+    const { addFiles } = setup(null);
+    const file = new File(["%PDF"], "warrant.pdf", { type: "application/pdf" });
+    act(() => { paste([{ kind: "file", type: "application/pdf", getAsFile: () => file }], ""); });
+    expect(addFiles).toHaveBeenCalledWith([file], { x: 0, y: 0 });
+  });
+
+  it("pins a pasted URL as a link card and swallows the paste", () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn() } });
+    const { addLink, setNodes } = setup(null);
+    let e;
+    act(() => { e = paste([], "https://example.com/docs/report.pdf"); });
+    expect(addLink).toHaveBeenCalledWith(
+      { kind: "pdf", url: "https://example.com/docs/report.pdf", name: "example.com/report.pdf" },
+      { x: 0, y: 0 },
+    );
+    expect(e.defaultPrevented).toBe(true);
     expect(setNodes).not.toHaveBeenCalled();
   });
 

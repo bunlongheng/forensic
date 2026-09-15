@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { NODE_COPY_MARKER, duplicateNode } from '../lib/boardGraph.js'
+import { parseLink } from '../lib/attach.js'
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
 
 // Cmd/Ctrl+C copies the selected node; the single 'paste' listener duplicates it.
-// An image on the clipboard ALWAYS wins - so copying a node earlier can never
-// block pasting a screenshot. We write a marker to the clipboard on copy so a
-// paste event still fires even when nothing else is on the clipboard.
-export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles, centerPos, showToast }) {
+// A FILE on the clipboard always wins (a screenshot, a PDF, an audio clip), then a
+// pasted URL, and only then the node-duplicate - so copying a node earlier can
+// never block pasting real evidence. We write a marker to the clipboard on copy so
+// a paste event still fires even when nothing else is on the clipboard.
+export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, centerPos, showToast }) {
   const clipRef = useRef(null) // copied node for Cmd/Ctrl+C -> +V duplicate
 
   useEffect(() => {
@@ -25,10 +27,13 @@ export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles,
   useEffect(() => {
     if (!canEdit) return
     const onPaste = (e) => {
+      if (typing()) return // let a paste into a note/title be a normal text paste
       const items = [...(e.clipboardData?.items || [])]
-      const files = items.filter((it) => it.kind === 'file' && it.type.startsWith('image/')).map((it) => it.getAsFile()).filter(Boolean)
-      if (files.length) { e.preventDefault(); addImageFiles(files, centerPos()); return }
+      const files = items.filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter(Boolean)
+      if (files.length) { e.preventDefault(); addFiles(files, centerPos()); return }
       const text = e.clipboardData?.getData('text') || ''
+      const link = parseLink(text)
+      if (link) { e.preventDefault(); addLink(link, centerPos()); return }
       if (clipRef.current && (text === NODE_COPY_MARKER || text === '')) {
         e.preventDefault()
         const copy = duplicateNode(clipRef.current)
@@ -38,5 +43,5 @@ export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles,
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [canEdit, addImageFiles, centerPos, setNodes, showToast])
+  }, [canEdit, addFiles, addLink, centerPos, setNodes, showToast])
 }
