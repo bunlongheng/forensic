@@ -20,6 +20,9 @@ export const PIN_COLORS = ['#ff3b30', '#2f6fed', '#22c55e', '#f5a623', '#a45cff'
 export const STAMP_LABELS = ['APPROVED', 'CONFIDENTIAL', 'SECRET', 'CLASSIFIED', 'PROJECT+', 'PROGRESS', 'BLOCKED']
 export const STAMP_COLORS = ['#1a1a1a', '#d0342c', '#1f9d55', '#2563eb']
 
+// Wax seal colors - deep sealing-wax reds plus a few classic tints.
+export const WAX_COLORS = ['#8b1e3f', '#7a1220', '#a02c2c', '#5b3a1a', '#1f3a5c', '#2f5d3f']
+
 // Crosshair reticle colors - red / white / black / amber.
 export const CROSSHAIR_COLORS = ['#e5231b', '#ffffff', '#111111', '#f5c518', '#22c55e', '#2f6fed']
 

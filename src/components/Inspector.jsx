@@ -1,5 +1,5 @@
 import { openAttachment, KIND_LABEL, prettySize } from '../lib/attach.js'
-import { NOTE_TINTS, BRIGHT_TINTS, TEXT_STYLES, INK_COLORS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, CROSSHAIR_COLORS } from '../lib/constants.js'
+import { WAX_COLORS, NOTE_TINTS, BRIGHT_TINTS, TEXT_STYLES, INK_COLORS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, CROSSHAIR_COLORS } from '../lib/constants.js'
 
 function segBtn(active) {
   return {
@@ -84,7 +84,7 @@ function PinControl({ data, onNode, pin }) {
 // Right-side properties panel for the selected node or edge - matches the toolbar
 // chip styling, sized larger for comfortable editing.
 export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, width = 264 }) {
-  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', crosshair: 'Crosshair', file: KIND_LABEL[data?.kind] || 'File' }[kind] || 'Item'
+  const title = { edge: 'Thread', image: 'Photo', note: 'Note', text: 'Text', profile: 'Person', sticker: 'Sticker', container: 'Group', annotation: 'Circle', drawing: 'Drawing', callout: 'Callout', clip: 'Clip', stamp: 'Stamp', redaction: 'Redact', wax: 'Wax seal', crosshair: 'Crosshair', file: KIND_LABEL[data?.kind] || 'File' }[kind] || 'Item'
   const variant = data?.variant || (kind === 'note' ? 'clean' : undefined)
   const pin = data?.pinColor || '#ff3b30'
 
@@ -260,6 +260,15 @@ export function Inspector({ kind, data, onNode, onEdge, onArrange, onUngroup, wi
             {['#111111', '#ffffff', '#3a2a1a'].map((c) => <Swatch key={c} color={c} active={(data?.color || '#111111') === c} onClick={() => onNode({ color: c })} />)}
           </Row>
           <div style={{ marginTop: 10, fontSize: 12, color: 'var(--muted)' }}>Drag a corner to stretch the bar over anything.</div>
+        </>
+      )}
+
+      {kind === 'wax' && (
+        <>
+          <TextField label="Emboss (letter or symbol)" value={data?.symbol} onChange={(v) => onNode({ symbol: v })} placeholder="★" maxLength={2} />
+          <Row label="Wax color">
+            {WAX_COLORS.map((c) => <Swatch key={c} color={c} ring active={(data?.color || '#8b1e3f') === c} onClick={() => onNode({ color: c })} />)}
+          </Row>
         </>
       )}
 

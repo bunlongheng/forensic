@@ -89,8 +89,15 @@ describe("newNodeSpec / addNode", () => {
     expect(newNodeSpec("nope", nds)).toBeNull();
   });
 
-  it("has no spec for the retired marker, wax seal and spotlight types", () => {
-    for (const t of ["marker", "wax", "spotlight"]) expect(newNodeSpec(t, [])).toBeNull();
+  it("has no spec for the retired marker and spotlight types", () => {
+    for (const t of ["marker", "spotlight"]) expect(newNodeSpec(t, [])).toBeNull();
+  });
+
+  it("still specs the wax seal - boards in the wild hold wax nodes", () => {
+    expect(newNodeSpec("wax", [])).toEqual({
+      style: { width: 84, height: 84 },
+      data: { symbol: "\u2605", color: "#8b1e3f", editable: true },
+    });
   });
 
   it("cascades new objects and merges extra data", () => {

@@ -27,6 +27,7 @@ const P = {
   stamp: <><path d="M9 10a3 3 0 1 1 6 0c0 1.5-1 2-1 3.5V15h-4v-1.5C10 12 9 11.5 9 10z" /><path d="M4 20h16" /><path d="M6 17h12v2H6z" /></>,
   redact: <><rect x="3.5" y="7" width="17" height="4" rx="1" fill="currentColor" stroke="none" /><rect x="3.5" y="13" width="11" height="4" rx="1" fill="currentColor" stroke="none" /></>,
   crosshair: <><circle cx="12" cy="12" r="7" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" /></>,
+  wax: <><circle cx="12" cy="11" r="7.5" /><path d="M12 7.5l1.3 2.7 3 .3-2.2 2 .6 2.9-2.7-1.5-2.7 1.5.6-2.9-2.2-2 3-.3z" /></>,
   link: <><path d="M10.5 13.5a4 4 0 0 0 5.7 0l2.8-2.8a4 4 0 0 0-5.7-5.7l-1.4 1.4" /><path d="M13.5 10.5a4 4 0 0 0-5.7 0L5 13.3a4 4 0 0 0 5.7 5.7l1.4-1.4" /></>,
   pdf: <><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" /><path d="M14 3v4h4" /><path d="M9 13h1.6a1.2 1.2 0 0 1 0 2.4H9V13v5" /><path d="M14 18v-5h1.4a2.5 2.5 0 0 1 0 5z" /></>,
   audio: <><path d="M9 18V6l10-2v12" /><circle cx="6.5" cy="18" r="2.6" /><circle cx="16.5" cy="16" r="2.6" /></>,

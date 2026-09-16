@@ -175,3 +175,27 @@ test("paste a link, a PDF and an audio clip, then open them in a new tab", async
     await purge(id);
   }
 });
+
+// The bottom-left summon: a third way into the same tool ring, alongside holding
+// Cmd and the toolbar +. Also guards the wax seal, which boards in the wild
+// still hold and which briefly lost its renderer.
+test("the bottom-left summon opens the tool ring and drops a wax seal", async ({ page, request }) => {
+  const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
+  const id = (await create.json()).id;
+
+  try {
+    await page.goto(`/?id=${id}`);
+    const fab = page.getByRole("button", { name: "Open add tools" });
+    await expect(fab).toBeVisible();
+    // A ghost at rest, solid under the pointer.
+    expect(Number(await fab.evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(0.5);
+    await fab.hover();
+    await expect.poll(() => fab.evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1);
+
+    await fab.click();
+    await page.getByRole("button", { name: "Wax seal" }).click();
+    await expect(page.locator(".react-flow__node-wax")).toHaveCount(1);
+  } finally {
+    await purge(id);
+  }
+});

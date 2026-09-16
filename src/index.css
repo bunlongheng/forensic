@@ -114,6 +114,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   box-shadow: 0 10px 22px rgba(0,0,0,.4) !important;
 }
 
+/* Bottom-left ring summon: nearly invisible at rest so it never competes with
+   the evidence, solid the moment you reach for it. Keyboard focus shows it too. */
+.fx-fab { opacity: .2; transition: opacity .16s ease, transform .16s ease; }
+.fx-fab:hover, .fx-fab:focus-visible { opacity: 1; transform: scale(1.06); }
+
 /* ── Phone view: reclaim every pixel ──────────────────────────────────────────
    Hide the minimap, zoom % and board title (keep just the back button), thin the
    wooden frame, and pull the toolbar / add-button in tight to the edges. */

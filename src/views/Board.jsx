@@ -16,8 +16,10 @@ import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
 import CrosshairNode from '../components/CrosshairNode.jsx'
+import WaxSealNode from '../components/WaxSealNode.jsx'
 import FileNode from '../components/FileNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
+import { Icon } from '../components/Icon.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
 import { ReportModal } from '../components/ReportModal.jsx'
@@ -41,7 +43,7 @@ const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
   callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
-  crosshair: CrosshairNode, file: FileNode,
+  crosshair: CrosshairNode, wax: WaxSealNode, file: FileNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
@@ -79,6 +81,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const wrapRef = useRef(null)
   const cursorRef = useRef(null)      // last pointer position, screen coords (null until the mouse moves)
   const fileRef = useRef(null)
+  const fabRef = useRef(null)          // bottom-left ring summon
   const toolbarRef = useRef(null)
   const [panelW, setPanelW] = useState(264) // inspector matches the toolbar's width
 
@@ -470,11 +473,24 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // The toolbar's + summons the same ring over the middle of the canvas, so the
   // pointer path is short and there is only ever ONE tool UI to learn.
   const closeRing = useCallback(() => { setRing(null); setRingClosing(false) }, [])
+  // Every summon lands here, clamped so no tool ends up off-screen - the same
+  // margin the CMD dwell uses.
+  const openRingAt = useCallback((x, y) => {
+    const clamp = (v, max) => Math.min(Math.max(v, RING_SAFE), max - RING_SAFE)
+    setRingClosing(false)
+    setRing({ x: clamp(x, window.innerWidth), y: clamp(y, window.innerHeight), n: ++summonRef.current })
+  }, [])
   const openRingAtCenter = useCallback(() => {
     const r = wrapRef.current?.getBoundingClientRect()
-    setRingClosing(false)
-    setRing({ x: (r?.left || 0) + (r?.width || 800) / 2, y: (r?.top || 0) + (r?.height || 600) / 2, n: ++summonRef.current })
-  }, [])
+    openRingAt((r?.left || 0) + (r?.width || 800) / 2, (r?.top || 0) + (r?.height || 600) / 2)
+  }, [openRingAt])
+  // The bottom-left summon blooms the ring over itself, so the tools appear
+  // under the thumb that asked for them.
+  const openRingAtFab = useCallback(() => {
+    const r = fabRef.current?.getBoundingClientRect()
+    if (!r) return openRingAtCenter()
+    openRingAt(r.left + r.width / 2, r.top + r.height / 2)
+  }, [openRingAt, openRingAtCenter])
 
   // A NodeResizer drag never reaches this component, so CMD has to be tracked
   // globally to know whether a resize wants the line-up guide.
@@ -664,6 +680,25 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       {/* Bottom-left add menu (text / callout / circle / person / stamp / redact /
           crosshair / draw / group) */}
       {canEdit && <CursorTools key={ring ? ring.n : "shut"} at={ring} items={TOOL_ITEMS} closing={ringClosing} onPick={pickRingTool} onClose={closeRing} />}
+
+      {/* Bottom-left summon: a ghost until you reach for it, then a real button.
+          A third way into the SAME ring, alongside holding CMD and the toolbar +,
+          for the times your hands are on the mouse and not the keyboard. */}
+      {canEdit && (
+        <button
+          ref={fabRef} className="fx-noexport fx-fab" onClick={openRingAtFab}
+          aria-label="Open add tools" title="Add to board - or hold Cmd anywhere on the canvas"
+          style={{
+            position: 'absolute', zIndex: 9,
+            left: 'calc(42px + env(safe-area-inset-left))', bottom: 'calc(42px + env(safe-area-inset-bottom))',
+            width: 46, height: 46, borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer',
+            background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow)', padding: 0,
+          }}
+        >
+          <Icon name="plus" size={21} />
+        </button>
+      )}
 
       <BoardTopBar
         canEdit={canEdit} title={title} onTitle={setTitle} save={save} onBack={onBack} toolbarRef={toolbarRef}

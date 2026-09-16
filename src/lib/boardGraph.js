@@ -127,6 +127,7 @@ export function newNodeSpec(type, nds) {
     case 'callout': return { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } }
     case 'stamp': return { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } }
     case 'redaction': return { style: { width: 170, height: 26 }, data: { color: '#111111', editable: true } }
+    case 'wax': return { style: { width: 84, height: 84 }, data: { symbol: '★', color: '#8b1e3f', editable: true } }
     case 'crosshair': return { style: { width: 90, height: 90 }, data: { color: '#e5231b', editable: true } }
     case 'annotation': return { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } }
     case 'drawing': return { style: { width: 220, height: 160 }, data: { paths: [], editable: true } }
