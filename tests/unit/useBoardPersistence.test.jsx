@@ -3,10 +3,10 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
 
 vi.mock("../../src/lib/api.js", () => ({ updateBoard: vi.fn() }));
-vi.mock("../../src/lib/localBoard.js", () => ({ saveDraft: vi.fn(), loadDraft: vi.fn(), clearDraft: vi.fn(), loadViewport: vi.fn() }));
+vi.mock("../../src/lib/localBoard.js", () => ({ saveDraft: vi.fn(), loadDraft: vi.fn(), clearDraft: vi.fn() }));
 
 import { updateBoard } from "../../src/lib/api.js";
-import { saveDraft, loadDraft, clearDraft, loadViewport } from "../../src/lib/localBoard.js";
+import { saveDraft, loadDraft, clearDraft } from "../../src/lib/localBoard.js";
 import { useBoardPersistence } from "../../src/hooks/useBoardPersistence.js";
 import { boardSnapshot } from "../../src/lib/boardGraph.js";
 
@@ -15,19 +15,18 @@ const snap0 = boardSnapshot(board);
 const snap1 = boardSnapshot({ ...board, title: "Case 2" });
 
 function setup(props = {}) {
-  const restore = vi.fn(), fitView = vi.fn(), setViewport = vi.fn(), showToast = vi.fn();
+  const restore = vi.fn(), fitView = vi.fn(), showToast = vi.fn();
   const hook = renderHook(
-    ({ snapshot, canEdit }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast }),
+    ({ snapshot, canEdit }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast }),
     { initialProps: { snapshot: snap0, canEdit: true, ...props } },
   );
-  return { restore, fitView, setViewport, showToast, ...hook };
+  return { restore, fitView, showToast, ...hook };
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
   updateBoard.mockResolvedValue({});
   loadDraft.mockResolvedValue(null);
-  loadViewport.mockReturnValue(null);
   vi.stubGlobal("requestAnimationFrame", (cb) => cb());
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -80,12 +79,11 @@ describe("useBoardPersistence", () => {
 
   it("restores an unsynced local draft on open and frames the board", async () => {
     loadDraft.mockResolvedValueOnce({ snapshot: snap1, ts: 1 });
-    const { restore, fitView, showToast, result } = setup();
+    const { restore, fitView, showToast } = setup();
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(restore).toHaveBeenCalledWith(JSON.parse(snap1));
     expect(showToast).toHaveBeenCalledWith("Restored your unsaved changes");
     expect(fitView).toHaveBeenCalled();
-    expect(result.current.restoreReady.current).toBe(true);
   });
 
   it("ignores a draft identical to the server copy and a corrupt one", async () => {
@@ -141,12 +139,9 @@ describe("useBoardPersistence", () => {
     expect(result.current.save).toBe("unauth");
   });
 
-  it("restores the saved viewport on open instead of fitting", async () => {
-    const vp = { x: 10, y: 20, zoom: 1.5 };
-    loadViewport.mockReturnValue(vp);
-    const { setViewport, fitView } = setup();
+  it("frames the whole board on open, every time", async () => {
+    const { fitView } = setup();
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
-    expect(setViewport).toHaveBeenCalledWith(vp, { duration: 0 });
-    expect(fitView).not.toHaveBeenCalled();
+    expect(fitView).toHaveBeenCalledWith({ padding: 0.18, duration: 0 });
   });
 });

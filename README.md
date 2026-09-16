@@ -22,10 +22,11 @@ anything - like a detective's evidence board that lives in the browser.
 
 - **Infinite canvas** - pan and zoom without limits (0.02x to 40x), powered by React Flow.
 - **Drop / paste / upload images** - drag image files onto the board, paste from the clipboard, or pick from disk. Large images are downscaled and re-encoded (WebP) so a board packed with photos stays fast.
+- **Paste links, PDFs, audio and documents** - paste or drag in a URL, a PDF, an audio or video file or a document and it pins as an exhibit card; click its icon to open the real thing in a new tab. Files ride inside the board (max 2 MB each - pin a link to anything heavier).
 - **Red threads** - drag from any node edge to wire it to as many others as you like. Threads attach to the nearest point on each card's boundary and light up when either end is selected.
 - **Auto-thread** - multi-select assets and hit **Chain** (nearest-neighbour path) or **Fan** (biggest asset out to the rest).
 - **Group / ungroup** - wrap a selection in a container so the whole set moves as one (`Cmd/Ctrl+G`, `Shift` to ungroup).
-- **16 evidence types** - see the table below. Every node except the auto-height quick note resizes; most take a tint, photos take a caption, and the annotation ring supports lock and send-to-back.
+- **17 evidence types** - see the table below. Every node except the auto-height quick note resizes; most take a tint, photos take a caption, and the annotation ring supports lock and send-to-back.
 - **In-browser OCR** - the case report runs tesseract.js over every pinned photo, self-hosted, zero API cost.
 - **Case report** - one click renders the board as a readable report (images, notes, threads).
 - **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z` and `Cmd/Ctrl+Shift+Z`.
@@ -46,6 +47,7 @@ anything - like a detective's evidence board that lives in the browser.
 | `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn ring |
 | `drawing` | Freehand ink, in the add menu | `sticker` | Emoji sticker |
 | `profile` | Person card (name + color) | `container` | Titled section that groups children |
+| `file` | Link / PDF / audio / video / doc exhibit, opens in a new tab | | |
 
 ### Keyboard shortcuts
 
@@ -54,7 +56,7 @@ anything - like a detective's evidence board that lives in the browser.
 | Double-click canvas | Drop a quick note, already open for typing |
 | `Cmd/Ctrl+S` | Save now |
 | `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` | Undo / redo |
-| `Cmd/Ctrl+C` then `Cmd/Ctrl+V` | Duplicate the selected node (an image on the clipboard always wins) |
+| `Cmd/Ctrl+C` then `Cmd/Ctrl+V` | Duplicate the selected node (a file or a URL on the clipboard always wins) |
 | `Cmd/Ctrl+G` / `Cmd/Ctrl+Shift+G` | Group / ungroup the selection |
 | `Shift` + drag | Snap a node into a straight line with the nodes it is wired to |
 | `Backspace` / `Delete` | Remove the selection |

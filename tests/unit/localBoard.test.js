@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "fake-indexeddb/auto";
-import { describe, it, expect, beforeEach } from "vitest";
-import { saveDraft, loadDraft, clearDraft, saveViewport } from "../../src/lib/localBoard.js";
+import { describe, it, expect } from "vitest";
+import { saveDraft, loadDraft, clearDraft } from "../../src/lib/localBoard.js";
 
 describe("localBoard drafts (IndexedDB)", () => {
   it("round-trips a draft through save/load", async () => {
@@ -23,27 +23,5 @@ describe("localBoard drafts (IndexedDB)", () => {
   it("loadDraft of an unknown id resolves nothing", async () => {
     const loaded = await loadDraft("never-saved-id");
     expect(loaded == null).toBe(true);
-  });
-});
-
-describe("localBoard viewport (localStorage)", () => {
-  beforeEach(() => localStorage.clear());
-
-  it("saveViewport writes the viewport JSON under the board's key", () => {
-    const vp = { x: 10, y: -20, zoom: 1.5 };
-    saveViewport("board-3", vp);
-    expect(JSON.parse(localStorage.getItem("fx:vp:board-3"))).toEqual(vp);
-  });
-
-  it("swallows a quota error thrown by localStorage.setItem", () => {
-    const orig = Storage.prototype.setItem;
-    Storage.prototype.setItem = () => {
-      throw new DOMException("quota exceeded", "QuotaExceededError");
-    };
-    try {
-      expect(() => saveViewport("board-4", { x: 0, y: 0, zoom: 1 })).not.toThrow();
-    } finally {
-      Storage.prototype.setItem = orig;
-    }
   });
 });

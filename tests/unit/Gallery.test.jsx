@@ -36,16 +36,19 @@ describe("Gallery", () => {
     expect(screen.queryByText("Case Alpha")).not.toBeInTheDocument();
   });
 
-  it("hides New board until the brand is Cmd/Ctrl+clicked", () => {
+  it("shows New board straight away - it used to hide behind a Cmd+click on the brand", () => {
     render(<Gallery {...base} />);
-    expect(screen.queryByTitle("New board")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTitle("Your boards"), { metaKey: true });
+    expect(screen.getByTitle("New board")).toBeInTheDocument();
+  });
+
+  it("clicking the brand goes home rather than toggling anything", () => {
+    render(<Gallery {...base} />);
+    fireEvent.click(screen.getByTitle("Your boards"));
     expect(screen.getByTitle("New board")).toBeInTheDocument();
   });
 
   it("calls onCreate when New board is clicked", () => {
     render(<Gallery {...base} />);
-    fireEvent.click(screen.getByTitle("Your boards"), { metaKey: true });
     fireEvent.click(screen.getByTitle("New board"));
     expect(base.onCreate).toHaveBeenCalled();
   });
