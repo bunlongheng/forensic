@@ -10,8 +10,9 @@ const node = { id: "a", type: "note", position: { x: 10, y: 10 }, data: { text: 
 
 function setup(sel = { kind: "note", id: "a" }, canEdit = true) {
   const setNodes = vi.fn(), addFiles = vi.fn(), addLink = vi.fn(), showToast = vi.fn();
-  const centerPos = () => ({ x: 0, y: 0 });
-  renderHook(() => useNodeClipboard({ canEdit, sel, nodes: [node], setNodes, addFiles, addLink, centerPos, showToast }));
+  // Stands in for the live pointer position - the board pastes where you are looking.
+  const pastePos = () => ({ x: 640, y: 480 });
+  renderHook(() => useNodeClipboard({ canEdit, sel, nodes: [node], setNodes, addFiles, addLink, pastePos, showToast }));
   return { setNodes, addFiles, addLink, showToast };
 }
 
@@ -44,7 +45,7 @@ describe("useNodeClipboard", () => {
     act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true })); });
     const file = new File(["x"], "shot.png", { type: "image/png" });
     act(() => { paste([{ kind: "file", type: "image/png", getAsFile: () => file }], NODE_COPY_MARKER); });
-    expect(addFiles).toHaveBeenCalledWith([file], { x: 0, y: 0 });
+    expect(addFiles).toHaveBeenCalledWith([file], { x: 640, y: 480 });
     expect(setNodes).not.toHaveBeenCalled();
   });
 
@@ -53,7 +54,7 @@ describe("useNodeClipboard", () => {
     const { addFiles } = setup(null);
     const file = new File(["%PDF"], "warrant.pdf", { type: "application/pdf" });
     act(() => { paste([{ kind: "file", type: "application/pdf", getAsFile: () => file }], ""); });
-    expect(addFiles).toHaveBeenCalledWith([file], { x: 0, y: 0 });
+    expect(addFiles).toHaveBeenCalledWith([file], { x: 640, y: 480 });
   });
 
   it("pins a pasted URL as a link card and swallows the paste", () => {
@@ -63,7 +64,7 @@ describe("useNodeClipboard", () => {
     act(() => { e = paste([], "https://example.com/docs/report.pdf"); });
     expect(addLink).toHaveBeenCalledWith(
       { kind: "pdf", url: "https://example.com/docs/report.pdf", name: "example.com/report.pdf" },
-      { x: 0, y: 0 },
+      { x: 640, y: 480 },
     );
     expect(e.defaultPrevented).toBe(true);
     expect(setNodes).not.toHaveBeenCalled();

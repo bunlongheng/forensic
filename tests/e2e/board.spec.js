@@ -103,12 +103,20 @@ test("paste a link, a PDF and an audio clip, then open them in a new tab", async
     const nodes = page.locator(".react-flow__node");
     await expect(nodes).toHaveCount(0);
 
-    // A pasted URL - through the REAL clipboard and a real Cmd/Ctrl+V.
+    // A pasted URL - through the REAL clipboard and a real Cmd/Ctrl+V. The pointer
+    // is parked on a known spot first, because a paste lands ON THE CURSOR.
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await page.evaluate(() => navigator.clipboard.writeText("https://example.com/case/evidence-log"));
-    await page.locator(".react-flow__pane").click({ position: { x: 300, y: 300 } });
+    const pane = page.locator(".react-flow__pane");
+    await pane.click({ position: { x: 300, y: 300 } });
+    const paneBox = await pane.boundingBox();
     await page.keyboard.press("ControlOrMeta+V");
     await expect(page.getByText("example.com/evidence-log")).toBeVisible();
+
+    // It landed where the pointer was, not in the middle of the view.
+    const card = await page.locator(".react-flow__node-file").first().boundingBox();
+    expect(Math.abs(card.x - (paneBox.x + 300))).toBeLessThan(60);
+    expect(Math.abs(card.y - (paneBox.y + 300))).toBeLessThan(60);
 
     // A pasted PDF and a pasted audio clip. Chromium drops `clipboardData` from a
     // constructed ClipboardEvent and headless has no way to put a FILE on the

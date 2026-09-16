@@ -45,15 +45,22 @@ const NODE_TYPES = {
 }
 const EDGE_TYPES = { floating: FloatingEdge }
 
-// Paste lands at the centre of the view, so two pasted exhibits would sit exactly
-// on top of each other - and the newer card would cover the older one's Open
-// button. Stack them as a short COLUMN instead (a card is ~96px tall), so every
-// exhibit on the pile stays clickable. Counted over exhibits only, and wrapped,
-// so a paste never walks off the far side of the board.
+// An exhibit pins exactly where you pasted it - unless another one is already
+// sitting on that spot, in which case it steps down the page (a card is ~96px
+// tall) so the one underneath keeps its Open button. That covers both a second
+// paste at the same point and several files arriving in one paste. Capped, so a
+// pile never walks off the board.
 const EXHIBIT_STEP = 108
-const cascade = (at, nds) => {
-  const i = nds.filter((n) => n.type === 'file').length % 5
-  return { x: at.x + i * 24, y: at.y + i * EXHIBIT_STEP }
+function freeSpot(at, nds) {
+  const p = { ...at }
+  for (let i = 0; i < 6; i++) {
+    const taken = nds.some((n) => n.type === 'file' && !n.parentId
+      && Math.abs(n.position.x - p.x) < 8 && Math.abs(n.position.y - p.y) < 8)
+    if (!taken) break
+    p.x += 24
+    p.y += EXHIBIT_STEP
+  }
+  return p
 }
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
@@ -70,6 +77,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [multiCount, setMultiCount] = useState(0) // # of selected top-level nodes (for Group)
   const [showReport, setShowReport] = useState(false)
   const wrapRef = useRef(null)
+  const cursorRef = useRef(null)      // last pointer position, screen coords (null until the mouse moves)
   const fileRef = useRef(null)
   const toolbarRef = useRef(null)
   const [panelW, setPanelW] = useState(264) // inspector matches the toolbar's width
@@ -208,7 +216,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       try {
         const data = await fileToAttachment(file)
         setNodes((nds) => nds.concat({
-          id: uid('file'), type: 'file', position: cascade(at, nds), style: { width: 240 },
+          id: uid('file'), type: 'file', position: freeSpot(at, nds), style: { width: 240 },
           data: { ...data, editable: true },
         }))
         i++
@@ -234,7 +242,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // A pasted (or dragged) URL lands as a link card - click its icon to open it.
   const addLink = useCallback((link, at) => {
     setNodes((nds) => nds.concat({
-      id: uid('file'), type: 'file', position: cascade(at, nds), style: { width: 240 },
+      id: uid('file'), type: 'file', position: freeSpot(at, nds), style: { width: 240 },
       data: { ...link, editable: true },
     }))
     showToast('Pinned a link')
@@ -246,6 +254,19 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     const r = wrapRef.current?.getBoundingClientRect()
     return screenToFlowPosition({ x: (r?.left || 0) + (r?.width || 800) / 2, y: (r?.top || 0) + (r?.height || 600) / 2 })
   }, [screenToFlowPosition])
+
+  // Where a paste lands: on the pointer, so what you paste appears where you are
+  // looking. Falls back to the middle of the view when the mouse has not moved
+  // yet, has left the canvas, or is parked over the chrome (toolbar, inspector,
+  // minimap) - dropping a card under a panel would look like nothing happened.
+  const pastePos = useCallback(() => {
+    const c = cursorRef.current
+    const r = wrapRef.current?.getBoundingClientRect()
+    const inside = c && r && c.x >= r.left && c.x <= r.right && c.y >= r.top && c.y <= r.bottom
+    if (!inside) return centerPos()
+    if (document.elementFromPoint(c.x, c.y)?.closest('.fx-noexport')) return centerPos()
+    return screenToFlowPosition(c)
+  }, [centerPos, screenToFlowPosition])
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
@@ -259,7 +280,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, centerPos, showToast })
+  useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.
@@ -388,7 +409,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // CMD+C and CMD+Z never flash it, and a pointerdown closes an open ring.
   const [ring, setRing] = useState(null)     // {x,y} in screen coords, or null
   const [ringClosing, setRingClosing] = useState(false) // playing its exit sweep
-  const cursorRef = useRef({ x: 0, y: 0 })
   const downRef = useRef(false)              // a pointer button is held
   const dwellRef = useRef(null)
   const summonRef = useRef(0)                // bumped per summon so the ring remounts
@@ -407,7 +427,9 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       // back", and swallowing it left the ring unreachable for half a second.
       if (ring && !ringClosing) { cancel(); setRingClosing(true); return }
       if (dwellRef.current || downRef.current) return
-      const { x, y } = cursorRef.current
+      const c = cursorRef.current
+      if (!c) return // mouse has not moved yet - nothing to bloom around
+      const { x, y } = c
       // Nodes own CMD for align/resize; the chrome (toolbar, inspector, minimap)
       // would have the ring bloom underneath it. Bare canvas only.
       if (document.elementFromPoint(x, y)?.closest('.react-flow__node, .fx-noexport')) return
