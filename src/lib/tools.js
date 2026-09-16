@@ -1,5 +1,7 @@
-// The board's add-tools, as plain data, shared by the two ways in: the toolbar +
-// and holding CMD on the canvas, both of which render the same CursorTools ring.
+// The board's add-tools, as plain data, shared by the three ways in: the toolbar
+// +, the bottom-left summon, and holding CMD on the canvas - all of which render
+// the same CursorTools ring.
+
 import { STAMP_LABELS } from './constants.js'
 
 export const TOOL_ITEMS = [
@@ -13,6 +15,7 @@ export const TOOL_ITEMS = [
     { label: 'Photo', action: 'image' },
   ] },
   { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, key: 'stamp', extra: { label: l } })) },
+  { key: 'wax', icon: 'wax', label: 'Wax seal' },
   { key: 'redaction', icon: 'redact', label: 'Redact' },
   { key: 'crosshair', icon: 'crosshair', label: 'Crosshair' },
   { key: 'drawing', glyph: '✎', label: 'Draw' },

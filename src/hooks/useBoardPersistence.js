@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { updateBoard } from '../lib/api.js'
-import { saveDraft, loadDraft, clearDraft, loadViewport } from '../lib/localBoard.js'
+import { saveDraft, loadDraft, clearDraft } from '../lib/localBoard.js'
 import { boardSnapshot } from '../lib/boardGraph.js'
 
 // A board this large would blow past most hosts' request-body limit (and the
@@ -20,9 +20,8 @@ function draftNodesBytes(snapshot) {
 //   - a retry the moment the connection returns
 //   - Cmd/Ctrl+S to force a save
 //   - restore-on-open: bring back an unsynced draft, then frame the board
-// Returns the save state for the pill and `restoreReady`, which gates local
-// writes until we've checked for an existing draft.
-export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast, makeThumb }) {
+// Returns the save state for the pill.
+export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb }) {
   const [save, setSave] = useState('idle') // idle | saving | saved | error | toolarge | unauth
   const savedSnap = useRef(null)
   const restoreReady = useRef(false)
@@ -194,14 +193,11 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
           showToast('Loaded a newer version saved elsewhere')
         }
       }
-      // A saved viewport (zoom/pan) beats fitView - the owner (or a returning
-      // viewer) reopens exactly where they left off instead of snapping to fit.
-      const vp = board.id ? loadViewport(board.id) : null
-      if (vp && setViewport) {
-        setViewport(vp, { duration: 0 })
-      } else if (hasContent) {
-        // A brand-new empty board stays at a calm 100%. (Two rAFs so React Flow has
-        // measured the nodes before we fit.)
+      // ALWAYS frame the whole board on open - you should see the whole case the
+      // moment it loads, never a corner of it at whatever zoom you left behind.
+      // A brand-new empty board stays at a calm 100%. (Two rAFs so React Flow has
+      // measured the nodes before we fit.)
+      if (hasContent) {
         requestAnimationFrame(() => requestAnimationFrame(() => { if (alive) fitView({ padding: 0.18, duration: 0 }) }))
       }
       restoreReady.current = true
@@ -210,5 +206,5 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return { save, restoreReady }
+  return { save }
 }

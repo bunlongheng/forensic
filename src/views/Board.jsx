@@ -16,7 +16,10 @@ import ClipNode from '../components/ClipNode.jsx'
 import StampNode from '../components/StampNode.jsx'
 import RedactionNode from '../components/RedactionNode.jsx'
 import CrosshairNode from '../components/CrosshairNode.jsx'
+import WaxSealNode from '../components/WaxSealNode.jsx'
+import FileNode from '../components/FileNode.jsx'
 import { FloatingEdge } from '../components/FloatingEdge.jsx'
+import { Icon } from '../components/Icon.jsx'
 import { Inspector } from '../components/Inspector.jsx'
 import { Decorations } from '../components/Decorations.jsx'
 import { ReportModal } from '../components/ReportModal.jsx'
@@ -24,7 +27,7 @@ import { CursorTools, RING_SAFE } from '../components/CursorTools.jsx'
 import { SnapGuides } from '../components/SnapGuides.jsx'
 import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
 import { fileToImage } from '../lib/image.js'
-import { saveViewport } from '../lib/localBoard.js'
+import { fileToAttachment, parseLink, ATTACH_MAX, prettySize } from '../lib/attach.js'
 import { makeThumbnail } from '../lib/thumbnail.js'
 import { snapAlign } from '../lib/snapAlign.js'
 import { TOOL_ITEMS } from '../lib/tools.js'
@@ -40,9 +43,27 @@ const NODE_TYPES = {
   image: ImageNode, note: NoteNode, text: TextNode, profile: ProfileNode,
   sticker: StickerNode, container: ContainerNode, annotation: AnnotationNode, drawing: DrawingNode,
   callout: CalloutNode, clip: ClipNode, stamp: StampNode, redaction: RedactionNode,
-  crosshair: CrosshairNode,
+  crosshair: CrosshairNode, wax: WaxSealNode, file: FileNode,
 }
 const EDGE_TYPES = { floating: FloatingEdge }
+
+// An exhibit pins exactly where you pasted it - unless another one is already
+// sitting on that spot, in which case it steps down the page (a card is ~96px
+// tall) so the one underneath keeps its Open button. That covers both a second
+// paste at the same point and several files arriving in one paste. Capped, so a
+// pile never walks off the board.
+const EXHIBIT_STEP = 108
+function freeSpot(at, nds) {
+  const p = { ...at }
+  for (let i = 0; i < 6; i++) {
+    const taken = nds.some((n) => n.type === 'file' && !n.parentId
+      && Math.abs(n.position.x - p.x) < 8 && Math.abs(n.position.y - p.y) < 8)
+    if (!taken) break
+    p.x += 24
+    p.y += EXHIBIT_STEP
+  }
+  return p
+}
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
 // How long CMD has to be held still before the cursor ring blooms. Long enough
@@ -58,11 +79,11 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   const [multiCount, setMultiCount] = useState(0) // # of selected top-level nodes (for Group)
   const [showReport, setShowReport] = useState(false)
   const wrapRef = useRef(null)
+  const cursorRef = useRef(null)      // last pointer position, screen coords (null until the mouse moves)
   const fileRef = useRef(null)
+  const fabRef = useRef(null)          // bottom-left ring summon
   const toolbarRef = useRef(null)
   const [panelW, setPanelW] = useState(264) // inspector matches the toolbar's width
-  const vpRef = useRef(null)          // latest viewport {x,y,zoom} for the local draft
-  const vpTimer = useRef(null)        // throttle for persisting the viewport
 
   // `content` mirrors nodes/edges for snapshot purposes, EXCEPT while a drag is in
   // flight, when it stays pinned to the pre-drag value and catches up the instant
@@ -151,19 +172,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     [theme.canvas],
   )
 
-  const { save, restoreReady } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, setViewport, showToast, makeThumb })
+  const { save } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb })
   const { undo, redo, canUndo, canRedo } = useUndoRedo({ snapshot, canEdit, restore })
-
-  // Remember where the owner is looking (zoom/pan), throttled, so an accidental
-  // refresh reopens at the exact same spot instead of snapping back to fit.
-  // Deliberately does NO setState - it fires on every frame of a pan/zoom, so the
-  // zoom % badge subscribes to the React Flow store itself (see BoardTopBar) rather
-  // than re-rendering the whole board 60x a second.
-  const onMove = useCallback((_, vp) => {
-    vpRef.current = vp
-    if (!board.id || !restoreReady.current || vpTimer.current) return
-    vpTimer.current = setTimeout(() => { vpTimer.current = null; saveViewport(board.id, vpRef.current) }, 300)
-  }, [board.id, restoreReady])
 
   // Keep the inspector the same width as the top-right toolbar so they line up.
   useEffect(() => {
@@ -200,6 +210,47 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
+  // Everything that is NOT a photo - a PDF, an audio or video file, a document -
+  // becomes one exhibit card you click to open. The bytes ride in the board JSON,
+  // so an oversized file is refused up front with the reason, not a failed save.
+  const addAttachFiles = useCallback(async (files, at) => {
+    let i = 0
+    for (const file of files) {
+      try {
+        const data = await fileToAttachment(file)
+        setNodes((nds) => nds.concat({
+          id: uid('file'), type: 'file', position: freeSpot(at, nds), style: { width: 240 },
+          data: { ...data, editable: true },
+        }))
+        i++
+      } catch (err) {
+        showToast(err?.code === 'too-large'
+          ? `${file.name} is over ${prettySize(ATTACH_MAX)} - pin a link to it instead`
+          : `Could not read ${file.name}`)
+      }
+    }
+    if (i) showToast(`Pinned ${i} file${i > 1 ? 's' : ''}`)
+  }, [setNodes, showToast])
+
+  // One entry point for dropped/pasted/picked files: photos pin as photos,
+  // everything else pins as an exhibit card.
+  const addFiles = useCallback((files, at) => {
+    const list = [...files]
+    const imgs = list.filter((f) => f.type.startsWith('image/'))
+    const rest = list.filter((f) => !f.type.startsWith('image/'))
+    if (imgs.length) addImageFiles(imgs, at)
+    if (rest.length) addAttachFiles(rest, imgs.length ? { x: at.x + 40, y: at.y + 40 } : at)
+  }, [addImageFiles, addAttachFiles])
+
+  // A pasted (or dragged) URL lands as a link card - click its icon to open it.
+  const addLink = useCallback((link, at) => {
+    setNodes((nds) => nds.concat({
+      id: uid('file'), type: 'file', position: freeSpot(at, nds), style: { width: 240 },
+      data: { ...link, editable: true },
+    }))
+    showToast('Pinned a link')
+  }, [setNodes, showToast])
+
   const addNodeOfType = useCallback((type, at, extra, exact) => setNodes((nds) => addNode(nds, type, at, extra, exact)), [setNodes])
 
   const centerPos = useCallback(() => {
@@ -207,16 +258,32 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     return screenToFlowPosition({ x: (r?.left || 0) + (r?.width || 800) / 2, y: (r?.top || 0) + (r?.height || 600) / 2 })
   }, [screenToFlowPosition])
 
+  // Where a paste lands: on the pointer, so what you paste appears where you are
+  // looking. Falls back to the middle of the view when the mouse has not moved
+  // yet, has left the canvas, or is parked over the chrome (toolbar, inspector,
+  // minimap) - dropping a card under a panel would look like nothing happened.
+  const pastePos = useCallback(() => {
+    const c = cursorRef.current
+    const r = wrapRef.current?.getBoundingClientRect()
+    const inside = c && r && c.x >= r.left && c.x <= r.right && c.y >= r.top && c.y <= r.bottom
+    if (!inside) return centerPos()
+    if (document.elementFromPoint(c.x, c.y)?.closest('.fx-noexport')) return centerPos()
+    return screenToFlowPosition(c)
+  }, [centerPos, screenToFlowPosition])
+
   const onDrop = useCallback((e) => {
     e.preventDefault()
     if (!canEdit) return
     const at = screenToFlowPosition({ x: e.clientX, y: e.clientY })
-    if (e.dataTransfer.files?.length) addImageFiles(e.dataTransfer.files, at)
-  }, [canEdit, screenToFlowPosition, addImageFiles])
+    if (e.dataTransfer.files?.length) { addFiles(e.dataTransfer.files, at); return }
+    // A link dragged in from another tab/app.
+    const link = parseLink(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text'))
+    if (link) addLink(link, at)
+  }, [canEdit, screenToFlowPosition, addFiles, addLink])
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  useNodeClipboard({ canEdit, sel, nodes, setNodes, addImageFiles, centerPos, showToast })
+  useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.
@@ -345,7 +412,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // CMD+C and CMD+Z never flash it, and a pointerdown closes an open ring.
   const [ring, setRing] = useState(null)     // {x,y} in screen coords, or null
   const [ringClosing, setRingClosing] = useState(false) // playing its exit sweep
-  const cursorRef = useRef({ x: 0, y: 0 })
   const downRef = useRef(false)              // a pointer button is held
   const dwellRef = useRef(null)
   const summonRef = useRef(0)                // bumped per summon so the ring remounts
@@ -364,7 +430,9 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       // back", and swallowing it left the ring unreachable for half a second.
       if (ring && !ringClosing) { cancel(); setRingClosing(true); return }
       if (dwellRef.current || downRef.current) return
-      const { x, y } = cursorRef.current
+      const c = cursorRef.current
+      if (!c) return // mouse has not moved yet - nothing to bloom around
+      const { x, y } = c
       // Nodes own CMD for align/resize; the chrome (toolbar, inspector, minimap)
       // would have the ring bloom underneath it. Bare canvas only.
       if (document.elementFromPoint(x, y)?.closest('.react-flow__node, .fx-noexport')) return
@@ -405,11 +473,24 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
   // The toolbar's + summons the same ring over the middle of the canvas, so the
   // pointer path is short and there is only ever ONE tool UI to learn.
   const closeRing = useCallback(() => { setRing(null); setRingClosing(false) }, [])
+  // Every summon lands here, clamped so no tool ends up off-screen - the same
+  // margin the CMD dwell uses.
+  const openRingAt = useCallback((x, y) => {
+    const clamp = (v, max) => Math.min(Math.max(v, RING_SAFE), max - RING_SAFE)
+    setRingClosing(false)
+    setRing({ x: clamp(x, window.innerWidth), y: clamp(y, window.innerHeight), n: ++summonRef.current })
+  }, [])
   const openRingAtCenter = useCallback(() => {
     const r = wrapRef.current?.getBoundingClientRect()
-    setRingClosing(false)
-    setRing({ x: (r?.left || 0) + (r?.width || 800) / 2, y: (r?.top || 0) + (r?.height || 600) / 2, n: ++summonRef.current })
-  }, [])
+    openRingAt((r?.left || 0) + (r?.width || 800) / 2, (r?.top || 0) + (r?.height || 600) / 2)
+  }, [openRingAt])
+  // The bottom-left summon blooms the ring over itself, so the tools appear
+  // under the thumb that asked for them.
+  const openRingAtFab = useCallback(() => {
+    const r = fabRef.current?.getBoundingClientRect()
+    if (!r) return openRingAtCenter()
+    openRingAt(r.left + r.width / 2, r.top + r.height / 2)
+  }, [openRingAt, openRingAtCenter])
 
   // A NodeResizer drag never reaches this component, so CMD has to be tracked
   // globally to know whether a resize wants the line-up guide.
@@ -538,7 +619,6 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         onNodeDragStop={onDragStop}
         onSelectionDragStart={onDragStart}
         onSelectionDragStop={onDragStop}
-        onMove={onMove}
         colorMode={themeName}
         connectionMode="loose"
         connectionLineType="straight"
@@ -591,7 +671,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           <div style={{ textAlign: 'center', color: theme.muted, animation: 'fx-rise .5s both' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🧵</div>
             <div className="mono" style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.04em', color: theme.text }}>DROP EVIDENCE ONTO THE BOARD</div>
-            <div style={{ fontSize: 13, marginTop: 6 }}>Drag images in, paste from clipboard, or double-click to add a note.</div>
+            <div style={{ fontSize: 13, marginTop: 6 }}>Drag in images, PDFs, audio or links - paste from the clipboard - or double-click to add a note.</div>
             <div style={{ fontSize: 13, marginTop: 2 }}>Drag from a node's edge to wire connections.</div>
           </div>
         </div>
@@ -601,6 +681,25 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           crosshair / draw / group) */}
       {canEdit && <CursorTools key={ring ? ring.n : "shut"} at={ring} items={TOOL_ITEMS} closing={ringClosing} onPick={pickRingTool} onClose={closeRing} />}
 
+      {/* Bottom-left summon: a ghost until you reach for it, then a real button.
+          A third way into the SAME ring, alongside holding CMD and the toolbar +,
+          for the times your hands are on the mouse and not the keyboard. */}
+      {canEdit && (
+        <button
+          ref={fabRef} className="fx-noexport fx-fab" onClick={openRingAtFab}
+          aria-label="Open add tools" title="Add to board - or hold Cmd anywhere on the canvas"
+          style={{
+            position: 'absolute', zIndex: 9,
+            left: 'calc(42px + env(safe-area-inset-left))', bottom: 'calc(42px + env(safe-area-inset-bottom))',
+            width: 46, height: 46, borderRadius: '50%', display: 'grid', placeItems: 'center', cursor: 'pointer',
+            background: 'var(--panel)', color: 'var(--text)', border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow)', padding: 0,
+          }}
+        >
+          <Icon name="plus" size={21} />
+        </button>
+      )}
+
       <BoardTopBar
         canEdit={canEdit} title={title} onTitle={setTitle} save={save} onBack={onBack} toolbarRef={toolbarRef}
         undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
@@ -609,8 +708,8 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
         onAddImage={() => fileRef.current?.click()} onAddSticker={() => addNodeOfType('sticker', centerPos())}
         onToggleTheme={onToggleTheme} themeName={themeName}
       />
-      {canEdit && <input ref={fileRef} type="file" accept="image/*" multiple hidden
-        onChange={(e) => { if (e.target.files?.length) addImageFiles(e.target.files, centerPos()); e.target.value = '' }} />}
+      {canEdit && <input ref={fileRef} type="file" accept="image/*,application/pdf,audio/*,video/*,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" multiple hidden
+        onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files, centerPos()); e.target.value = '' }} />}
 
       {canEdit && multiCount >= 2 && (
         <MultiSelectBar count={multiCount} onChain={() => connectSelected('chain')} onFan={() => connectSelected('fan')} onGroup={groupSelected} />

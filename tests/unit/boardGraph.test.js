@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { CROSSHAIR_COLORS, THREAD_COLORS } from "../../src/lib/constants.js";
 import {
   sanitizeNodes, sanitizeEdges, withEditable, boardSnapshot, uid, nodeW, nodeH,
   newNodeSpec, addNode, duplicateNode, arrangeZ, groupNodes, ungroupNodes,
@@ -88,8 +89,15 @@ describe("newNodeSpec / addNode", () => {
     expect(newNodeSpec("nope", nds)).toBeNull();
   });
 
-  it("has no spec for the retired marker, wax seal and spotlight types", () => {
-    for (const t of ["marker", "wax", "spotlight"]) expect(newNodeSpec(t, [])).toBeNull();
+  it("has no spec for the retired marker and spotlight types", () => {
+    for (const t of ["marker", "spotlight"]) expect(newNodeSpec(t, [])).toBeNull();
+  });
+
+  it("still specs the wax seal - boards in the wild hold wax nodes", () => {
+    expect(newNodeSpec("wax", [])).toEqual({
+      style: { width: 84, height: 84 },
+      data: { symbol: "\u2605", color: "#8b1e3f", editable: true },
+    });
   });
 
   it("cascades new objects and merges extra data", () => {
@@ -293,5 +301,21 @@ describe("matchHeightHint", () => {
     expect(matchHeightHint(dragged, [dragged, img("b", 340, 0, 400, 400)])).toBeNull();
     const free = img("a", 0, 0, 300, 200);
     expect(matchHeightHint(free, [free, { ...img("b", 340, 0, 400, 400), parentId: "g" }])).toBeNull();
+  });
+});
+
+describe("CROSSHAIR_COLORS", () => {
+  it("offers green and blue alongside the original four", () => {
+    expect(CROSSHAIR_COLORS).toContain("#22c55e"); // green
+    expect(CROSSHAIR_COLORS).toContain("#2f6fed"); // blue
+    expect(CROSSHAIR_COLORS[0]).toBe("#e5231b");   // red stays the default
+  });
+
+  it("reuses the palette the pins and threads already use, not a third set", () => {
+    for (const c of ["#22c55e", "#2f6fed"]) expect(THREAD_COLORS).toContain(c);
+  });
+
+  it("has no duplicates", () => {
+    expect(new Set(CROSSHAIR_COLORS).size).toBe(CROSSHAIR_COLORS.length);
   });
 });

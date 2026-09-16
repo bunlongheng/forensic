@@ -1,13 +1,13 @@
 // Crash-safe local persistence. The server autosave is debounced and can fail
 // (offline, request too large, tab closed mid-flight), so before anything reaches
-// the server we mirror the board on THIS device. On reload we restore it exactly -
-// content and the precise viewport (zoom/pan) - so an accidental refresh or a
-// dropped connection costs at most the last change, never the session.
+// the server we mirror the board's CONTENT on THIS device. On reload we restore it
+// exactly, so an accidental refresh or a dropped connection costs at most the last
+// change, never the session. (The viewport is not stored: a board always opens
+// fitted to view - see useBoardPersistence.)
 //
-// Split by weight: the heavy content snapshot (base64 images, up to a few MB) goes
-// to IndexedDB, which has a large quota; the tiny viewport ({x,y,zoom}) goes to
-// localStorage so it can be written cheaply on every pan without rewriting the
-// images. Everything is best-effort - a storage failure never throws into the UI.
+// The snapshot is heavy (base64 images, up to a few MB), so it goes to IndexedDB
+// and its large quota. Everything is best-effort - a storage failure never throws
+// into the UI.
 
 const DB = 'forensic'
 const STORE = 'drafts'
@@ -46,14 +46,3 @@ function tx(mode, run) {
 export const saveDraft = (id, draft) => tx('readwrite', (s) => s.put(draft, id)).catch(() => {})
 export const loadDraft = (id) => tx('readonly', (s) => s.get(id)).catch(() => null)
 export const clearDraft = (id) => tx('readwrite', (s) => s.delete(id)).catch(() => {})
-
-const vpKey = (id) => `fx:vp:${id}`
-export function saveViewport(id, vp) {
-  try { localStorage.setItem(vpKey(id), JSON.stringify(vp)) } catch { /* quota / private mode */ }
-}
-export function loadViewport(id) {
-  try {
-    const raw = localStorage.getItem(vpKey(id))
-    return raw ? JSON.parse(raw) : null
-  } catch { return null } // quota / private mode / corrupt value
-}

@@ -168,6 +168,25 @@ export default function App() {
       .catch(() => showToast('Delete failed'))
   }
 
+  // Empty the whole trash. Purges are per-board on the API, so fire them together
+  // and report honestly: a partial failure leaves the survivors on screen rather
+  // than pretending everything went.
+  const [emptying, setEmptying] = useState(false)
+  function emptyTrash() {
+    const rows = trash || []
+    if (!rows.length || emptying) return
+    if (!window.confirm(`Permanently delete all ${rows.length} board${rows.length === 1 ? '' : 's'} in the Trash? This cannot be undone.`)) return
+    setEmptying(true)
+    Promise.allSettled(rows.map((b) => purgeBoard(b.id).then(() => b.id)))
+      .then((results) => {
+        const gone = new Set(results.filter((r) => r.status === 'fulfilled').map((r) => r.value))
+        setTrash((t) => (t || []).filter((x) => !gone.has(x.id)))
+        const failed = rows.length - gone.size
+        showToast(failed ? `Deleted ${gone.size}, ${failed} failed` : 'Trash emptied')
+      })
+      .finally(() => setEmptying(false))
+  }
+
   function backToGallery() {
     setActive(null); setLoadError(false); setUrlId(null); setView('gallery'); loadBoards()
   }
@@ -210,7 +229,7 @@ export default function App() {
         <Trash boards={trash || []} loading={trash === null} error={trashError} onRetry={loadTrash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
           onCreate={createNew} onSignOut={signOut} creating={creating}
           onBack={() => { setView('gallery'); loadBoards() }}
-          onRestore={restoreOne} onPurge={purgeOne} narrow={narrow} />
+          onRestore={restoreOne} onPurge={purgeOne} onEmpty={emptyTrash} emptying={emptying} narrow={narrow} />
         <Toast {...toast} />
       </>
     )
