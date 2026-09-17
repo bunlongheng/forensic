@@ -176,6 +176,51 @@ test("paste a link, a PDF and an audio clip, then open them in a new tab", async
   }
 });
 
+// A .svg and a .webp are PHOTOS. They used to pin as exhibit cards whenever the
+// browser handed them over typeless, and SVG copied as text was ignored outright.
+test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, never as cards", async ({ page, request }) => {
+  const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
+  const id = (await create.json()).id;
+
+  try {
+    await page.goto(`/?id=${id}`);
+    // The board is a lazy chunk - its paste listener exists only once the pane does.
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await page.mouse.move(400, 400);
+    await page.evaluate(() => {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#c00"/></svg>';
+      // A real WebP, encoded by this very browser, so the decode on the way in is genuine.
+      const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+      c.getContext("2d").fillRect(0, 0, 8, 8);
+      const b64 = c.toDataURL("image/webp").split(",")[1];
+      const webpBytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      // The canonical 1x1 GIF - real bytes, so a re-encode would show as data:image/webp.
+      const gifBytes = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), (ch) => ch.charCodeAt(0));
+      const files = [
+        new File([svg], "logo.svg", { type: "" }),              // typeless, as Finder/drag often delivers it
+        new File([webpBytes], "shot.webp", { type: "image/webp" }),
+        new File([gifBytes], "clip.gif", { type: "image/gif" }),
+      ];
+      const fire = (items, text) => {
+        const e = new Event("paste", { bubbles: true, cancelable: true });
+        e.clipboardData = { items, getData: () => text };
+        window.dispatchEvent(e);
+      };
+      fire(files.map((f) => ({ kind: "file", type: f.type, getAsFile: () => f })), "");
+      fire([], svg); // SVG as TEXT - Figma "Copy as SVG"
+    });
+    await expect(page.locator(".react-flow__node-image")).toHaveCount(4);
+    await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
+    // Every one of them actually decoded - a broken <img> reports 0 natural width.
+    const imgs = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => ({ w: el.naturalWidth, src: el.src.slice(0, 15) })));
+    expect(imgs.every((i) => i.w > 0)).toBe(true);
+    // The GIF is still a GIF - a re-encode would have turned it into data:image/webp.
+    expect(imgs.map((i) => i.src)).toContain("data:image/gif;");
+  } finally {
+    await purge(id);
+  }
+});
+
 // The bottom-left summon: one of the two ways into the tool ring, alongside the
 // toolbar + (holding Cmd used to be a third and was removed - its dwell timer
 // raced every other Cmd gesture). Also guards the wax seal, which boards in the

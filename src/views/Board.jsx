@@ -26,7 +26,7 @@ import { ReportModal } from '../components/ReportModal.jsx'
 import { CursorTools, RING_SAFE } from '../components/CursorTools.jsx'
 import { SnapGuides } from '../components/SnapGuides.jsx'
 import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
-import { fileToImage } from '../lib/image.js'
+import { fileToImage, isImageFile } from '../lib/image.js'
 import { fileToAttachment, parseLink, ATTACH_MAX, prettySize } from '../lib/attach.js'
 import { makeThumbnail } from '../lib/thumbnail.js'
 import { snapAlign } from '../lib/snapAlign.js'
@@ -188,7 +188,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
 
   // ── Add content ────────────────────────────────────────────────────────────
   const addImageFiles = useCallback(async (files, at) => {
-    const imgs = [...files].filter((f) => f.type.startsWith('image/'))
+    const imgs = [...files].filter(isImageFile)
     if (!imgs.length) return
     let i = 0
     for (const file of imgs) {
@@ -202,9 +202,13 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
           data: { src, editable: true },
         }))
         i++
-      } catch { showToast('Could not read an image') }
+      } catch (err) {
+        showToast(err?.code === 'too-large'
+          ? `${file.name} is over ${prettySize(ATTACH_MAX)} - a GIF cannot be shrunk, pin a link to it instead`
+          : 'Could not read an image')
+      }
     }
-    if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
+    if (i) showToast(`Pinned ${i} image${i > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
   // Everything that is NOT a photo - a PDF, an audio or video file, a document -
@@ -233,8 +237,8 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
   // everything else pins as an exhibit card.
   const addFiles = useCallback((files, at) => {
     const list = [...files]
-    const imgs = list.filter((f) => f.type.startsWith('image/'))
-    const rest = list.filter((f) => !f.type.startsWith('image/'))
+    const imgs = list.filter(isImageFile)
+    const rest = list.filter((f) => !isImageFile(f))
     if (imgs.length) addImageFiles(imgs, at)
     if (rest.length) addAttachFiles(rest, imgs.length ? { x: at.x + 40, y: at.y + 40 } : at)
   }, [addImageFiles, addAttachFiles])
