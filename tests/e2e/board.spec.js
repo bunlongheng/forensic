@@ -221,9 +221,10 @@ test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, 
   }
 });
 
-// The bottom-left summon: a third way into the same tool ring, alongside holding
-// Cmd and the toolbar +. Also guards the wax seal, which boards in the wild
-// still hold and which briefly lost its renderer.
+// The bottom-left summon: one of the two ways into the tool ring, alongside the
+// toolbar + (holding Cmd used to be a third and was removed - its dwell timer
+// raced every other Cmd gesture). Also guards the wax seal, which boards in the
+// wild still hold and which briefly lost its renderer.
 test("the bottom-left summon opens the tool ring and drops a wax seal", async ({ page, request }) => {
   const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
   const id = (await create.json()).id;
@@ -236,6 +237,13 @@ test("the bottom-left summon opens the tool ring and drops a wax seal", async ({
     expect(Number(await fab.evaluate((el) => getComputedStyle(el).opacity))).toBeLessThan(0.5);
     await fab.hover();
     await expect.poll(() => fab.evaluate((el) => Number(getComputedStyle(el).opacity))).toBe(1);
+
+    // Holding Cmd on bare canvas must do NOTHING now - the dwell summon is gone.
+    await page.mouse.move(600, 400);
+    await page.keyboard.down("ControlOrMeta");
+    await page.waitForTimeout(700); // well past the old 260ms dwell
+    await expect(page.getByRole("button", { name: "Wax seal" })).toHaveCount(0);
+    await page.keyboard.up("ControlOrMeta");
 
     await fab.click();
     await page.getByRole("button", { name: "Wax seal" }).click();

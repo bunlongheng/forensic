@@ -66,11 +66,8 @@ function freeSpot(at, nds) {
 }
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
-// How long CMD has to be held still before the cursor ring blooms. Long enough
-// that CMD+G / CMD+S / a CMD-drag never flash it, short enough to feel instant.
-const RING_DWELL = 260
 
-function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, showToast }) {
+function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme, onBack, showToast }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(withEditable(board.nodes || [], canEdit))
   const [edges, setEdges, onEdgesChange] = useEdgesState(board.edges || [])
   const [title, setTitle] = useState(board.title || 'Untitled Board')
@@ -277,17 +274,20 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
   const onDrop = useCallback((e) => {
     e.preventDefault()
-    if (!canEdit) return
+    if (!canEdit) {
+      if (readOnly) showToast(readOnly === 'auth' ? 'Sign in to edit this board' : 'Read-only on this device')
+      return
+    }
     const at = screenToFlowPosition({ x: e.clientX, y: e.clientY })
     if (e.dataTransfer.files?.length) { addFiles(e.dataTransfer.files, at); return }
     // A link dragged in from another tab/app.
     const link = parseLink(e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text'))
     if (link) addLink(link, at)
-  }, [canEdit, screenToFlowPosition, addFiles, addLink])
+  }, [canEdit, readOnly, showToast, screenToFlowPosition, addFiles, addLink])
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast })
+  useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.
@@ -407,63 +407,20 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     onNodesChange(applied)
   }, [onNodesChange])
 
-  // ─── CMD cursor ring ──────────────────────────────────────────────────────
-  // Hold CMD over BARE CANVAS and the add-tools bloom around the pointer, so a
-  // note lands where you are looking. Canvas only, on purpose: over a node CMD
-  // already means drag-to-align or resize-to-match, and a ring blooming there
-  // buries the handles you are reaching for. The toolbar + covers the case where
-  // nothing bare is in view. Any other key cancels the dwell, so CMD+G, CMD+S,
-  // CMD+C and CMD+Z never flash it, and a pointerdown closes an open ring.
+  // ─── Tool ring ────────────────────────────────────────────────────────────
+  // Opened by the toolbar + or the corner +, never by a held key. The hold-CMD
+  // summon was removed: its dwell timer raced CMD-drag line-up and every CMD
+  // shortcut, so the ring bloomed when nobody asked for it. CMD on the canvas
+  // now means nothing; CMD on a node still means line up.
   const [ring, setRing] = useState(null)     // {x,y} in screen coords, or null
-  const [ringClosing, setRingClosing] = useState(false) // playing its exit sweep
-  const downRef = useRef(false)              // a pointer button is held
-  const dwellRef = useRef(null)
   const summonRef = useRef(0)                // bumped per summon so the ring remounts
+  // The pointer is tracked for one reason: a paste lands ON THE CURSOR.
   useEffect(() => {
     if (!canEdit) return
-    const cancel = () => { clearTimeout(dwellRef.current); dwellRef.current = null }
     const track = (e) => { cursorRef.current = { x: e.clientX, y: e.clientY } }
-    const pdown = () => { downRef.current = true; cancel(); setRing(null); setRingClosing(false) }
-    const pup = () => { downRef.current = false }
-    const key = (e) => {
-      if (e.key !== 'Meta' && e.key !== 'Control') { cancel(); if (ring && !ringClosing) setRingClosing(true); return }
-      if (e.repeat) return
-      // CMD again is a dismiss - same key closes what it opened, sweeping the
-      // tools back into the centre rather than blinking them out. If it is ALREADY
-      // sweeping shut, fall through instead: a second CMD there means "bring it
-      // back", and swallowing it left the ring unreachable for half a second.
-      if (ring && !ringClosing) { cancel(); setRingClosing(true); return }
-      if (dwellRef.current || downRef.current) return
-      const c = cursorRef.current
-      if (!c) return // mouse has not moved yet - nothing to bloom around
-      const { x, y } = c
-      // Nodes own CMD for align/resize; the chrome (toolbar, inspector, minimap)
-      // would have the ring bloom underneath it. Bare canvas only.
-      if (document.elementFromPoint(x, y)?.closest('.react-flow__node, .fx-noexport')) return
-      dwellRef.current = setTimeout(() => {
-        dwellRef.current = null
-        // Pull the summon point in from the edges so no tool ends up off-screen.
-        const clamp = (v, max) => Math.min(Math.max(v, RING_SAFE), max - RING_SAFE)
-        setRingClosing(false)
-        setRing({ x: clamp(x, window.innerWidth), y: clamp(y, window.innerHeight), n: ++summonRef.current })
-      }, RING_DWELL)
-    }
     window.addEventListener('pointermove', track)
-    window.addEventListener('pointerdown', pdown)
-    window.addEventListener('pointerup', pup)
-    window.addEventListener('keydown', key)
-    window.addEventListener('keyup', cancel)
-    window.addEventListener('blur', cancel)
-    return () => {
-      cancel()
-      window.removeEventListener('pointermove', track)
-      window.removeEventListener('pointerdown', pdown)
-      window.removeEventListener('pointerup', pup)
-      window.removeEventListener('keydown', key)
-      window.removeEventListener('keyup', cancel)
-      window.removeEventListener('blur', cancel)
-    }
-  }, [canEdit, ring, ringClosing])
+    return () => window.removeEventListener('pointermove', track)
+  }, [canEdit])
 
   // Drop the picked tool on the exact spot the ring's crosshair marked.
   const pickRingTool = useCallback((it) => {
@@ -474,14 +431,12 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
     addNodeOfType(it.key, at, it.extra, true)
   }, [ring, screenToFlowPosition, addNodeOfType])
 
-  // The toolbar's + summons the same ring over the middle of the canvas, so the
+  // The toolbar's + summons the ring over the middle of the canvas, so the
   // pointer path is short and there is only ever ONE tool UI to learn.
-  const closeRing = useCallback(() => { setRing(null); setRingClosing(false) }, [])
-  // Every summon lands here, clamped so no tool ends up off-screen - the same
-  // margin the CMD dwell uses.
+  const closeRing = useCallback(() => setRing(null), [])
+  // Every summon lands here, clamped so no tool ends up off-screen.
   const openRingAt = useCallback((x, y) => {
     const clamp = (v, max) => Math.min(Math.max(v, RING_SAFE), max - RING_SAFE)
-    setRingClosing(false)
     setRing({ x: clamp(x, window.innerWidth), y: clamp(y, window.innerHeight), n: ++summonRef.current })
   }, [])
   const openRingAtCenter = useCallback(() => {
@@ -683,15 +638,15 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
 
       {/* Bottom-left add menu (text / callout / circle / person / stamp / redact /
           crosshair / draw / group) */}
-      {canEdit && <CursorTools key={ring ? ring.n : "shut"} at={ring} items={TOOL_ITEMS} closing={ringClosing} onPick={pickRingTool} onClose={closeRing} />}
+      {canEdit && <CursorTools key={ring ? ring.n : "shut"} at={ring} items={TOOL_ITEMS} onPick={pickRingTool} onClose={closeRing} />}
 
       {/* Bottom-left summon: a ghost until you reach for it, then a real button.
-          A third way into the SAME ring, alongside holding CMD and the toolbar +,
-          for the times your hands are on the mouse and not the keyboard. */}
+          The same ring the toolbar + opens, for the times your hand is on the
+          mouse and not the keyboard. */}
       {canEdit && (
         <button
           ref={fabRef} className="fx-noexport fx-fab" onClick={openRingAtFab}
-          aria-label="Open add tools" title="Add to board - or hold Cmd anywhere on the canvas"
+          aria-label="Open add tools" title="Add to board"
           style={{
             position: 'absolute', zIndex: 9,
             left: 'calc(42px + env(safe-area-inset-left))', bottom: 'calc(42px + env(safe-area-inset-bottom))',
@@ -705,7 +660,7 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
       )}
 
       <BoardTopBar
-        canEdit={canEdit} title={title} onTitle={setTitle} save={save} onBack={onBack} toolbarRef={toolbarRef}
+        canEdit={canEdit} readOnly={readOnly} title={title} onTitle={setTitle} save={save} onBack={onBack} toolbarRef={toolbarRef}
         undo={undo} redo={redo} canUndo={canUndo} canRedo={canRedo}
         onFit={fit} onExport={exportPng} onShare={board.id ? share : null} onReport={() => setShowReport(true)}
         onAddTool={openRingAtCenter}

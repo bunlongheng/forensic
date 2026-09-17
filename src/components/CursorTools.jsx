@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Icon } from './Icon.jsx'
 
-// The tool ring: hold CMD anywhere on the board (or hit + in the toolbar) and the
+// The tool ring: hit + in the toolbar or the + in the corner and the
 // add-tools bloom around the pointer, so a note lands where you are looking
 // instead of in the middle of the screen. A tool with `choices` re-blooms the
 // ring as its options rather than opening a second menu somewhere else.
@@ -41,8 +41,8 @@ const bloom = (x, y, i, n, exiting) => ({
 export function CursorTools({ at, items, closing, onPick, onClose }) {
   const [chooser, setChooser] = useState(null)
   // Dismissing plays the ring back into the centre before it unmounts, so it
-  // never just blinks out. `closing` is the board asking (a second CMD); the
-  // local flag is the ring's own backdrop click.
+  // never just blinks out. `closing` is the board asking; the local flag is the
+  // ring's own backdrop click or the pointer walking away.
   const [selfClosing, setSelfClosing] = useState(false)
   // Move the pointer clear of the ring and it puts itself away, playing the SAME
   // counter-clockwise retract as a deliberate dismiss - an opacity fade in place
