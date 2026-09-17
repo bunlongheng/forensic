@@ -11,6 +11,8 @@
 //
 // Re-encoding unconditionally also strips EXIF/ICC on the way through (canvas
 // only carries pixels), so camera metadata - GPS included - never reaches the DB.
+import { ATTACH_MAX } from './attach.js'
+
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
 const QUALITY = 0.82
 
@@ -68,7 +70,15 @@ export async function fileToImage(file) {
   // will render. Re-label it with the MIME we inferred - the bytes are the same.
   if (!dataUrl.startsWith('data:image/')) dataUrl = `data:${mime}${dataUrl.slice(dataUrl.indexOf(';'))}`
   // SVG has no intrinsic raster size to downscale meaningfully - keep as-is.
-  if (mime === 'image/svg+xml') {
+  // A GIF is kept as-is too: drawing it onto a canvas keeps exactly one frame, and
+  // a GIF that stops moving is not the evidence that was pasted. Since it cannot be
+  // shrunk, the attachment cap applies - anything heavier belongs behind a link.
+  if (mime === 'image/svg+xml' || mime === 'image/gif') {
+    if (mime === 'image/gif' && file.size > ATTACH_MAX) {
+      const err = new Error('GIF too large')
+      err.code = 'too-large'
+      throw err
+    }
     const img = await loadImage(dataUrl).catch(() => null)
     return { src: dataUrl, width: img?.width || 320, height: img?.height || 320 }
   }

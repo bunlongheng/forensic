@@ -109,6 +109,26 @@ describe("fileToImage", () => {
   });
 });
 
+describe("fileToImage - GIF", () => {
+  // A canvas keeps one frame. A GIF that stops moving is not the evidence pasted.
+  it("passes a GIF straight through so it keeps animating", async () => {
+    const dataUrl = "data:image/gif;base64,R0lGODlh";
+    const calls = stubPipeline({ dataUrl, w: 120, h: 90 });
+    const f = new File(["x"], "clip.gif", { type: "image/gif" });
+    Object.defineProperty(f, "size", { value: 500_000 });
+    const result = await fileToImage(f);
+    expect(result).toEqual({ src: dataUrl, width: 120, height: 90 });
+    expect(calls).toHaveLength(0); // never touched the canvas
+  });
+
+  it("refuses a GIF over the attachment cap with a code the caller can explain", async () => {
+    stubPipeline({ dataUrl: "data:image/gif;base64,R0lGODlh" });
+    const f = new File(["x"], "huge.gif", { type: "image/gif" });
+    Object.defineProperty(f, "size", { value: 2_000_001 });
+    await expect(fileToImage(f)).rejects.toMatchObject({ code: "too-large" });
+  });
+});
+
 describe("isImageFile / imageMime", () => {
   const f = (name, type) => new File(["x"], name, { type });
   it("trusts an image MIME, falls back to the extension, refuses the rest", () => {

@@ -178,7 +178,7 @@ test("paste a link, a PDF and an audio clip, then open them in a new tab", async
 
 // A .svg and a .webp are PHOTOS. They used to pin as exhibit cards whenever the
 // browser handed them over typeless, and SVG copied as text was ignored outright.
-test("a typeless .svg, a .webp and pasted SVG markup all pin as images, never as cards", async ({ page, request }) => {
+test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, never as cards", async ({ page, request }) => {
   const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
   const id = (await create.json()).id;
 
@@ -194,9 +194,12 @@ test("a typeless .svg, a .webp and pasted SVG markup all pin as images, never as
       c.getContext("2d").fillRect(0, 0, 8, 8);
       const b64 = c.toDataURL("image/webp").split(",")[1];
       const webpBytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      // The canonical 1x1 GIF - real bytes, so a re-encode would show as data:image/webp.
+      const gifBytes = Uint8Array.from(atob("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"), (ch) => ch.charCodeAt(0));
       const files = [
         new File([svg], "logo.svg", { type: "" }),              // typeless, as Finder/drag often delivers it
         new File([webpBytes], "shot.webp", { type: "image/webp" }),
+        new File([gifBytes], "clip.gif", { type: "image/gif" }),
       ];
       const fire = (items, text) => {
         const e = new Event("paste", { bubbles: true, cancelable: true });
@@ -206,11 +209,13 @@ test("a typeless .svg, a .webp and pasted SVG markup all pin as images, never as
       fire(files.map((f) => ({ kind: "file", type: f.type, getAsFile: () => f })), "");
       fire([], svg); // SVG as TEXT - Figma "Copy as SVG"
     });
-    await expect(page.locator(".react-flow__node-image")).toHaveCount(3);
+    await expect(page.locator(".react-flow__node-image")).toHaveCount(4);
     await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
     // Every one of them actually decoded - a broken <img> reports 0 natural width.
-    const widths = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => el.naturalWidth));
-    expect(widths.every((w) => w > 0)).toBe(true);
+    const imgs = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => ({ w: el.naturalWidth, src: el.src.slice(0, 15) })));
+    expect(imgs.every((i) => i.w > 0)).toBe(true);
+    // The GIF is still a GIF - a re-encode would have turned it into data:image/webp.
+    expect(imgs.map((i) => i.src)).toContain("data:image/gif;");
   } finally {
     await purge(id);
   }

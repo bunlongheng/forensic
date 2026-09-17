@@ -205,9 +205,13 @@ function BoardInner({ board, canEdit, theme, themeName, onToggleTheme, onBack, s
           data: { src, editable: true },
         }))
         i++
-      } catch { showToast('Could not read an image') }
+      } catch (err) {
+        showToast(err?.code === 'too-large'
+          ? `${file.name} is over ${prettySize(ATTACH_MAX)} - a GIF cannot be shrunk, pin a link to it instead`
+          : 'Could not read an image')
+      }
     }
-    if (imgs.length) showToast(`Pinned ${imgs.length} image${imgs.length > 1 ? 's' : ''}`)
+    if (i) showToast(`Pinned ${i} image${i > 1 ? 's' : ''}`)
   }, [setNodes, showToast])
 
   // Everything that is NOT a photo - a PDF, an audio or video file, a document -
