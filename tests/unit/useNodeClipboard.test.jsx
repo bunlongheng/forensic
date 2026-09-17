@@ -8,11 +8,11 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const node = { id: "a", type: "note", position: { x: 10, y: 10 }, data: { text: "hi" } };
 
-function setup(sel = { kind: "note", id: "a" }, canEdit = true) {
+function setup(sel = { kind: "note", id: "a" }, canEdit = true, readOnly = null) {
   const setNodes = vi.fn(), addFiles = vi.fn(), addLink = vi.fn(), showToast = vi.fn();
   // Stands in for the live pointer position - the board pastes where you are looking.
   const pastePos = () => ({ x: 640, y: 480 });
-  renderHook(() => useNodeClipboard({ canEdit, sel, nodes: [node], setNodes, addFiles, addLink, pastePos, showToast }));
+  renderHook(() => useNodeClipboard({ canEdit, readOnly, sel, nodes: [node], setNodes, addFiles, addLink, pastePos, showToast }));
   return { setNodes, addFiles, addLink, showToast };
 }
 
@@ -83,8 +83,32 @@ describe("useNodeClipboard", () => {
   it("is inert for a read-only viewer", () => {
     const writeText = vi.fn();
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    setup({ kind: "note", id: "a" }, false);
+    const { setNodes, addFiles } = setup({ kind: "note", id: "a" }, false);
     act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true })); });
     expect(writeText).not.toHaveBeenCalled();
+    act(() => { paste([], "https://example.com/x"); });
+    expect(setNodes).not.toHaveBeenCalled();
+    expect(addFiles).not.toHaveBeenCalled();
+  });
+
+  // The silent version of this is what reads as "paste is broken on prod".
+  it("a signed-out viewer is TOLD the paste was refused, not ignored", () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn() } });
+    const { showToast, addFiles } = setup(null, false, "auth");
+    const file = new File(["%PDF"], "warrant.pdf", { type: "application/pdf" });
+    act(() => { paste([{ kind: "file", type: "application/pdf", getAsFile: () => file }], ""); });
+    expect(addFiles).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("Sign in to edit this board");
+    act(() => { paste([], "https://example.com/x"); });
+    expect(showToast).toHaveBeenCalledTimes(2);
+  });
+
+  it("a read-only DEVICE says so, and plain text never nags", () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn() } });
+    const { showToast } = setup(null, false, "device");
+    act(() => { paste([], "just some words"); });
+    expect(showToast).not.toHaveBeenCalled();
+    act(() => { paste([], "https://example.com/x"); });
+    expect(showToast).toHaveBeenCalledWith("Read-only on this device");
   });
 });

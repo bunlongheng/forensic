@@ -22,6 +22,26 @@ const base = {
 };
 
 describe("BoardTopBar", () => {
+  // A signed-out deep link used to look exactly like an editable board, so every
+  // edit died in silence. The bar has to say which kind of read-only this is.
+  it("a signed-out viewer gets a READ-ONLY pill and a way back in", () => {
+    render(<TopBar {...base} canEdit={false} readOnly="auth" />);
+    expect(screen.getByText("READ-ONLY")).toBeInTheDocument();
+    expect(screen.getByText("SIGN IN TO EDIT")).toHaveAttribute("href", "/api/auth/login");
+  });
+
+  it("a read-only device says desktop only, with no sign-in link", () => {
+    render(<TopBar {...base} canEdit={false} readOnly="device" />);
+    expect(screen.getByText("READ-ONLY")).toBeInTheDocument();
+    expect(screen.getByText("desktop only")).toBeInTheDocument();
+    expect(screen.queryByText("SIGN IN TO EDIT")).toBeNull();
+  });
+
+  it("an editable board shows no read-only pill", () => {
+    render(<TopBar {...base} />);
+    expect(screen.queryByText("READ-ONLY")).toBeNull();
+  });
+
   it("shows the editable title, zoom and full tool cluster for the owner", () => {
     render(<TopBar {...base} />);
     const input = screen.getByLabelText("Board title");

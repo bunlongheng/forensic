@@ -34,7 +34,7 @@ function ZoomPct() {
 // cluster on the right. `toolbarRef` is measured by the Board so the inspector
 // lines up with the toolbar's width.
 export function BoardTopBar({
-  canEdit, title, onTitle, save, onBack, toolbarRef,
+  canEdit, readOnly, title, onTitle, save, onBack, toolbarRef,
   undo, redo, canUndo, canRedo, onFit, onExport, onShare, onReport,
   onAddTool, onAddImage, onAddSticker, onToggleTheme, themeName,
 }) {
@@ -60,11 +60,22 @@ export function BoardTopBar({
           <span className="fx-mobile-hide" style={{ fontSize: 11, color: SAVE_ERROR_STATES.has(save) ? 'var(--accent)' : 'var(--muted)', marginLeft: 2 }}>· {saveLabel}</span>
         )}
       </div>
+      {/* A read-only board is otherwise indistinguishable from an editable one -
+          the session just expired, or you are on a phone - and every edit dies
+          silently. Say which, and offer the way back in. */}
+      {readOnly && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '4px 10px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
+          <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--muted)' }}>READ-ONLY</span>
+          {readOnly === 'auth'
+            ? <a href="/api/auth/login" className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--accent)' }}>SIGN IN TO EDIT</a>
+            : <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)' }}>desktop only</span>}
+        </div>
+      )}
       <div style={{ flex: 1 }} />
       <div ref={toolbarRef} style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '4px 6px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
         {canEdit && (
           <button
-            onClick={onAddTool} title="Add to board - or hold Cmd anywhere on the canvas"
+            onClick={onAddTool} title="Add to board"
             style={{ ...iconBtn, width: 27, height: 27, background: 'var(--accent)', color: 'var(--accent-ink)', marginRight: 3 }}
           ><Icon name="plus" size={17} /></button>
         )}

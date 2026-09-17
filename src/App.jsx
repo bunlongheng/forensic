@@ -204,11 +204,16 @@ export default function App() {
   // ── Board view (public for shared links; editable for the signed-in owner) ──
   if (view === 'board' && active) {
     if (!authChecked) return <Splash label="Loading board…" />
-    const canEdit = (Boolean(user) || devBypass) && !isTouchDevice && !narrow
+    const signedIn = Boolean(user) || devBypass
+    const canEdit = signedIn && !isTouchDevice && !narrow
+    // WHY the board is read-only, so it can say so instead of swallowing edits: a
+    // shared ?id= link skips the sign-in gate below, so an expired session lands
+    // here looking exactly like an editable board.
+    const readOnly = canEdit ? null : (signedIn ? 'device' : 'auth')
     return (
       <>
         <Suspense fallback={<Splash label="Loading board…" />}>
-          <Board key={active.id} board={active} canEdit={canEdit} theme={t} themeName={themeMode}
+          <Board key={active.id} board={active} canEdit={canEdit} readOnly={readOnly} theme={t} themeName={themeMode}
             onToggleTheme={toggle} onBack={backToGallery} showToast={showToast} />
         </Suspense>
         <Toast {...toast} />

@@ -9,7 +9,7 @@ const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || ''
 // pasted URL, and only then the node-duplicate - so copying a node earlier can
 // never block pasting real evidence. We write a marker to the clipboard on copy so
 // a paste event still fires even when nothing else is on the clipboard.
-export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast }) {
+export function useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast }) {
   const clipRef = useRef(null) // copied node for Cmd/Ctrl+C -> +V duplicate
 
   useEffect(() => {
@@ -23,6 +23,21 @@ export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addL
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [canEdit, sel, nodes])
+
+  // Read-only board: a paste that carried real evidence has to SAY it was
+  // refused. Silence here is what reads as 'paste is broken' - most often it is
+  // just an expired session on a shared ?id= link.
+  useEffect(() => {
+    if (canEdit || !readOnly) return
+    const onBlocked = (e) => {
+      if (typing()) return
+      const items = [...(e.clipboardData?.items || [])]
+      const carried = items.some((it) => it.kind === 'file') || Boolean(parseLink(e.clipboardData?.getData('text') || ''))
+      if (carried) showToast(readOnly === 'auth' ? 'Sign in to edit this board' : 'Read-only on this device')
+    }
+    window.addEventListener('paste', onBlocked)
+    return () => window.removeEventListener('paste', onBlocked)
+  }, [canEdit, readOnly, showToast])
 
   useEffect(() => {
     if (!canEdit) return

@@ -1,6 +1,5 @@
-// The board's add-tools, as plain data, shared by the three ways in: the toolbar
-// +, the bottom-left summon, and holding CMD on the canvas - all of which render
-// the same CursorTools ring.
+// The board's add-tools, as plain data, shared by both ways in: the toolbar +
+// and the bottom-left summon - both render the same CursorTools ring.
 
 import { STAMP_LABELS } from './constants.js'
 
