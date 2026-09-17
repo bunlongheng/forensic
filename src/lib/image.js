@@ -14,6 +14,25 @@
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
 const QUALITY = 0.82
 
+// What counts as a photo. The browser's MIME is authoritative when it has one, but
+// files arrive typeless or as application/octet-stream often enough (a .webp saved
+// by some apps, an .svg dragged out of a design tool, anything copied through
+// Finder) that the extension has to be the fallback - or the photo lands as an
+// exhibit card, which is the wrong kind of evidence entirely.
+const IMAGE_MIME = {
+  svg: 'image/svg+xml', webp: 'image/webp', avif: 'image/avif', png: 'image/png',
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', bmp: 'image/bmp',
+}
+const ext = (name) => ((name || '').split('.').pop() || '').toLowerCase()
+
+// The MIME an image file really has: its own type when it is an image type, else
+// the one its extension implies, else null (= not an image we can show).
+export function imageMime(file) {
+  if (file?.type?.startsWith('image/')) return file.type
+  return IMAGE_MIME[ext(file?.name)] || null
+}
+export const isImageFile = (file) => Boolean(imageMime(file))
+
 const readAsDataURL = (file) =>
   new Promise((resolve, reject) => {
     const r = new FileReader()
@@ -42,10 +61,14 @@ function hasTransparency(ctx, w, h) {
 }
 
 export async function fileToImage(file) {
-  if (!file.type.startsWith('image/')) throw new Error('Not an image')
-  const dataUrl = await readAsDataURL(file)
+  const mime = imageMime(file)
+  if (!mime) throw new Error('Not an image')
+  let dataUrl = await readAsDataURL(file)
+  // A typeless file reads back as data:application/octet-stream, which no <img>
+  // will render. Re-label it with the MIME we inferred - the bytes are the same.
+  if (!dataUrl.startsWith('data:image/')) dataUrl = `data:${mime}${dataUrl.slice(dataUrl.indexOf(';'))}`
   // SVG has no intrinsic raster size to downscale meaningfully - keep as-is.
-  if (file.type === 'image/svg+xml') {
+  if (mime === 'image/svg+xml') {
     const img = await loadImage(dataUrl).catch(() => null)
     return { src: dataUrl, width: img?.width || 320, height: img?.height || 320 }
   }
@@ -69,7 +92,7 @@ export async function fileToImage(file) {
   // A tiny, already-optimised source can survive the round trip larger than it
   // started. Keep whichever is smaller, as long as the original was already a
   // metadata-free lossy format.
-  if (out.length > dataUrl.length && (file.type === 'image/webp' || file.type === 'image/jpeg')) {
+  if (out.length > dataUrl.length && (mime === 'image/webp' || mime === 'image/jpeg')) {
     return { src: dataUrl, width: img.width, height: img.height }
   }
   return { src: out, width: w, height: h }

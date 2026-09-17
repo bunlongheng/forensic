@@ -4,6 +4,12 @@ import { parseLink } from '../lib/attach.js'
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
 
+// SVG copied as TEXT - Figma's "Copy as SVG", any code editor - is still a picture.
+// Wrap the markup as a File so it rides the ordinary image path and pins as a photo.
+const SVG_TEXT = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!DOCTYPE[^>]*>\s*)?<svg[\s>][\s\S]*<\/svg>\s*$/i
+export const svgTextToFile = (text) =>
+  SVG_TEXT.test(text || '') ? new File([text], 'pasted.svg', { type: 'image/svg+xml' }) : null
+
 // Cmd/Ctrl+C copies the selected node; the single 'paste' listener duplicates it.
 // A FILE on the clipboard always wins (a screenshot, a PDF, an audio clip), then a
 // pasted URL, and only then the node-duplicate - so copying a node earlier can
@@ -32,6 +38,8 @@ export function useNodeClipboard({ canEdit, sel, nodes, setNodes, addFiles, addL
       const files = items.filter((it) => it.kind === 'file').map((it) => it.getAsFile()).filter(Boolean)
       if (files.length) { e.preventDefault(); addFiles(files, pastePos()); return }
       const text = e.clipboardData?.getData('text') || ''
+      const svg = svgTextToFile(text)
+      if (svg) { e.preventDefault(); addFiles([svg], pastePos()); return }
       const link = parseLink(text)
       if (link) { e.preventDefault(); addLink(link, pastePos()); return }
       if (clipRef.current && (text === NODE_COPY_MARKER || text === '')) {

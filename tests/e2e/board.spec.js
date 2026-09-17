@@ -176,6 +176,46 @@ test("paste a link, a PDF and an audio clip, then open them in a new tab", async
   }
 });
 
+// A .svg and a .webp are PHOTOS. They used to pin as exhibit cards whenever the
+// browser handed them over typeless, and SVG copied as text was ignored outright.
+test("a typeless .svg, a .webp and pasted SVG markup all pin as images, never as cards", async ({ page, request }) => {
+  const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
+  const id = (await create.json()).id;
+
+  try {
+    await page.goto(`/?id=${id}`);
+    // The board is a lazy chunk - its paste listener exists only once the pane does.
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await page.mouse.move(400, 400);
+    await page.evaluate(() => {
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#c00"/></svg>';
+      // A real WebP, encoded by this very browser, so the decode on the way in is genuine.
+      const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+      c.getContext("2d").fillRect(0, 0, 8, 8);
+      const b64 = c.toDataURL("image/webp").split(",")[1];
+      const webpBytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      const files = [
+        new File([svg], "logo.svg", { type: "" }),              // typeless, as Finder/drag often delivers it
+        new File([webpBytes], "shot.webp", { type: "image/webp" }),
+      ];
+      const fire = (items, text) => {
+        const e = new Event("paste", { bubbles: true, cancelable: true });
+        e.clipboardData = { items, getData: () => text };
+        window.dispatchEvent(e);
+      };
+      fire(files.map((f) => ({ kind: "file", type: f.type, getAsFile: () => f })), "");
+      fire([], svg); // SVG as TEXT - Figma "Copy as SVG"
+    });
+    await expect(page.locator(".react-flow__node-image")).toHaveCount(3);
+    await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
+    // Every one of them actually decoded - a broken <img> reports 0 natural width.
+    const widths = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => el.naturalWidth));
+    expect(widths.every((w) => w > 0)).toBe(true);
+  } finally {
+    await purge(id);
+  }
+});
+
 // The bottom-left summon: a third way into the same tool ring, alongside holding
 // Cmd and the toolbar +. Also guards the wax seal, which boards in the wild
 // still hold and which briefly lost its renderer.

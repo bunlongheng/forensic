@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { fileToImage } from "../../src/lib/image.js";
+import { fileToImage, imageMime, isImageFile } from "../../src/lib/image.js";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -89,5 +89,34 @@ describe("fileToImage", () => {
     stubPipeline({ dataUrl, w: 64, h: 64 });
     const result = await fileToImage(new File(["x"], "i.svg", { type: "image/svg+xml" }));
     expect(result).toEqual({ src: dataUrl, width: 64, height: 64 });
+  });
+
+  // Files arrive typeless or as application/octet-stream often enough that the
+  // extension has to count - otherwise a .webp or .svg pins as an exhibit card.
+  it("re-labels a typeless SVG so an <img> can actually render it", async () => {
+    stubPipeline({ dataUrl: "data:application/octet-stream;base64,PHN2Zy8+", w: 40, h: 40 });
+    const result = await fileToImage(new File(["<svg/>"], "logo.svg", { type: "" }));
+    expect(result.src).toBe("data:image/svg+xml;base64,PHN2Zy8+");
+  });
+
+  it("treats a typeless .webp as a photo and re-encodes it like any other", async () => {
+    const calls = stubPipeline({ dataUrl: "data:application/octet-stream;base64," + "A".repeat(500) });
+    const f = new File(["x"], "shot.webp", { type: "application/octet-stream" });
+    Object.defineProperty(f, "size", { value: 100 });
+    const result = await fileToImage(f);
+    expect(calls[0].type).toBe("image/webp");
+    expect(result.src.startsWith("data:image/webp")).toBe(true);
+  });
+});
+
+describe("isImageFile / imageMime", () => {
+  const f = (name, type) => new File(["x"], name, { type });
+  it("trusts an image MIME, falls back to the extension, refuses the rest", () => {
+    expect(imageMime(f("a.bin", "image/webp"))).toBe("image/webp");
+    expect(imageMime(f("logo.svg", ""))).toBe("image/svg+xml");
+    expect(imageMime(f("shot.WEBP", "application/octet-stream"))).toBe("image/webp");
+    expect(imageMime(f("pic.avif", ""))).toBe("image/avif");
+    expect(isImageFile(f("warrant.pdf", "application/pdf"))).toBe(false);
+    expect(isImageFile(f("notes.txt", ""))).toBe(false);
   });
 });

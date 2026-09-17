@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { renderHook, act, cleanup } from "@testing-library/react";
-import { useNodeClipboard } from "../../src/hooks/useNodeClipboard.js";
+import { useNodeClipboard, svgTextToFile } from "../../src/hooks/useNodeClipboard.js";
 import { NODE_COPY_MARKER } from "../../src/lib/boardGraph.js";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -86,5 +86,26 @@ describe("useNodeClipboard", () => {
     setup({ kind: "note", id: "a" }, false);
     act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true })); });
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  // Figma "Copy as SVG" and every code editor put SVG on the clipboard as TEXT.
+  it("pins pasted SVG markup as a photo, not a link and not nothing", () => {
+    vi.stubGlobal("navigator", { clipboard: { writeText: vi.fn() } });
+    const { addFiles, addLink } = setup(null);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>';
+    let e;
+    act(() => { e = paste([], svg); });
+    expect(e.defaultPrevented).toBe(true);
+    expect(addLink).not.toHaveBeenCalled();
+    const [files, at] = addFiles.mock.calls[0];
+    expect(files[0].type).toBe("image/svg+xml");
+    expect(files[0].name).toBe("pasted.svg");
+    expect(at).toEqual({ x: 640, y: 480 });
+  });
+
+  it("does not mistake prose that mentions svg for markup", () => {
+    expect(svgTextToFile("see the <svg> tag in the docs")).toBeNull();
+    expect(svgTextToFile("https://example.com/logo.svg")).toBeNull();
+    expect(svgTextToFile('<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>')).not.toBeNull();
   });
 });
