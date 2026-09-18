@@ -2,8 +2,21 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
 import { fileToImage, imageMime, isImageFile } from "../../src/lib/image.js";
 
+// The shrinker needs a real worker + ImageDecoder; here it is a switch, so the
+// hand-off (and the progress stream) can be asserted without either.
+const shrink = vi.hoisted(() => ({ can: false }));
+vi.mock("../../src/lib/gifShrink.js", () => ({
+  HARD_MAX_BYTES: 40_000_000,
+  canShrinkGifs: () => shrink.can,
+  shrinkGif: async (_file, onProgress) => {
+    onProgress({ type: "progress", pass: 1, passes: 5, done: 3, total: 9, pct: 33 });
+    return { src: "data:image/gif;base64,SHRUNK", width: 320, height: 400 };
+  },
+}));
+
 afterEach(() => {
   vi.restoreAllMocks();
+  shrink.can = false;
 });
 
 // jsdom has no real FileReader / image decode / canvas pipeline, so stand all
@@ -121,11 +134,29 @@ describe("fileToImage - GIF", () => {
     expect(calls).toHaveLength(0); // never touched the canvas
   });
 
-  it("refuses a GIF over the attachment cap with a code the caller can explain", async () => {
+  // jsdom has no ImageDecoder, so an over-cap GIF cannot be shrunk here - the code
+  // must say THAT, not "too large", so the toast can point at a browser that can.
+  it("says a browser without ImageDecoder cannot shrink an over-cap GIF", async () => {
     stubPipeline({ dataUrl: "data:image/gif;base64,R0lGODlh" });
     const f = new File(["x"], "huge.gif", { type: "image/gif" });
     Object.defineProperty(f, "size", { value: 2_000_001 });
+    await expect(fileToImage(f)).rejects.toMatchObject({ code: "no-shrink" });
+  });
+
+  it("refuses outright above the hard ceiling, without even trying", async () => {
+    const f = new File(["x"], "monster.gif", { type: "image/gif" });
+    Object.defineProperty(f, "size", { value: 40_000_001 });
     await expect(fileToImage(f)).rejects.toMatchObject({ code: "too-large" });
+  });
+
+  it("hands an over-cap GIF to the shrinker and streams its progress", async () => {
+    shrink.can = true;
+    const f = new File(["x"], "big.gif", { type: "image/gif" });
+    Object.defineProperty(f, "size", { value: 4_800_000 });
+    const seen = [];
+    const result = await fileToImage(f, (p) => seen.push(p.pct));
+    expect(result).toEqual({ src: "data:image/gif;base64,SHRUNK", width: 320, height: 400 });
+    expect(seen).toEqual([33]);
   });
 });
 

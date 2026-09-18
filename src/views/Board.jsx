@@ -193,7 +193,10 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
     let i = 0
     for (const file of imgs) {
       try {
-        const { src, width, height } = await fileToImage(file)
+        // Only an oversized GIF reports progress - it is being re-encoded in a worker.
+        // Each toast call restarts the auto-hide, so the message stays up until done.
+        const onProgress = (p) => showToast(`Shrinking ${file.name}${p.passes > 1 && p.pass > 1 ? ` - pass ${p.pass}` : ''} - ${p.pct}%`)
+        const { src, width, height } = await fileToImage(file, onProgress)
         const w = 240, h = Math.max(60, Math.round((240 * height) / width))
         const pos = { x: at.x + i * 28, y: at.y + i * 28 }
         setNodes((nds) => nds.concat({
@@ -204,8 +207,10 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
         i++
       } catch (err) {
         showToast(err?.code === 'too-large'
-          ? `${file.name} is over ${prettySize(ATTACH_MAX)} - a GIF cannot be shrunk, pin a link to it instead`
-          : 'Could not read an image')
+          ? `${file.name} is still over ${prettySize(ATTACH_MAX)} after shrinking - pin a link to it instead`
+          : err?.code === 'no-shrink'
+            ? `${file.name} is over ${prettySize(ATTACH_MAX)} and this browser cannot shrink GIFs - use Chrome, or pin a link`
+            : 'Could not read an image')
       }
     }
     if (i) showToast(`Pinned ${i} image${i > 1 ? 's' : ''}`)
