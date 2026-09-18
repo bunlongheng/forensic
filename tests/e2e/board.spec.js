@@ -4,6 +4,7 @@ import gifenc from "gifenc";
 const { GIFEncoder, quantize, applyPalette } = gifenc;
 
 const BASE = `http://localhost:${process.env.PORT || "4336"}`;
+const GIF_MAX_BYTES = 3_000_000;  // matches IMAGE_MAX_BYTES - one image, one request
 const TITLE = "E2E canvas";
 
 // Purge with a PLAIN fetch, never the `request` fixture. When a test times out
@@ -12,6 +13,20 @@ const TITLE = "E2E canvas";
 // is left behind - which is how a pile of "E2E canvas" rows ended up in the DB.
 const purge = (id) =>
   fetch(`${BASE}/api/boards/${id}?purge=1`, { method: "DELETE" }).catch(() => {});
+
+// Image bytes now live in their own rows, so a node's src is a URL. "Is this still
+// a GIF?" is answered by what the server SERVES, not by a data: prefix - and that
+// is the stronger check: it proves the stored bytes were never re-encoded.
+const servedType = async (src) => {
+  if (src.startsWith("data:")) return src.slice(5, src.indexOf(";"));
+  const r = await fetch(src.startsWith("http") ? src : BASE + src);
+  return r.headers.get("content-type");
+};
+const servedBytes = async (src) => {
+  if (src.startsWith("data:")) return Math.round((src.length - src.indexOf(",") - 1) * 3 / 4);
+  const r = await fetch(src.startsWith("http") ? src : BASE + src);
+  return (await r.arrayBuffer()).byteLength;
+};
 
 // Belt and braces: sweep any stray board this spec could have created, including
 // ones leaked by an earlier crashed run.
@@ -215,10 +230,12 @@ test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, 
     await expect(page.locator(".react-flow__node-image")).toHaveCount(4);
     await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
     // Every one of them actually decoded - a broken <img> reports 0 natural width.
-    const imgs = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => ({ w: el.naturalWidth, src: el.src.slice(0, 15) })));
-    expect(imgs.every((i) => i.w > 0)).toBe(true);
-    // The GIF is still a GIF - a re-encode would have turned it into data:image/webp.
-    expect(imgs.map((i) => i.src)).toContain("data:image/gif;");
+    await expect.poll(() => page.locator(".react-flow__node-image img")
+      .evaluateAll((els) => els.every((el) => el.naturalWidth > 0)), { timeout: 20_000 }).toBe(true);
+    const imgs = await page.locator(".react-flow__node-image img").evaluateAll((els) => els.map((el) => ({ w: el.naturalWidth, src: el.src })));
+    // The GIF is still a GIF - a re-encode would have made it a WebP.
+    const types = await Promise.all(imgs.map((i) => servedType(i.src)));
+    expect(types).toContain("image/gif");
   } finally {
     await purge(id);
   }
@@ -230,7 +247,7 @@ test("an oversized GIF shows shrinking progress and pins under the cap, still an
   test.setTimeout(90_000);
   // Build a GIF that is over 2 MB: noise compresses badly, so 30 frames of 320x320
   // random pixels land around 3 MB. Generated here so no binary lives in the repo.
-  const W = 320, H = 320, FRAMES = 30;
+  const W = 360, H = 360, FRAMES = 40;   // noise compresses badly: lands over the 3 MB cap
   const gif = GIFEncoder();
   let seed = 7;
   const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
@@ -242,7 +259,7 @@ test("an oversized GIF shows shrinking progress and pins under the cap, still an
   }
   gif.finish();
   const bytes = gif.bytes();
-  expect(bytes.length).toBeGreaterThan(2_000_000);
+  expect(bytes.length).toBeGreaterThan(GIF_MAX_BYTES);
 
   const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
   const id = (await create.json()).id;
@@ -261,10 +278,12 @@ test("an oversized GIF shows shrinking progress and pins under the cap, still an
     await expect(page.getByText(/Shrinking noise\.gif/)).toBeVisible({ timeout: 15_000 });
     await expect(page.locator(".react-flow__node-image")).toHaveCount(1, { timeout: 60_000 });
     await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
-    const img = await page.locator(".react-flow__node-image img").first().evaluate((el) => ({ w: el.naturalWidth, src: el.src.slice(0, 15), bytes: Math.round((el.src.length - el.src.indexOf(",") - 1) * 3 / 4) }));
-    expect(img.src).toBe("data:image/gif;");
-    expect(img.w).toBeGreaterThan(0);
-    expect(img.bytes).toBeLessThanOrEqual(2_000_000);
+    // The src is a URL now, so the browser has to fetch it before it has a size.
+    const shot = page.locator(".react-flow__node-image img").first();
+    await expect.poll(() => shot.evaluate((el) => el.naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
+    const src = await shot.evaluate((el) => el.src);
+    expect(await servedType(src)).toBe("image/gif");   // never re-encoded
+    expect(await servedBytes(src)).toBeLessThanOrEqual(GIF_MAX_BYTES);
   } finally {
     await purge(id);
   }
@@ -319,6 +338,59 @@ test("cut a node on one board and paste it onto a different board", async ({ pag
   } finally {
     await purge(from);
     await purge(to);
+  }
+});
+
+// Image bytes live in their own rows now, so a board is no longer capped at ~4 MB
+// of photos. The node keeps a URL; an OLD board full of inline data URLs must keep
+// rendering exactly as it did, which is what lets this roll out without a migration.
+test("a pasted image is stored by reference, and old inline boards still render", async ({ page, request }) => {
+  // An old-style board: the image is a data URL inline in the node, as every board
+  // saved before this change looks.
+  const RED_DOT = "data:image/gif;base64,R0lGODlhAQABAIAAAP8AAAAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
+  const legacy = await request.post("/api/boards", { data: { title: TITLE, edges: [],
+    nodes: [{ id: "old", type: "image", position: { x: 80, y: 80 }, style: { width: 120, height: 120 },
+              data: { src: RED_DOT } }] } });
+  const legacyId = (await legacy.json()).id;
+  const fresh = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
+  const freshId = (await fresh.json()).id;
+
+  try {
+    // 1. The old board still renders its inline image - nothing migrated, nothing broken.
+    await page.goto(`/?id=${legacyId}`);
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    const oldImg = page.locator(".react-flow__node-image img").first();
+    await expect(oldImg).toBeVisible();
+    expect(await oldImg.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
+    expect(await oldImg.evaluate((el) => el.src.slice(0, 11))).toBe("data:image/");
+
+    // 2. A NEW image is uploaded and the node holds a URL, not the bytes.
+    await page.goto(`/?id=${freshId}`);
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await page.mouse.move(400, 400);
+    await page.evaluate(async () => {
+      const c = document.createElement("canvas"); c.width = 60; c.height = 40;
+      const g = c.getContext("2d"); g.fillStyle = "#1f7a6b"; g.fillRect(0, 0, 60, 40);
+      const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+      const f = new File([blob], "shot.png", { type: "image/png" });
+      const e = new Event("paste", { bubbles: true, cancelable: true });
+      e.clipboardData = { items: [{ kind: "file", type: f.type, getAsFile: () => f }], getData: () => "" };
+      window.dispatchEvent(e);
+    });
+    const img = page.locator(".react-flow__node-image img").first();
+    await expect(img).toBeVisible();
+    await expect.poll(() => img.evaluate((el) => el.src)).toContain("/api/images/");
+    expect(await img.evaluate((el) => el.naturalWidth)).toBeGreaterThan(0);
+
+    // 3. The saved board carries the URL, not the bytes - the whole point.
+    await expect.poll(async () => (await (await request.get(`/api/boards/${freshId}`)).json()).nodes.length,
+                      { timeout: 15_000 }).toBe(1);
+    const saved = await (await request.get(`/api/boards/${freshId}`)).json();
+    expect(saved.nodes[0].data.src).toMatch(/^\/api\/images\//);
+    expect(JSON.stringify(saved.nodes).length).toBeLessThan(2000); // was megabytes
+  } finally {
+    await purge(legacyId);
+    await purge(freshId);
   }
 });
 

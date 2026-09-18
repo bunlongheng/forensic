@@ -1,3 +1,10 @@
+// One image, one upload request. Images are stored in their own rows rather than
+// inline in the board JSON, so their ceiling is the platform's request cap (Vercel
+// rejects a function body over 4.5 MB at the edge) and NOT the board's 4 MB total.
+// ATTACH_MAX in attach.js still governs PDFs and audio, which do ride inline.
+// Must match IMAGE_MAX_BYTES in lib/handlers/images.js.
+export const IMAGE_MAX = 3_000_000
+
 // Note card tints (warm paper, a danger red, then soft pastels).
 export const NOTE_TINTS = ['#fef3c7', '#fca5a5', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff', '#f3f0e8']
 

@@ -139,7 +139,7 @@ describe("fileToImage - GIF", () => {
   it("says a browser without ImageDecoder cannot shrink an over-cap GIF", async () => {
     stubPipeline({ dataUrl: "data:image/gif;base64,R0lGODlh" });
     const f = new File(["x"], "huge.gif", { type: "image/gif" });
-    Object.defineProperty(f, "size", { value: 2_000_001 });
+    Object.defineProperty(f, "size", { value: 3_000_001 });
     await expect(fileToImage(f)).rejects.toMatchObject({ code: "no-shrink" });
   });
 

@@ -11,7 +11,7 @@
 //
 // Re-encoding unconditionally also strips EXIF/ICC on the way through (canvas
 // only carries pixels), so camera metadata - GPS included - never reaches the DB.
-import { ATTACH_MAX } from './attach.js'
+import { IMAGE_MAX } from './constants.js'
 import { shrinkGif, canShrinkGifs, HARD_MAX_BYTES } from './gifShrink.js'
 
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
@@ -74,7 +74,7 @@ export async function fileToImage(file, onProgress) {
   // frame, and a GIF that stops moving is not the evidence that was pasted. Over
   // the cap it is shrunk in a worker - fewer frames, smaller pixels, one palette -
   // with progress reported to the caller, and refused only when even that fails.
-  if (mime === 'image/gif' && file.size > ATTACH_MAX) {
+  if (mime === 'image/gif' && file.size > IMAGE_MAX) {
     const err = new Error('GIF too large')
     err.code = 'too-large'
     if (file.size > HARD_MAX_BYTES) throw err
