@@ -56,7 +56,9 @@ anything - like a detective's evidence board that lives in the browser.
 | Double-click canvas | Drop a quick note, already open for typing |
 | `Cmd/Ctrl+S` | Save now |
 | `Cmd/Ctrl+Z` / `Cmd/Ctrl+Shift+Z` | Undo / redo |
-| `Cmd/Ctrl+C` then `Cmd/Ctrl+V` | Duplicate the selected node (a file or a URL on the clipboard always wins) |
+| `Cmd/Ctrl+C` | Copy the selection - a group brings its children and the wiring between the copied nodes |
+| `Cmd/Ctrl+X` | Cut the selection, removing it and any threads attached to it |
+| `Cmd/Ctrl+V` | Paste at the cursor, **on any board** - the clipboard survives switching boards (a file, SVG markup or a URL on the system clipboard always wins) |
 | `Cmd/Ctrl+G` / `Cmd/Ctrl+Shift+G` | Group / ungroup the selection |
 | `Shift` + drag | Snap a node into a straight line with the nodes it is wired to |
 | `Backspace` / `Delete` | Remove the selection |

@@ -162,6 +162,65 @@ export const duplicateNode = (src) => ({
   position: { x: src.position.x + 30, y: src.position.y + 30 }, data: { ...src.data },
 })
 
+// Which nodes travel when `ids` are copied or cut: the picked ones PLUS every
+// descendant, because a group whose children stayed behind is not a group.
+export function withDescendants(nds, ids) {
+  const take = new Set(ids)
+  let grew = true
+  while (grew) {
+    grew = false
+    for (const n of nds) {
+      if (!take.has(n.id) && n.parentId && take.has(n.parentId)) { take.add(n.id); grew = true }
+    }
+  }
+  return nds.filter((n) => take.has(n.id))
+}
+
+// Clone a selection onto a board - the same board or a different one. Every id is
+// remapped, and parent links and edges are rewritten to the NEW ids so a pasted
+// group still moves as one and stays wired exactly as it was cut.
+//
+// `at` is where the selection's top-left corner lands (the cursor, normally), so
+// the set keeps its internal layout instead of scattering. Children are positioned
+// relative to their parent, so only the top-level nodes are shifted.
+export function cloneSubgraph(nodes, edges = [], at = null) {
+  if (!nodes.length) return { nodes: [], edges: [] }
+  const idMap = new Map(nodes.map((n) => [n.id, uid(n.type)]))
+  const tops = nodes.filter((n) => !n.parentId || !idMap.has(n.parentId))
+  const minX = Math.min(...tops.map((n) => n.position.x))
+  const minY = Math.min(...tops.map((n) => n.position.y))
+  const dx = at ? at.x - minX : 30
+  const dy = at ? at.y - minY : 30
+
+  const cloned = nodes.map((n) => {
+    const parentCopied = n.parentId && idMap.has(n.parentId)
+    return {
+      ...n,
+      id: idMap.get(n.id),
+      selected: false,
+      // A child's position is relative to its parent, so it must NOT be shifted -
+      // only the top-level nodes move to the paste point.
+      position: parentCopied ? { ...n.position } : { x: n.position.x + dx, y: n.position.y + dy },
+      ...(parentCopied ? { parentId: idMap.get(n.parentId) } : {}),
+      // A node whose parent did NOT come along is no longer a child of anything.
+      ...(n.parentId && !parentCopied ? { parentId: undefined, extent: undefined, expandParent: undefined } : {}),
+      data: { ...n.data },
+    }
+  })
+  // Only edges with BOTH ends in the selection survive - a thread to a node that
+  // stayed behind has nothing to point at on the new board.
+  const clonedEdges = edges
+    .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+    .map((e) => ({
+      ...e,
+      id: uid('edge'),
+      source: idMap.get(e.source),
+      target: idMap.get(e.target),
+      selected: false,
+    }))
+  return { nodes: cloned, edges: clonedEdges }
+}
+
 // Send a node to the very front or back by bumping its zIndex past all others.
 export function arrangeZ(nds, nodeId, dir) {
   const zs = nds.map((n) => n.zIndex ?? 0)

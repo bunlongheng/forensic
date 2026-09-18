@@ -292,7 +292,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
 
   const onDragOver = useCallback((e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy' }, [])
 
-  useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast })
+  useNodeClipboard({ canEdit, readOnly, nodes, setNodes, edges, setEdges, addFiles, addLink, pastePos, showToast })
 
   // Ignore self-connections - a thread from a node back to itself collapses to a
   // stray pin in the middle of the card (no visible string). Only wire two cards.

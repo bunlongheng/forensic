@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
-import { NODE_COPY_MARKER, duplicateNode } from '../lib/boardGraph.js'
+import { useEffect } from 'react'
+import { NODE_COPY_MARKER, cloneSubgraph, withDescendants } from '../lib/boardGraph.js'
+import { writeClip, readClip } from '../lib/nodeClipboard.js'
 import { parseLink } from '../lib/attach.js'
 
 const typing = () => /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')
@@ -10,25 +11,51 @@ const SVG_TEXT = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!DOCTYPE[^>]*>\s*)?<svg[\s>][\s\S]
 export const svgTextToFile = (text) =>
   SVG_TEXT.test(text || '') ? new File([text], 'pasted.svg', { type: 'image/svg+xml' }) : null
 
-// Cmd/Ctrl+C copies the selected node; the single 'paste' listener duplicates it.
-// A FILE on the clipboard always wins (a screenshot, a PDF, an audio clip), then a
-// pasted URL, and only then the node-duplicate - so copying a node earlier can
-// never block pasting real evidence. We write a marker to the clipboard on copy so
-// a paste event still fires even when nothing else is on the clipboard.
-export function useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addFiles, addLink, pastePos, showToast }) {
-  const clipRef = useRef(null) // copied node for Cmd/Ctrl+C -> +V duplicate
-
+// Cmd/Ctrl+C copies the selection, Cmd/Ctrl+X cuts it, Cmd/Ctrl+V pastes it - on
+// THIS board or any other, because the clipboard itself lives outside React (see
+// lib/nodeClipboard.js). Cutting evidence off one board to pin it on another is
+// the whole reason cut exists, so the clipboard must outlive the board component.
+//
+// Paste order is deliberate: a FILE on the system clipboard always wins (a
+// screenshot, a PDF, an audio clip), then pasted SVG markup, then a URL, and only
+// then the copied nodes - so copying a node earlier can never block pasting real
+// evidence. We write a marker to the system clipboard on copy/cut so a paste event
+// still fires even when nothing else is on it.
+export function useNodeClipboard({
+  canEdit, readOnly, nodes, setNodes, edges, setEdges,
+  addFiles, addLink, pastePos, showToast,
+}) {
   useEffect(() => {
     if (!canEdit) return
     const onKey = (e) => {
-      if (typing() || !(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'c') return
-      if (!sel || sel.kind === 'edge') return
-      const n = nodes.find((x) => x.id === sel.id)
-      if (n) { clipRef.current = n; navigator.clipboard?.writeText?.(NODE_COPY_MARKER).catch(() => {}) }
+      if (typing() || !(e.metaKey || e.ctrlKey)) return
+      const key = e.key.toLowerCase()
+      if (key !== 'c' && key !== 'x') return
+      // Everything selected, not just the one node the inspector is showing - the
+      // multi-select bar is on screen for exactly this case.
+      const picked = nodes.filter((n) => n.selected)
+      if (!picked.length) return
+      const travelling = withDescendants(nodes, picked.map((n) => n.id))
+      const ids = new Set(travelling.map((n) => n.id))
+      const internal = (edges || []).filter((x) => ids.has(x.source) && ids.has(x.target))
+
+      e.preventDefault()
+      writeClip(travelling, internal)
+      // Wrapped: writeText is absent on a non-secure origin and returns undefined
+      // in some polyfills, and an unhandled throw here would abort the cut itself.
+      try { Promise.resolve(navigator.clipboard?.writeText?.(NODE_COPY_MARKER)).catch(() => {}) } catch { /* no clipboard API */ }
+
+      if (key === 'x') {
+        setNodes((nds) => nds.filter((n) => !ids.has(n.id)))
+        // An edge with one end cut away would render as a thread to nowhere.
+        setEdges?.((eds) => eds.filter((x) => !ids.has(x.source) && !ids.has(x.target)))
+      }
+      const what = travelling.length > 1 ? `${travelling.length} items` : '1 item'
+      showToast(key === 'x' ? `Cut ${what}` : `Copied ${what}`)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, sel, nodes])
+  }, [canEdit, nodes, edges, setNodes, setEdges, showToast])
 
   // Read-only board: a paste that carried real evidence has to SAY it was
   // refused. Silence here is what reads as 'paste is broken' - most often it is
@@ -38,7 +65,8 @@ export function useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addF
     const onBlocked = (e) => {
       if (typing()) return
       const items = [...(e.clipboardData?.items || [])]
-      const carried = items.some((it) => it.kind === 'file') || Boolean(parseLink(e.clipboardData?.getData('text') || ''))
+      const carried = items.some((it) => it.kind === 'file') ||
+        Boolean(parseLink(e.clipboardData?.getData('text') || '')) || Boolean(readClip())
       if (carried) showToast(readOnly === 'auth' ? 'Sign in to edit this board' : 'Read-only on this device')
     }
     window.addEventListener('paste', onBlocked)
@@ -57,14 +85,19 @@ export function useNodeClipboard({ canEdit, readOnly, sel, nodes, setNodes, addF
       if (svg) { e.preventDefault(); addFiles([svg], pastePos()); return }
       const link = parseLink(text)
       if (link) { e.preventDefault(); addLink(link, pastePos()); return }
-      if (clipRef.current && (text === NODE_COPY_MARKER || text === '')) {
+
+      const clip = readClip()
+      if (clip && (text === NODE_COPY_MARKER || text === '')) {
         e.preventDefault()
-        const copy = duplicateNode(clipRef.current)
-        setNodes((nds) => nds.concat(copy))
-        showToast('Pasted a copy')
+        // Land on the cursor. The source position is meaningless on another board -
+        // it could be thousands of units outside the current view.
+        const { nodes: copies, edges: wires } = cloneSubgraph(clip.nodes, clip.edges, pastePos())
+        setNodes((nds) => nds.concat(copies))
+        if (wires.length) setEdges?.((eds) => eds.concat(wires))
+        showToast(copies.length > 1 ? `Pasted ${copies.length} items` : 'Pasted 1 item')
       }
     }
     window.addEventListener('paste', onPaste)
     return () => window.removeEventListener('paste', onPaste)
-  }, [canEdit, addFiles, addLink, pastePos, setNodes, showToast])
+  }, [canEdit, addFiles, addLink, pastePos, setNodes, setEdges, showToast])
 }
