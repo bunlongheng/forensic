@@ -226,8 +226,13 @@ test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, 
       };
       fire(files.map((f) => ({ kind: "file", type: f.type, getAsFile: () => f })), "");
       fire([], svg); // SVG as TEXT - Figma "Copy as SVG"
+      // A TALL svg with no width/height: an <img> reports the CSS default 300x150,
+      // so without reading the viewBox this lands as a 2:1 node with the art
+      // letterboxed inside it.
+      const tall = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"><rect width="100" height="400" fill="#5b3fa8"/></svg>';
+      fire([{ kind: "file", type: "image/svg+xml", getAsFile: () => new File([tall], "tall.svg", { type: "image/svg+xml" }) }], "");
     });
-    await expect(page.locator(".react-flow__node-image")).toHaveCount(4);
+    await expect(page.locator(".react-flow__node-image")).toHaveCount(5);
     await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
     // Every one of them actually decoded - a broken <img> reports 0 natural width.
     await expect.poll(() => page.locator(".react-flow__node-image img")
@@ -236,6 +241,10 @@ test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, 
     // The GIF is still a GIF - a re-encode would have made it a WebP.
     const types = await Promise.all(imgs.map((i) => servedType(i.src)));
     expect(types).toContain("image/gif");
+    // The tall SVG kept its 1:4 shape instead of the browser's 2:1 default.
+    const shapes = await page.locator(".react-flow__node-image").evaluateAll((els) =>
+      els.map((el) => { const r = el.getBoundingClientRect(); return Math.round((r.height / r.width) * 100) / 100; }));
+    expect(shapes.some((r) => r > 3.5 && r < 4.5)).toBe(true);
   } finally {
     await purge(id);
   }
