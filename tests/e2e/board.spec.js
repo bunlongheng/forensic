@@ -1,4 +1,7 @@
 import { test, expect } from "@playwright/test";
+// gifenc ships CJS to node, so pull the named helpers off the default import.
+import gifenc from "gifenc";
+const { GIFEncoder, quantize, applyPalette } = gifenc;
 
 const BASE = `http://localhost:${process.env.PORT || "4336"}`;
 const TITLE = "E2E canvas";
@@ -216,6 +219,52 @@ test("a typeless .svg, a .webp, a .gif and pasted SVG markup all pin as images, 
     expect(imgs.every((i) => i.w > 0)).toBe(true);
     // The GIF is still a GIF - a re-encode would have turned it into data:image/webp.
     expect(imgs.map((i) => i.src)).toContain("data:image/gif;");
+  } finally {
+    await purge(id);
+  }
+});
+
+// An oversized GIF is shrunk in a worker - fewer frames, smaller pixels - while a
+// progress toast stays up, then pins as a real animated GIF under the cap.
+test("an oversized GIF shows shrinking progress and pins under the cap, still animated", async ({ page, request }) => {
+  test.setTimeout(90_000);
+  // Build a GIF that is over 2 MB: noise compresses badly, so 30 frames of 320x320
+  // random pixels land around 3 MB. Generated here so no binary lives in the repo.
+  const W = 320, H = 320, FRAMES = 30;
+  const gif = GIFEncoder();
+  let seed = 7;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let f = 0; f < FRAMES; f++) {
+    const rgba = new Uint8ClampedArray(W * H * 4);
+    for (let p = 0; p < rgba.length; p += 4) { rgba[p] = rand() * 255; rgba[p + 1] = rand() * 255; rgba[p + 2] = rand() * 255; rgba[p + 3] = 255; }
+    const palette = quantize(rgba, 256);
+    gif.writeFrame(applyPalette(rgba, palette), W, H, { palette, delay: 50, repeat: 0 });
+  }
+  gif.finish();
+  const bytes = gif.bytes();
+  expect(bytes.length).toBeGreaterThan(2_000_000);
+
+  const create = await request.post("/api/boards", { data: { title: TITLE, nodes: [], edges: [] } });
+  const id = (await create.json()).id;
+  try {
+    await page.goto(`/?id=${id}`);
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await page.mouse.move(400, 400);
+    await page.evaluate((b64) => {
+      const bytes = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+      const f = new File([bytes], "noise.gif", { type: "image/gif" });
+      const e = new Event("paste", { bubbles: true, cancelable: true });
+      e.clipboardData = { items: [{ kind: "file", type: f.type, getAsFile: () => f }], getData: () => "" };
+      window.dispatchEvent(e);
+    }, Buffer.from(bytes).toString("base64"));
+
+    await expect(page.getByText(/Shrinking noise\.gif/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".react-flow__node-image")).toHaveCount(1, { timeout: 60_000 });
+    await expect(page.locator(".react-flow__node-file")).toHaveCount(0);
+    const img = await page.locator(".react-flow__node-image img").first().evaluate((el) => ({ w: el.naturalWidth, src: el.src.slice(0, 15), bytes: Math.round((el.src.length - el.src.indexOf(",") - 1) * 3 / 4) }));
+    expect(img.src).toBe("data:image/gif;");
+    expect(img.w).toBeGreaterThan(0);
+    expect(img.bytes).toBeLessThanOrEqual(2_000_000);
   } finally {
     await purge(id);
   }

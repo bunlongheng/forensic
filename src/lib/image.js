@@ -12,6 +12,7 @@
 // Re-encoding unconditionally also strips EXIF/ICC on the way through (canvas
 // only carries pixels), so camera metadata - GPS included - never reaches the DB.
 import { ATTACH_MAX } from './attach.js'
+import { shrinkGif, canShrinkGifs, HARD_MAX_BYTES } from './gifShrink.js'
 
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
 const QUALITY = 0.82
@@ -62,23 +63,26 @@ function hasTransparency(ctx, w, h) {
   } catch { return true } // can't tell - assume alpha and keep a lossless fallback
 }
 
-export async function fileToImage(file) {
+export async function fileToImage(file, onProgress) {
   const mime = imageMime(file)
   if (!mime) throw new Error('Not an image')
   let dataUrl = await readAsDataURL(file)
   // A typeless file reads back as data:application/octet-stream, which no <img>
   // will render. Re-label it with the MIME we inferred - the bytes are the same.
   if (!dataUrl.startsWith('data:image/')) dataUrl = `data:${mime}${dataUrl.slice(dataUrl.indexOf(';'))}`
+  // A GIF under the cap is kept as-is: drawing it onto a canvas keeps exactly one
+  // frame, and a GIF that stops moving is not the evidence that was pasted. Over
+  // the cap it is shrunk in a worker - fewer frames, smaller pixels, one palette -
+  // with progress reported to the caller, and refused only when even that fails.
+  if (mime === 'image/gif' && file.size > ATTACH_MAX) {
+    const err = new Error('GIF too large')
+    err.code = 'too-large'
+    if (file.size > HARD_MAX_BYTES) throw err
+    if (!canShrinkGifs()) { err.code = 'no-shrink'; throw err }
+    return shrinkGif(file, onProgress)
+  }
   // SVG has no intrinsic raster size to downscale meaningfully - keep as-is.
-  // A GIF is kept as-is too: drawing it onto a canvas keeps exactly one frame, and
-  // a GIF that stops moving is not the evidence that was pasted. Since it cannot be
-  // shrunk, the attachment cap applies - anything heavier belongs behind a link.
   if (mime === 'image/svg+xml' || mime === 'image/gif') {
-    if (mime === 'image/gif' && file.size > ATTACH_MAX) {
-      const err = new Error('GIF too large')
-      err.code = 'too-large'
-      throw err
-    }
     const img = await loadImage(dataUrl).catch(() => null)
     return { src: dataUrl, width: img?.width || 320, height: img?.height || 320 }
   }
