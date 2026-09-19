@@ -270,6 +270,58 @@ test("an oversized GIF shows shrinking progress and pins under the cap, still an
   }
 });
 
+// The point of cut: move evidence from one board to another. The clipboard has to
+// outlive the board component, which App remounts on every board switch.
+test("cut a node on one board and paste it onto a different board", async ({ page, request }) => {
+  const mk = async (title) => {
+    const r = await request.post("/api/boards", { data: { title, nodes: [], edges: [] } });
+    return (await r.json()).id;
+  };
+  const from = await mk(TITLE);
+  const to = await mk(TITLE);
+
+  try {
+    // Board 1: make a note, select it, cut it.
+    await page.goto(`/?id=${from}`);
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    const pane = page.locator(".react-flow__pane");
+    await pane.dblclick({ position: { x: 320, y: 260 } });   // drops a clip note, open for typing
+    const note = page.locator(".react-flow__node-clip");
+    await expect(note).toHaveCount(1);
+    await page.locator("textarea:focus").fill("moved evidence");
+    await pane.click({ position: { x: 700, y: 520 } });       // blur commits the text
+    await note.click();                                       // and select it
+    await page.keyboard.press("ControlOrMeta+x");
+    await expect(page.getByText(/^Cut 1 item$/)).toBeVisible();
+    await expect(note).toHaveCount(0);           // gone from this board
+    // Assert on what PERSISTED, not on the save pill: "Saved" is transient and
+    // falls back to idle, so polling the label is flaky by construction.
+    await expect.poll(async () => (await (await request.get(`/api/boards/${from}`)).json()).nodes.length,
+                      { timeout: 15_000 }).toBe(0);
+
+    // Board 2: paste it.
+    await page.goto(`/?id=${to}`);
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await page.mouse.move(500, 400);
+    await page.evaluate(() => {
+      const e = new Event("paste", { bubbles: true, cancelable: true });
+      e.clipboardData = { items: [], getData: () => "forensic-node-copy" };
+      window.dispatchEvent(e);
+    });
+    await expect(page.locator(".react-flow__node-clip")).toHaveCount(1);
+    await expect(page.getByText("moved evidence")).toBeVisible();
+
+    // and it survives a reload of the destination board
+    await expect.poll(async () => (await (await request.get(`/api/boards/${to}`)).json()).nodes.length,
+                      { timeout: 15_000 }).toBe(1);
+    await page.reload();
+    await expect(page.getByText("moved evidence")).toBeVisible();
+  } finally {
+    await purge(from);
+    await purge(to);
+  }
+});
+
 // The bottom-left summon: one of the two ways into the tool ring, alongside the
 // toolbar + (holding Cmd used to be a third and was removed - its dwell timer
 // raced every other Cmd gesture). Also guards the wax seal, which boards in the
