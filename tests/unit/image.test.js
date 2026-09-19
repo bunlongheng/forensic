@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { fileToImage, imageMime, isImageFile } from "../../src/lib/image.js";
+import { fileToImage, imageMime, isImageFile, svgIntrinsicSize } from "../../src/lib/image.js";
 
 // The shrinker needs a real worker + ImageDecoder; here it is a switch, so the
 // hand-off (and the progress stream) can be asserted without either.
@@ -139,7 +139,7 @@ describe("fileToImage - GIF", () => {
   it("says a browser without ImageDecoder cannot shrink an over-cap GIF", async () => {
     stubPipeline({ dataUrl: "data:image/gif;base64,R0lGODlh" });
     const f = new File(["x"], "huge.gif", { type: "image/gif" });
-    Object.defineProperty(f, "size", { value: 2_000_001 });
+    Object.defineProperty(f, "size", { value: 3_000_001 });
     await expect(fileToImage(f)).rejects.toMatchObject({ code: "no-shrink" });
   });
 
@@ -169,5 +169,33 @@ describe("isImageFile / imageMime", () => {
     expect(imageMime(f("pic.avif", ""))).toBe("image/avif");
     expect(isImageFile(f("warrant.pdf", "application/pdf"))).toBe(false);
     expect(isImageFile(f("notes.txt", ""))).toBe(false);
+  });
+});
+
+// An <img> holding an SVG with no width/height reports the CSS default 300x150,
+// which is not the drawing's shape - a 1:4 logo would become a 2:1 node with the
+// art letterboxed inside it. The size has to come from the markup.
+describe("svgIntrinsicSize", () => {
+  it("prefers explicit width/height, with or without px", () => {
+    expect(svgIntrinsicSize('<svg width="512px" height="128px" viewBox="0 0 400 200"></svg>'))
+      .toEqual({ width: 512, height: 128 });
+    expect(svgIntrinsicSize('<svg width="64" height="64"></svg>')).toEqual({ width: 64, height: 64 });
+  });
+
+  it("falls back to the viewBox, which is what carries the aspect ratio", () => {
+    expect(svgIntrinsicSize('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 400"></svg>'))
+      .toEqual({ width: 100, height: 400 });
+    // a percentage width is not a size - the viewBox still has to win
+    expect(svgIntrinsicSize('<svg width="100%" height="100%" viewBox="0 0 64 96"></svg>'))
+      .toEqual({ width: 64, height: 96 });
+    // negative min-x/min-y are legal and must not break the parse
+    expect(svgIntrinsicSize('<svg viewBox="-20 -10 300 150"></svg>')).toEqual({ width: 300, height: 150 });
+  });
+
+  it("returns null when the markup says neither, so the caller can fall back", () => {
+    expect(svgIntrinsicSize('<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>')).toBeNull();
+    expect(svgIntrinsicSize("<div>hello</div>")).toBeNull();
+    expect(svgIntrinsicSize("")).toBeNull();
+    expect(svgIntrinsicSize(null)).toBeNull();
   });
 });

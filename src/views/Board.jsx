@@ -27,6 +27,8 @@ import { CursorTools, RING_SAFE } from '../components/CursorTools.jsx'
 import { SnapGuides } from '../components/SnapGuides.jsx'
 import { BoardTopBar, MultiSelectBar } from '../components/BoardTopBar.jsx'
 import { fileToImage, isImageFile } from '../lib/image.js'
+import { IMAGE_MAX } from '../lib/constants.js'
+import { uploadImage } from '../lib/api.js'
 import { fileToAttachment, parseLink, ATTACH_MAX, prettySize } from '../lib/attach.js'
 import { makeThumbnail } from '../lib/thumbnail.js'
 import { snapAlign } from '../lib/snapAlign.js'
@@ -197,19 +199,31 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
         // Each toast call restarts the auto-hide, so the message stays up until done.
         const onProgress = (p) => showToast(`Shrinking ${file.name}${p.passes > 1 && p.pass > 1 ? ` - pass ${p.pass}` : ''} - ${p.pct}%`)
         const { src, width, height } = await fileToImage(file, onProgress)
+        // The bytes go to their own row and the node keeps a URL. Inline base64
+        // is what put a hard ~4 MB ceiling on a whole board and made every
+        // autosave re-send every photo on it.
+        //
+        // If the upload fails - offline, signed out, a 413 - fall back to the
+        // inline data URL. A photo that saves the old way beats a photo that
+        // never lands, and the board renders either shape identically.
+        let stored = src
+        try {
+          const up = await uploadImage(src)
+          if (up?.url) stored = up.url
+        } catch { /* keep the data URL; a node's src is just a string */ }
         const w = 240, h = Math.max(60, Math.round((240 * height) / width))
         const pos = { x: at.x + i * 28, y: at.y + i * 28 }
         setNodes((nds) => nds.concat({
           id: uid('img'), type: 'image', position: pos,
           style: { width: w, height: h },
-          data: { src, editable: true },
+          data: { src: stored, editable: true },
         }))
         i++
       } catch (err) {
         showToast(err?.code === 'too-large'
-          ? `${file.name} is still over ${prettySize(ATTACH_MAX)} after shrinking - pin a link to it instead`
+          ? `${file.name} is still over ${prettySize(IMAGE_MAX)} after shrinking - pin a link to it instead`
           : err?.code === 'no-shrink'
-            ? `${file.name} is over ${prettySize(ATTACH_MAX)} and this browser cannot shrink GIFs - use Chrome, or pin a link`
+            ? `${file.name} is over ${prettySize(IMAGE_MAX)} and this browser cannot shrink GIFs - use Chrome, or pin a link`
             : 'Could not read an image')
       }
     }

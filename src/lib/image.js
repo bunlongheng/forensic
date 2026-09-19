@@ -11,7 +11,7 @@
 //
 // Re-encoding unconditionally also strips EXIF/ICC on the way through (canvas
 // only carries pixels), so camera metadata - GPS included - never reaches the DB.
-import { ATTACH_MAX } from './attach.js'
+import { IMAGE_MAX } from './constants.js'
 import { shrinkGif, canShrinkGifs, HARD_MAX_BYTES } from './gifShrink.js'
 
 const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
@@ -63,6 +63,26 @@ function hasTransparency(ctx, w, h) {
   } catch { return true } // can't tell - assume alpha and keep a lossless fallback
 }
 
+
+// The real size of an SVG, read from the markup. `width`/`height` win when both
+// are present and unitless-or-px; otherwise the viewBox gives the aspect ratio,
+// which is what the node needs. Returns null when the markup says neither.
+export function svgIntrinsicSize(markup) {
+  const tag = /<svg\b[^>]*>/i.exec(markup || '')
+  if (!tag) return null
+  const attr = (name) => {
+    const m = new RegExp(`\\s${name}\\s*=\\s*["']?\\s*([\\d.]+)\\s*(px)?["'\\s>]`, 'i').exec(tag[0])
+    return m ? parseFloat(m[1]) : null
+  }
+  const w = attr('width'), h = attr('height')
+  if (w > 0 && h > 0) return { width: Math.round(w), height: Math.round(h) }
+  const vb = /\sviewBox\s*=\s*["']\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(tag[0])
+  if (vb && parseFloat(vb[1]) > 0 && parseFloat(vb[2]) > 0) {
+    return { width: Math.round(parseFloat(vb[1])), height: Math.round(parseFloat(vb[2])) }
+  }
+  return null
+}
+
 export async function fileToImage(file, onProgress) {
   const mime = imageMime(file)
   if (!mime) throw new Error('Not an image')
@@ -74,15 +94,25 @@ export async function fileToImage(file, onProgress) {
   // frame, and a GIF that stops moving is not the evidence that was pasted. Over
   // the cap it is shrunk in a worker - fewer frames, smaller pixels, one palette -
   // with progress reported to the caller, and refused only when even that fails.
-  if (mime === 'image/gif' && file.size > ATTACH_MAX) {
+  if (mime === 'image/gif' && file.size > IMAGE_MAX) {
     const err = new Error('GIF too large')
     err.code = 'too-large'
     if (file.size > HARD_MAX_BYTES) throw err
     if (!canShrinkGifs()) { err.code = 'no-shrink'; throw err }
     return shrinkGif(file, onProgress)
   }
-  // SVG has no intrinsic raster size to downscale meaningfully - keep as-is.
-  if (mime === 'image/svg+xml' || mime === 'image/gif') {
+  // SVG is vector: never rasterise it, so it stays sharp at any zoom. Its SIZE has
+  // to come from the markup though - an <img> holding an SVG with no width/height
+  // reports the CSS default 300x150, which is not the drawing's shape. A 1:4 logo
+  // would be created as a 2:1 node and sit letterboxed inside it.
+  if (mime === 'image/svg+xml') {
+    const size = svgIntrinsicSize(await file.text().catch(() => ''))
+    if (size) return { src: dataUrl, ...size }
+    const img = await loadImage(dataUrl).catch(() => null)
+    return { src: dataUrl, width: img?.width || 320, height: img?.height || 320 }
+  }
+  // A GIF is kept whole for the same reason a canvas would ruin it - one frame.
+  if (mime === 'image/gif') {
     const img = await loadImage(dataUrl).catch(() => null)
     return { src: dataUrl, width: img?.width || 320, height: img?.height || 320 }
   }

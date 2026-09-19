@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import createBoard from "./lib/handlers/create-board.js";
 import listBoards from "./lib/handlers/list-boards.js";
 import health from "./lib/handlers/health.js";
+import { createImage, getImage } from "./lib/handlers/images.js";
 import boardById from "./lib/handlers/board-by-id.js";
 import authLogin from "./lib/handlers/auth-login.js";
 import authCallback from "./lib/handlers/auth-callback.js";
@@ -51,6 +52,8 @@ app.post("/api/ai/boards", withErrors(createBoard));
 app.get("/api/boards", withErrors(listBoards));
 app.post("/api/boards", withErrors((req, res) => createBoard(req, res, { allowBearer: false })));
 app.get("/api/health", withErrors(health));
+app.post("/api/images", withErrors(createImage));
+app.get("/api/images/:id", withErrors(getImage));
 app.all("/api/boards/:id", withErrors(boardById));
 
 // Static SPA + client-side routing fallback.

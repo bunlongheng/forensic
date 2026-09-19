@@ -1,6 +1,6 @@
 // Main-thread side of GIF shrinking: spawn the worker, stream its progress to the
 // caller, hand back the same { src, width, height } shape fileToImage returns.
-import { ATTACH_MAX } from './attach.js'
+import { IMAGE_MAX } from './constants.js'
 import { HARD_MAX_BYTES } from './gifPlan.js'
 
 export { HARD_MAX_BYTES }
@@ -35,6 +35,6 @@ export async function shrinkGif(file, onProgress) {
         .then((src) => resolve({ src, width: data.width, height: data.height }))
         .catch(() => bail('Could not read the shrunk GIF', 'decode'))
     }
-    worker.postMessage({ buffer, targetBytes: ATTACH_MAX }, [buffer])
+    worker.postMessage({ buffer, targetBytes: IMAGE_MAX }, [buffer])
   })
 }

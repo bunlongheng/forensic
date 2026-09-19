@@ -63,6 +63,26 @@ anything - like a detective's evidence board that lives in the browser.
 | `Shift` + drag | Snap a node into a straight line with the nodes it is wired to |
 | `Backspace` / `Delete` | Remove the selection |
 
+### Images
+
+Image bytes live in their own `board_images` rows, not inside the board JSON. A
+node stores `/api/images/<id>` - about 30 bytes - so a board is text again and
+holds as many photos as you like. Each upload is its own request, which is what
+keeps a 50-photo board from ever building a body big enough for the platform to
+reject (Vercel caps a function request at 4.5 MB). Images are served with a
+one-year immutable cache, so reopening a board costs nothing.
+
+Boards saved before this still render untouched: a node's `src` is just a string,
+and an inline `data:` URL and a `/api/images/<id>` URL both work. To lift the old
+inline bytes out, run the migration - it backs up each board first and is
+reversible:
+
+```bash
+node scripts/extract-board-images.mjs           # dry run, prints what it would move
+node scripts/extract-board-images.mjs --write    # do it; originals go to backups/
+node scripts/extract-board-images.mjs --restore backups/board-<id>.json
+```
+
 ## Architecture
 
 ```mermaid
