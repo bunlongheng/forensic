@@ -39,3 +39,8 @@ public/tesseract/tesseract-core-simd-lstm.wasm.js
 
 # README screenshot written by the repo-audit skill
 docs/screenshots/
+
+# Board originals written by scripts/extract-board-images.mjs before it rewrites a
+# board. They contain the FULL inline base64 of every image that was on it - 10 MB
+# of board content that must never reach git history. Local safety net only.
+backups/
