@@ -1,24 +1,22 @@
-<div align="center">
-  <img src="docs/icon.png" alt="Forensic" width="96" height="96" />
-  <h1>Forensic</h1>
-  <p><em>An infinite Figma-like evidence board - pin images and wire the connections, unlimited zoom</em></p>
-  <p><a href="https://forensic-bheng.vercel.app">Live</a> &middot; <a href="https://github.com/bunlongheng/forensic">Repo</a> &middot; <a href="https://bunlongheng.com/projects?name=forensic">Portfolio</a></p>
-  <img src="docs/social-preview.png" alt="Forensic - preview" width="820" />
-</div>
+# <img src="docs/icon.png" width="36" height="36" align="top" alt=""> Forensic
 
----
+An infinite, Figma-fast evidence board that lives in the browser.
 
-# Forensic
+Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the connections with red threads - like a detective's evidence board, autosaved to Postgres with a local draft for crash safety. 17 evidence types, in-browser OCR, undo history, and a 1-click case report.
 
-An infinite, Figma-fast board for pinning images and wiring the connections. Drop
-unlimited images, zoom without limits, and draw clean 1-to-many links between
-anything - like a detective's evidence board that lives in the browser.
+**Live:** https://forensic-bheng.vercel.app &middot; [Portfolio](https://bunlongheng.com/projects?name=forensic)
 
-**Live:** https://forensic-bheng.vercel.app
+![Forensic board](docs/hero.png)
 
-![Forensic](public/og.png)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=node.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-149eca?logo=react)
+![React Flow](https://img.shields.io/badge/React%20Flow-12-ff0072)
+![Postgres](https://img.shields.io/badge/Postgres-pg-4169e1?logo=postgresql&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-Vitest%20%2B%20Playwright-6b4ea8)
 
-## What it does
+
+## Features
 
 - **Infinite canvas** - pan and zoom without limits (0.02x to 40x), powered by React Flow.
 - **Drop / paste / upload images** - drag image files onto the board, paste from the clipboard, or pick from disk. Large images are downscaled and re-encoded (WebP) so a board packed with photos stays fast.
@@ -123,10 +121,8 @@ A board is `{ title, nodes[], edges[] }` in React Flow shape. Every change is re
 | Restore on open | Once per open | Draft newer than the server copy wins, then autosave pushes it |
 | Undo history | Every snapshot | In memory, 100 entries |
 
-Image bytes live inline as downscaled data URLs (long edge 1800 px, WebP where supported),
-which keeps a board a single row and a single request.
 
-## Stack
+## Tech stack
 
 - **Vite + React 19** SPA, **@xyflow/react** (React Flow) for the canvas
 - **Express** prod-like server (`serve.mjs`) that mirrors the **Vercel** serverless functions in `api/`
@@ -136,9 +132,11 @@ which keeps a board a single row and a single request.
 - **Vitest** unit tests with a coverage ratchet + **Playwright** e2e against a production build
 - Strict CSP (no `unsafe-eval`/`unsafe-inline` for scripts), HSTS, Permissions-Policy, rate limiting, fail-fast env validation
 
-## Run locally
+## Quick start
 
 ```bash
+git clone https://github.com/bunlongheng/forensic.git
+cd forensic
 npm install
 cp .env.example .env      # fill in DATABASE_URL etc. (LOCAL_DEV=true bypasses auth on localhost)
 npm run migrate           # create the boards table
@@ -152,7 +150,7 @@ Or run the exact production build locally:
 npm run prod              # vite build + Express server serving dist/ + the API
 ```
 
-### Environment
+## Configuration
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
@@ -170,7 +168,7 @@ npm run prod              # vite build + Express server serving dist/ + the API
 
 `lib/env.js` fails the build and the server fast when a required variable is missing - imported by both the Vite build and the server (`serve.mjs`). See `.env.example`.
 
-## Test
+## Testing
 
 ```bash
 npm test                  # vitest unit tests + coverage (thresholds ratchet upward only)
@@ -211,3 +209,18 @@ migration in `db/migrations/` ships with the code that needs it. Commits prefixe
 ## License
 
 MIT - see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+<a href="https://bunlongheng.com"><img src="https://img.shields.io/badge/-bunlongheng.com-3A3A3C?style=for-the-badge&amp;labelColor=2A2A2C&amp;logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAMAAABF0y%2BmAAADAFBMVEXx8vLq6v%2F19fX09PT8%2Ff309PT5%2BfnAwMBMaXHx8vL19fX5%2Bfny8vL09PT39%2Ff6%2Bfn6%2Bvr09PTx8fH4%2BPn%2F8vLy8%2FP09PTz8%2FPy8vL%2F%2F%2F%2Fz9PTz9PP19fby8vP19PXz8%2FT19%2Fb08%2FTx8vLy8vL09vby8%2FL29vf19fTv8PDz9vb7%2Bvn%2F%2Ff%2F9%2Ff3w8vH29fb%2F%2FP339%2Ff5%2Bfn59%2Ff19PT09PR7rao3VF3%2F%2Fv8AKDR6sqsBV1vv8fL4%2BPiux8b8%2Bvq90NDy8%2FR%2BlpppnZyZqrACLTxclZJSkI9en5ssZ2luqaUAeWgqbW4BX1gCfG0%2Fa3QaVG0MN0UKNUKUpKsGpYMAKjoRQ1UDf3AQRloJqIgEm32d0cUBg3ElbnQIln8eVWgrmIdP0KzF5d5s2acdfHwppJCP5MMXl4Tz8%2FLv8%2FP39%2FiewL5%2BqahYf4IrTFZkk5KlxsREiIYAHiqDnKFmnJowc3IdVllvpKK7zc3D2tnk5%2BmuycdwpKKuub2yv8Ly%2B%2FkAMT7z%2Bvjq7e09gH93q6kGdWpGgoJZmJSlw8M7c3WwyceTw76w1M8mYmpFfX8lW2AFOEpGiYhxqqRrqaRb2rdIsZ8AVE91jpU7d3t3saqBoKhako4AWVEcUlg3aWwDupAHb2YwmIkPP1ERSVA7WmZ8tq8HT14oZW%2BYuLsMl3wQT10ROksENUc8Z3MJSGVLh4dqpJ%2BXr7U51awUgHM4v6ad1MkPuJZAiowVd3IEhnZH0aoYrI05p5sDtYwkzZ8EPViYxsRel5USbHAIgmwIM0gQamzU4uF2malQi4oWQFQ1zaYrp4UXlYwfiHoyxqFE1q4qeX4yn5JIxKkdrX1b1rAbWGvd5Oh91sRijpomsJEVc3Ukc34dqIcwuJVKwZIXkoQZcXlNv5g%2BqZUZvpNl2rPG9N0WkIoNqouW4sVPwp%2BM0b6h0ssfq4d%2F1r8hpo%2Fh9e4AamUjnI9avaBixqgklYWSwL4xtItUxplYl5qZ58mq78wMgnYXfnlOmJaR1L%2Bj78ny9fS%2FrXQPAAAAFXRSTlP7Brvx%2FsJhAgD87r4U72C4uGH8vhRDodYHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAC6UlEQVQokS2Sd3BUVRSHb0KS3QRCiZw5t%2By9j33zXjZkyUs2uekhEAi9dwRCL4JUEQRFAQUs9A4WOopKU0GpFoqCBZUivaqoFKkWLIS5GX7%2FfnPO78yZj%2Fj8UTViK6HggvNgSGuluEZRKbZqlN9H%2FFWiWUzIFQK5fhjOIRTDoqv4ia86S4q3KSByHdSqIhxofBKr5iNxLMm2bQqWVkorJ%2BAkO46nkQJhceSRmCTDvKJIJBLJzMxMLU6POJ4eBPF1KpNEbdt2Cms4LCcnZ%2FX6D3d%2BsKJJ7VSlNLoqgbjUtmkKKxlVmpf3bsFXW3d1b77gueJAQIPQBCilkMKemNi23Ts9T35%2FaMe2rsvmTypylGUFCSIYWJLXrm2nUwOPfNO5w%2B73Okxnjqe0JigQEL3JizoeONr%2F2u99vju4fd1rdZnyspQmnGvAUBprWNqz348%2FhXN%2F6P1%2By4Uvs%2FJkpRQRwpJBRVn7vf16Dfitz5XevQqWt3yalXtKaRIUQmglWfsu5y7%2BMrDs0TMftWo1ZVy64xioOVpcIdt8%2Fvqvf9%2F859KJsrLmrzA%2BOKC0IkFEtJza7JOfr%2FYd0P9G98tdOxe0Hp9qJrOIBgDuOeEtp%2F%2B4d%2FvWX%2F%2F9u%2B%2FtlaUTmOWZg7SQEEyuFe52%2BML9O3cZO%2F5xl06zn2VcadOJUqJTzt7a82XfP7sx9vmGNm1m1MstV4IHCVAAoTLqL1372ddn%2Fz%2B2v%2FWq12c1fSpsaeQWAZAANntxzuI3e3zbo8XGpm%2FMnNqiXrh%2BljaPd6UUabkjps19tdGnX2zKb9b4pTFDCzOMLmYtpW5h%2BpCRTeYtyV%2BT36zx808OL4xYGoFrkqDTbJpSXLdRgwbPZL%2BQnT129OOPFVEEsAMJpHKdeKMJgJSAiALdjJANQKnRJI4R6boAKEwLCiGoBBegQjBftQo1KQWOlplFKSV9qGaF1NpAE7QQESTlMSy6pp%2F4%2FFFVYxMNRBTaiM0tkImxNaL8vgfDR8gvoYRaxgAAAABJRU5ErkJggg%3D%3D" alt="bunlongheng.com"></a>
+<a href="https://www.linkedin.com/in/bunlongheng/"><img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn"></a>
+<a href="https://www.instagram.com/ibunlong/"><img src="https://img.shields.io/badge/Instagram-C13584?style=for-the-badge&logo=instagram&logoColor=white" alt="Instagram"></a>
+<a href="mailto:bheng.code@gmail.com"><img src="https://img.shields.io/badge/Email-2E7D32?style=for-the-badge&logo=gmail&logoColor=white" alt="Email"></a>
+
+<br>
+
+Built by **[Bunlong](https://bunlongheng.com)** &nbsp;&middot;&nbsp; [more apps](https://bunlongheng.com/projects)
+
+</div>
