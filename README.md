@@ -83,23 +83,9 @@ node scripts/extract-board-images.mjs --restore backups/board-<id>.json
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph Browser
-    App[App.jsx<br/>auth + routing] --> Gallery
-    App --> Board[views/Board.jsx<br/>React Flow canvas]
-    Board --> Graph[lib/boardGraph.js<br/>pure node/edge logic]
-    Board --> Persist[hooks/useBoardPersistence<br/>autosave, drafts, restore]
-    Board --> Undo[hooks/useUndoRedo]
-    Persist --> IDB[(IndexedDB draft)]
-  end
-  Persist -->|PUT /api/boards/:id| API
-  App -->|GET /api/boards| API
-  subgraph Server
-    API[api/* Vercel functions<br/>= lib/handlers/*] --> PG[(Postgres)]
-    API --> Google[Google OAuth]
-  end
-```
+[![Forensic - Architecture](https://flows-bheng.vercel.app/api/flows/forensic-architecture?format=gif&w=3200)](https://flows-bheng.vercel.app/?id=a290832d-fe84-41d5-abf4-e116ed6fc170)
+
+Interactive version: [Flows](https://flows-bheng.vercel.app/?id=a290832d-fe84-41d5-abf4-e116ed6fc170). How a pinned photo becomes a saved board: [sequence diagram](https://sequences-bheng.vercel.app/d/759ab379-ba1f-4378-b1ec-08f74322a00a).
 
 - **`src/views/Board.jsx`** owns the canvas: React Flow wiring, selection, drag/drop/paste, the inspector.
 - **`src/lib/boardGraph.js`** is the pure core - sanitize, group/ungroup, chain/fan threading, snap, z-order, edge styling. No React, fully unit-tested.
@@ -120,6 +106,10 @@ A board is `{ title, nodes[], edges[] }` in React Flow shape. Every change is re
 | Online retry | The `online` event | Pushes the unconfirmed snapshot |
 | Restore on open | Once per open | Draft newer than the server copy wins, then autosave pushes it |
 | Undo history | Every snapshot | In memory, 100 entries |
+
+### How a photo travels
+
+[![Forensic - Image Pin and Autosave](https://sequences-bheng.vercel.app/svg/759ab379-ba1f-4378-b1ec-08f74322a00a)](https://sequences-bheng.vercel.app/d/759ab379-ba1f-4378-b1ec-08f74322a00a)
 
 
 ## Tech stack
