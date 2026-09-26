@@ -170,12 +170,6 @@ CI (`.github/workflows/ci.yml`) runs lint, unit tests, migrations, and the e2e s
 a throwaway Postgres on every push and pull request. `prod-monitor.yml` probes the live
 health endpoint on a schedule.
 
-## Deploy
-
-Every push to `main` deploys to Vercel. Production builds run `db/migrate.mjs` first, so a new
-migration in `db/migrations/` ships with the code that needs it. Commits prefixed
-`chore:`, `ci:`, `test:` or `docs:` skip the deploy (`vercel.json` `ignoreCommand`).
-
 ## License
 
 MIT - see [LICENSE](LICENSE).
