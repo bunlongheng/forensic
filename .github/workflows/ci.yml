@@ -94,3 +94,14 @@ jobs:
 
       - name: E2E (API + browser render, against a production build)
         run: npm run test:e2e
+
+      - name: Upload E2E traces on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-traces
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7

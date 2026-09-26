@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
-  ATTACH_MAX, kindOf, prettySize, parseLink, fileToAttachment, dataUrlToBlob, openAttachment,
+  ATTACH_MAX, kindOf, prettySize, parseLink, fileToAttachment, dataUrlToBlob, openAttachment, isSafeUrl,
 } from "../../src/lib/attach.js";
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -86,6 +86,27 @@ describe("dataUrlToBlob", () => {
   });
 });
 
+// A board can arrive from the agent API or a paste, so a link node's url is
+// untrusted input - only these 3 schemes may ever reach window.open or an href.
+describe("isSafeUrl", () => {
+  it("allows http, https and mailto", () => {
+    expect(isSafeUrl("https://example.com/a")).toBe(true);
+    expect(isSafeUrl("http://example.com/a")).toBe(true);
+    expect(isSafeUrl("mailto:owner@example.com")).toBe(true);
+  });
+
+  it("refuses every other scheme and anything unparseable", () => {
+    expect(isSafeUrl("javascript:alert(1)")).toBe(false);
+    expect(isSafeUrl("data:text/html,<script>alert(1)</script>")).toBe(false);
+    expect(isSafeUrl("file:///etc/passwd")).toBe(false);
+    expect(isSafeUrl("vbscript:msgbox(1)")).toBe(false);
+    expect(isSafeUrl("blob:https://example.com/x")).toBe(false);
+    expect(isSafeUrl("/api/boards/1")).toBe(false);
+    expect(isSafeUrl("")).toBe(false);
+    expect(isSafeUrl(undefined)).toBe(false);
+  });
+});
+
 describe("openAttachment", () => {
   it("opens a link straight to its URL in a new tab", () => {
     const open = vi.fn();
@@ -100,6 +121,43 @@ describe("openAttachment", () => {
     vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:x", revokeObjectURL: vi.fn() });
     expect(openAttachment({ kind: "pdf", src: `data:application/pdf;base64,${btoa("%PDF")}` })).toBe(true);
     expect(open).toHaveBeenCalledWith("blob:x", "_blank", "noopener,noreferrer");
+  });
+
+  it("refuses to open a link node carrying a javascript: or data: url", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    expect(openAttachment({ kind: "link", url: "javascript:alert(document.cookie)" })).toBe(false);
+    expect(openAttachment({ kind: "link", url: "data:text/html,<script>alert(1)</script>" })).toBe(false);
+    expect(openAttachment({ kind: "link", url: "file:///etc/passwd" })).toBe(false);
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  // A blob: document is same-origin, so an HTML src would run its script under
+  // the app's own origin. Anything outside the viewable allowlist downloads.
+  it("downloads a data:text/html src instead of opening it as a same-origin document", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:x", revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    expect(openAttachment({ kind: "doc", name: "evil.html", src: "data:text/html,<script>alert(1)</script>" })).toBe(true);
+
+    expect(open).not.toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+    expect(document.querySelector("a[download]")).toBeNull(); // the anchor is removed again
+  });
+
+  // SVG is an image that can carry <script>, so it is the 1 image type outside the allowlist.
+  it("downloads an image/svg+xml src instead of opening it", () => {
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:x", revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    expect(openAttachment({ kind: "image", name: "evil.svg", src: "data:image/svg+xml,<svg onload=alert(1)/>" })).toBe(true);
+
+    expect(open).not.toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
   });
 
   it("does nothing when there is neither a url nor bytes", () => {

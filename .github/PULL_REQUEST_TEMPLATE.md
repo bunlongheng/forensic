@@ -10,5 +10,5 @@
 
 - [ ] `npm run lint` and `npm test` pass locally
 - [ ] `npm run test:e2e` passes if routes or the canvas changed
-- [ ] `src/version.js` bumped if user-visible
+- [ ] `version.js` bumped if user-visible
 - [ ] No secrets, no `.env` changes

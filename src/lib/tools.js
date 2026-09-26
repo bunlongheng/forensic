@@ -1,22 +1,8 @@
 // The board's add-tools, as plain data, shared by both ways in: the toolbar +
 // and the bottom-left summon - both render the same CursorTools ring.
+//
+// The list is DERIVED from the node registry (one `tool` per type, in registry
+// order), so a new type shows up in the ring by declaring it there and nowhere
+// else.
 
-import { STAMP_LABELS } from './constants.js'
-
-export const TOOL_ITEMS = [
-  { key: 'clip', icon: 'clip', label: 'Quick note' },
-  { key: 'note', icon: 'note', label: 'Sticky' },
-  { key: 'text', icon: 'text', label: 'Text' },
-  { key: 'callout', icon: 'callout', label: 'Callout' },
-  { key: 'annotation', icon: 'circle', label: 'Circle' },
-  { key: 'person', icon: 'person', label: 'Person', choices: [
-    { label: 'Profile card', key: 'profile' },
-    { label: 'Photo', action: 'image' },
-  ] },
-  { key: 'stamp', icon: 'stamp', label: 'Stamp', choices: STAMP_LABELS.map((l) => ({ label: l, key: 'stamp', extra: { label: l } })) },
-  { key: 'wax', icon: 'wax', label: 'Wax seal' },
-  { key: 'redaction', icon: 'redact', label: 'Redact' },
-  { key: 'crosshair', icon: 'crosshair', label: 'Crosshair' },
-  { key: 'drawing', glyph: '✎', label: 'Draw' },
-  { key: 'container', icon: 'group', label: 'Group' },
-]
+export { REGISTRY_TOOLS as TOOL_ITEMS } from './nodeRegistry.js'

@@ -1,10 +1,10 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
 import { Paperclip } from './Paperclip.jsx'
 import { tornBottom, hash } from '../lib/torn.js'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 
 // A case-note. Three paper styles (set from the inspector, or a sensible default):
 //   torn   - cream newsprint with a ragged BOTTOM edge (top + sides clean)
@@ -16,14 +16,8 @@ const CREAM = ['#f4efe1', '#efe7d4', '#f7f2e7', '#eee6d2']
 function NoteNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.text || '')
-  const ref = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-
-  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
-  function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
+  const { editing, draft, setDraft, ref, rootRef, startEdit, commit, cancel } =
+    useInlineEdit(id, data.text, (text) => updateNodeData(id, { text }), { editable })
 
   const h = hash(id)
   const variant = data.variant || (h % 3 === 0 ? 'torn' : 'clean')
@@ -40,7 +34,7 @@ function NoteNode({ id, data, selected }) {
   const body = rest.join('\n')
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <NodeResizer isVisible={selected && editable} minWidth={130} minHeight={80} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       {/* Paper is held by a clip; the pinned styles keep their optional pushpin. */}
@@ -61,7 +55,7 @@ function NoteNode({ id, data, selected }) {
           <textarea
             ref={ref} className="nodrag nowheel"
             value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); restore() } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel() }}
             style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.45, color: '#2a241c' }}
           />
         ) : (

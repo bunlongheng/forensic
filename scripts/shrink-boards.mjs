@@ -1,37 +1,26 @@
 // Re-compress image data URLs in any board whose JSON exceeds the safe save size,
 // writing straight to Postgres so it bypasses the 4.5MB API body limit. Fixes
-// boards saved with the old high-res images ("Save failed"). Run: node scripts/shrink-boards.mjs
-import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
-import pg from 'pg'
+// boards saved with the old high-res images ("Save failed").
+//
+// SAFE BY DEFAULT, mirroring scripts/extract-board-images.mjs:
+//   node scripts/shrink-boards.mjs                     # dry run, all active boards
+//   node scripts/shrink-boards.mjs --write              # do it
+//   node scripts/shrink-boards.mjs --board <id>          # one board only
+//   node scripts/shrink-boards.mjs --include-trashed     # also shrink trashed boards
+import "dotenv/config";
+import pg from "pg";
+import { sslConfig, connectionString } from "../lib/db.js";
+import { loadSharp } from "./_sharp.mjs";
 
-// sharp is not a repo dependency (dev-only tooling): prefer a local install,
-// falling back to the shared ~/Sites/bheng copy.
-async function loadSharp() {
-  try {
-    return (await import('sharp')).default
-  } catch {
-    // not installed in this repo - fall through to the shared copy
-  }
-  try {
-    const require = createRequire(import.meta.url)
-    return require(process.env.HOME + '/Sites/bheng/node_modules/sharp')
-  } catch {
-    console.error('sharp not found: run `npm i -D sharp` in this repo, or install it in ~/Sites/bheng.')
-    process.exit(1)
-  }
-}
+const sharp = await loadSharp();
 
-const sharp = await loadSharp()
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
+const args = process.argv.slice(2);
+const has = (f) => args.includes(f);
+const val = (f) => (has(f) ? args[args.indexOf(f) + 1] : null);
+const WRITE = has("--write");
+const INCLUDE_TRASHED = has("--include-trashed");
+const ONE = val("--board");
 
-const env = Object.fromEntries(
-  readFileSync(path.join(root, '.env'), 'utf8').split('\n').filter((l) => l.includes('=')).map((l) => {
-    const i = l.indexOf('='); return [l.slice(0, i).trim(), l.slice(i + 1).replace(/^"|"$/g, '').trim()]
-  }),
-)
 const SAFE_MB = 3.6  // shrink boards bigger than this so a PUT (Vercel 4.5MB) succeeds
 const TARGET_MB = 4.0 // step image quality down until the board fits under this
 // Progressively harder (maxPx, webpQuality) settings.
@@ -53,16 +42,17 @@ async function shrink(src, max, q) {
   return next.length < src.length ? next : null
 }
 
-// Self-signed cert on the remote host, so verification is off by default -
-// unless DATABASE_CA is set, in which case the connection is verified. Inlined
-// (not imported from lib/db.js) so this script stays a standalone CLI.
-const sslConfig = env.DATABASE_CA ? { ca: env.DATABASE_CA, rejectUnauthorized: true } : { rejectUnauthorized: false }
 const pool = new pg.Pool({
-  connectionString: env.DATABASE_URL,
-  ssl: env.DATABASE_SSL === 'true' ? sslConfig : false,
+  connectionString: connectionString(),
+  ssl: process.env.DATABASE_SSL === 'true' ? sslConfig() : false,
 })
+
+if (!WRITE) console.log('DRY RUN - nothing is written. Pass --write to apply.\n')
+
 try {
-  const { rows } = await pool.query('SELECT id, title, nodes FROM boards')
+  const { rows } = ONE
+    ? await pool.query('SELECT id, title, nodes, trashed_at FROM boards WHERE id = $1', [ONE])
+    : await pool.query(`SELECT id, title, nodes, trashed_at FROM boards${INCLUDE_TRASHED ? '' : ' WHERE trashed_at IS NULL'}`)
   let fixed = 0
   for (const b of rows) {
     const before = Buffer.byteLength(JSON.stringify(b.nodes)) / 1e6
@@ -80,12 +70,12 @@ try {
       if (after < TARGET_MB) break // fits - stop before degrading further
     }
     if (changed) {
-      await pool.query('UPDATE boards SET nodes = $1::jsonb WHERE id = $2', [JSON.stringify(b.nodes), b.id])
-      console.log(`  ${b.title}: ${before.toFixed(2)}MB -> ${after.toFixed(2)}MB${after >= 4.4 ? ' (STILL LARGE - needs blob storage)' : ''}`)
+      if (WRITE) await pool.query('UPDATE boards SET nodes = $1::jsonb WHERE id = $2', [JSON.stringify(b.nodes), b.id])
+      console.log(`  ${b.title}: ${before.toFixed(2)}MB -> ${after.toFixed(2)}MB${after >= 4.4 ? ' (STILL LARGE - needs blob storage)' : ''}${WRITE ? '' : ' (dry run)'}`)
       fixed++
     }
   }
-  console.log(fixed ? `shrunk ${fixed} oversized board(s)` : 'no oversized boards found')
+  console.log(fixed ? `${WRITE ? 'shrunk' : 'would shrink'} ${fixed} oversized board(s)` : 'no oversized boards found')
 } finally {
   await pool.end()
 }

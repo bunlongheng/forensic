@@ -38,6 +38,13 @@ describe("Trash", () => {
     expect(screen.queryByRole("button", { name: "Empty trash" })).not.toBeInTheDocument();
   });
 
+  it("marks the trashed card wrapper inert so it is not focusable, while Restore stays reachable", () => {
+    render(<Trash {...base} boards={[board("a", "One")]} />);
+    const restore = screen.getByRole("button", { name: "Restore" });
+    expect(restore).toBeInTheDocument();
+    expect(restore.parentElement.previousElementSibling).toHaveAttribute("inert");
+  });
+
   it("shows progress and disables itself mid-empty, so it cannot be double-fired", () => {
     const onEmpty = vi.fn();
     render(<Trash {...base} onEmpty={onEmpty} emptying boards={[board("a", "One")]} />);

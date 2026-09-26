@@ -33,7 +33,7 @@ export default function Gallery({ boards, accent, themeName, onToggleTheme, onOp
         {!loading && error && (
           <div style={{ textAlign: 'center', padding: '48px 20px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 14 }}>
             <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 14 }}>{error}</p>
-            <button onClick={onRetry} style={{ padding: '9px 20px', background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Retry</button>
+            <button onClick={onRetry} style={{ padding: '9px 20px', background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Retry</button>
           </div>
         )}
 

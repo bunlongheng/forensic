@@ -34,7 +34,7 @@ describe("GET /api/boards (listBoards)", () => {
   const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV, OWNER_USER_ID: process.env.OWNER_USER_ID };
   beforeEach(() => {
     delete process.env.NODE_ENV;
-    delete process.env.LOCAL_DEV;
+    process.env.LOCAL_DEV = "true"; // the dev bypass is opt-in in every environment
     process.env.OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
     query.mockReset();
   });
@@ -71,6 +71,41 @@ describe("GET /api/boards (listBoards)", () => {
     expect(query).toHaveBeenCalledWith(expect.stringMatching(/ORDER BY updated_at DESC/), [
       "00000000-0000-0000-0000-000000000001",
     ]);
+  });
+
+  // The WHERE and ORDER BY used to be template-literal ternaries - safe as
+  // written, and exactly the shape the next runtime parameter turns into an
+  // injection. Each branch is now one constant string; only $1 varies.
+  it("picks a CONSTANT sql string per branch, with the owner as the only parameter", async () => {
+    query.mockResolvedValue({ rows: [] });
+    await listBoards(localReq(), mockRes());
+    await listBoards(localReq({ query: { trash: "1" } }), mockRes());
+
+    const [activeSql, activeParams] = query.mock.calls[0];
+    const [trashSql, trashParams] = query.mock.calls[1];
+    expect(activeSql).toContain("WHERE user_id = $1 AND trashed_at IS NULL");
+    expect(activeSql).toContain("ORDER BY updated_at DESC LIMIT 100");
+    expect(trashSql).toContain("WHERE user_id = $1 AND trashed_at IS NOT NULL");
+    expect(trashSql).toContain("ORDER BY trashed_at DESC LIMIT 100");
+    expect(activeParams).toEqual(["00000000-0000-0000-0000-000000000001"]);
+    expect(trashParams).toEqual(["00000000-0000-0000-0000-000000000001"]);
+    // No $2+: nothing else is interpolated OR parameterized into these queries.
+    for (const sql of [activeSql, trashSql]) expect(sql).not.toMatch(/\$[2-9]/);
+  });
+
+  // 100 cards used to carry 100 full node+edge graphs. The gallery only needs the
+  // graph when there is no thumbnail to draw instead.
+  it("returns nodes/edges only for a board with no thumbnail, and always the counts", async () => {
+    query.mockResolvedValue({ rows: [] });
+    await listBoards(localReq(), mockRes());
+    const [sql] = query.mock.calls[0];
+    expect(sql).toContain("CASE WHEN thumbnail IS NULL THEN");
+    expect(sql).toContain("END AS nodes");
+    expect(sql).toContain("CASE WHEN thumbnail IS NULL THEN edges END AS edges");
+    expect(sql).toContain("AS node_count");
+    expect(sql).toContain("AS edge_count");
+    // The inline base64 bytes never ride along, thumbnail or not.
+    expect(sql).toContain("'hasImage':true".replace(/'/g, '"'));
   });
 
   it("500 when OWNER_USER_ID is not configured", async () => {

@@ -67,6 +67,11 @@ describe("BoardTopBar", () => {
     expect(screen.getByText(/Signed out/)).toBeInTheDocument();
   });
 
+  it("the signed-out save state is a link back to sign-in, not just a label", () => {
+    render(<TopBar {...base} save="unauth" />);
+    expect(screen.getByText(/Signed out/).closest("a")).toHaveAttribute("href", "/api/auth/login");
+  });
+
   it("is read-only for viewers: static title, no editing tools, no share without an id", () => {
     render(<TopBar {...base} canEdit={false} onShare={null} />);
     expect(screen.queryByLabelText("Board title")).not.toBeInTheDocument();

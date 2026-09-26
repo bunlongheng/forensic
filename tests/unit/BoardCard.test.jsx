@@ -21,8 +21,8 @@ const board = {
 function setup(overrides = {}) {
   const onOpen = vi.fn()
   const onDelete = vi.fn()
-  render(<BoardCard board={{ ...board, ...overrides }} accent="#ff4438" onOpen={onOpen} onDelete={onDelete} />)
-  return { onOpen, onDelete }
+  const { container } = render(<BoardCard board={{ ...board, ...overrides }} accent="#ff4438" onOpen={onOpen} onDelete={onDelete} />)
+  return { onOpen, onDelete, container }
 }
 
 describe("BoardCard", () => {
@@ -36,6 +36,32 @@ describe("BoardCard", () => {
   it("shows the empty placeholder when there are no nodes", () => {
     setup({ nodes: [], edges: [] })
     expect(screen.getByText("🧵")).toBeInTheDocument()
+  })
+
+  it("uses the thumbnail image and skips the node/link counts when nodes/edges are absent", () => {
+    const { container } = setup({ nodes: undefined, edges: undefined, thumbnail: "data:image/webp;base64,xyz" })
+    const img = container.querySelector("img")
+    expect(img).toHaveAttribute("src", "data:image/webp;base64,xyz")
+    expect(screen.queryByText(/node/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/link/)).not.toBeInTheDocument()
+  })
+
+  // The real gallery row for a thumbnailed board: the server drops both graphs
+  // and sends the sizes as node_count / edge_count instead.
+  it("labels a thumbnailed row from node_count/edge_count, not the missing arrays", () => {
+    setup({ nodes: null, edges: null, thumbnail: "data:image/webp;base64,xyz", node_count: 5, edge_count: 2 })
+    expect(screen.getByText(/5 nodes/)).toBeInTheDocument()
+    expect(screen.getByText(/2 links/)).toBeInTheDocument()
+  })
+
+  it("renders a plain card (no crash, no vector Preview) when nodes are absent and there is no thumbnail", () => {
+    const { container } = setup({ nodes: undefined, edges: undefined, thumbnail: null })
+    expect(container.querySelector("img")).toBeNull()
+    // The empty-board Preview shows the thread emoji; the plain-card fallback
+    // (no node data at all) shows the static "note" icon glyph instead.
+    expect(screen.queryByText("🧵")).not.toBeInTheDocument()
+    expect(container.querySelector('path[d="M4 4h16v11l-5 5H4z"]')).toBeTruthy()
+    expect(screen.getByText("Case 001")).toBeInTheDocument()
   })
 
   it("renders the card body as an accessible button with the board title as its label", () => {

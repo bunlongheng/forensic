@@ -2,7 +2,7 @@
 
 An infinite, Figma-fast evidence board that lives in the browser.
 
-Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the connections with red threads - like a detective's evidence board, autosaved to Postgres with a local draft for crash safety. 17 evidence types, in-browser OCR, undo history, and a 1-click case report.
+Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the connections with red threads - like a detective's evidence board, autosaved to Postgres with a local draft for crash safety. 15 evidence types, in-browser OCR, undo history, and a 1-click case report.
 
 **Live:** https://forensic-bheng.vercel.app &middot; [Portfolio](https://bunlongheng.com/projects?name=forensic)
 
@@ -23,13 +23,15 @@ Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the c
 - **Paste links, PDFs, audio and documents** - paste or drag in a URL, a PDF, an audio or video file or a document and it pins as an exhibit card; click its icon to open the real thing in a new tab. Files ride inside the board (max 2 MB each - pin a link to anything heavier).
 - **Red threads** - drag from any node edge to wire it to as many others as you like. Threads attach to the nearest point on each card's boundary and light up when either end is selected.
 - **Auto-thread** - multi-select assets and hit **Chain** (nearest-neighbour path) or **Fan** (biggest asset out to the rest).
-- **Group / ungroup** - wrap a selection in a container so the whole set moves as one (`Cmd/Ctrl+G`, `Shift` to ungroup).
-- **17 evidence types** - see the table below. Every node except the auto-height quick note resizes; most take a tint, photos take a caption, and the annotation ring supports lock and send-to-back.
+- **Group / ungroup** - wrap a selection in a container so the whole set moves as one; `Cmd/Ctrl+G` toggles group/ungroup.
+- **Align guides** - hold `Cmd/Ctrl` while dragging a node to snap it to nearby edges/centers, with a live guide, and to propose matching a same-type neighbour's size.
+- **15 evidence types** - see the table below. Every node except the auto-height quick note resizes; most take a tint, photos take a caption, and the annotation ring supports lock and send-to-back.
 - **In-browser OCR** - the case report runs tesseract.js over every pinned photo, self-hosted, zero API cost.
-- **Case report** - one click renders the board as a readable report (images, notes, threads).
-- **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z` and `Cmd/Ctrl+Shift+Z`.
+- **Case report** - one click renders the board as a readable report (images, notes, threads), printable to PDF.
+- **Export** - render the whole board as a 2x PNG.
+- **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`, or `Cmd/Ctrl+Y`.
 - **Autosave + crash safety** - debounced saves to Postgres, a fast local draft on this device, and a retry the moment the connection returns.
-- **Boards** - a gallery of saved boards with live vector previews and a trash with restore.
+- **Boards** - a searchable gallery of saved boards with live vector previews and a trash with restore (or empty it for good).
 - **Share** - copy a public read-only link to any board. Phones and touch devices always open read-only.
 - **Light & dark** - the whole canvas + chrome theme together; your choice is remembered.
 
@@ -37,12 +39,11 @@ Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the c
 
 | Type | What it is | Type | What it is |
 |------|------------|------|------------|
-| `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint (legacy/API-created type - no menu tool) |
+| `image` | Pinned photo, torn edge, optional wrinkle + OCR | `note` | Sticky note with tint |
 | `text` | Handwritten text block (Caveat) | `clip` | Paper-clipped quick note (auto height) |
 | `callout` | Speech-bubble emphasis | `stamp` | Slanted or circle ink stamp (APPROVED, SECRET, ...) |
-| `redaction` | Black bar | `marker` | Numbered crime-scene marker |
-| `wax` | Wax seal | `crosshair` | Target crosshair |
-| `spotlight` | Dims everything outside a circle | `annotation` | Hand-drawn ring |
+| `redaction` | Black bar | `crosshair` | Target crosshair |
+| `wax` | Wax seal | `annotation` | Hand-drawn ring |
 | `drawing` | Freehand ink, in the add menu | `sticker` | Emoji sticker |
 | `profile` | Person card (name + color) | `container` | Titled section that groups children |
 | `file` | Link / PDF / audio / video / doc exhibit, opens in a new tab | | |
@@ -57,8 +58,9 @@ Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the c
 | `Cmd/Ctrl+C` | Copy the selection - a group brings its children and the wiring between the copied nodes |
 | `Cmd/Ctrl+X` | Cut the selection, removing it and any threads attached to it |
 | `Cmd/Ctrl+V` | Paste at the cursor, **on any board** - the clipboard survives switching boards (a file, SVG markup or a URL on the system clipboard always wins) |
-| `Cmd/Ctrl+G` / `Cmd/Ctrl+Shift+G` | Group / ungroup the selection |
+| `Cmd/Ctrl+G` | Toggle group/ungroup the selection (`Shift` forces ungroup) |
 | `Shift` + drag | Snap a node into a straight line with the nodes it is wired to |
+| `Cmd/Ctrl` + drag | Snap-align to nearby edges/centers, and propose matching a same-type neighbour's size |
 | `Backspace` / `Delete` | Remove the selection |
 
 ### Images
@@ -89,9 +91,17 @@ Interactive version: [Flows](https://flows-bheng.vercel.app/?id=a290832d-fe84-41
 
 - **`src/views/Board.jsx`** owns the canvas: React Flow wiring, selection, drag/drop/paste, the inspector.
 - **`src/lib/boardGraph.js`** is the pure core - sanitize, group/ungroup, chain/fan threading, snap, z-order, edge styling. No React, fully unit-tested.
-- **`src/hooks/`** hold the stateful concerns: `useBoardPersistence` (server autosave, local draft, online retry, `Cmd+S`, restore-on-open) and `useUndoRedo` (snapshot history + keys).
+- **`src/hooks/`** hold the stateful concerns:
+  - `useBoardPersistence` - server autosave, local draft, online retry, `Cmd+S`, restore-on-open.
+  - `useUndoRedo` - snapshot history (JSON strings) + undo/redo keys.
+  - `useAddContent` - paste/drop/upload/file-picker into a new node (images and attachments).
+  - `useBoardExport` - export a board as a PNG, or a share link on the clipboard.
+  - `useBoardShortcuts` - global board keys (group/ungroup and friends), off while a field is being typed in.
+  - `useInlineEdit` - shared inline-edit state behind every text-editable node.
+  - `useLineUp` - hold CMD while dragging to snap a node onto a neighbour's edge or height.
+  - `useNodeClipboard` - copy/paste a node subgraph (and pasted SVG-as-text) between boards.
 - **`src/components/`** are the node types plus the chrome (top bar, add menu, inspector, report modal).
-- **`lib/handlers/`** are the API handlers. `api/*.js` (Vercel) and `serve.mjs` (local / CI) both import them, so there is one source of truth.
+- **`lib/handlers/`** are the API handlers. `api/*.js` (Vercel) and `serve.mjs` (local / CI) both import them, so there is one source of truth. See [`docs/api.md`](docs/api.md) for the full route table (auth, limits, request/response shapes).
 - The Board chunk is lazy-loaded: sign-in and the gallery never download React Flow or the node types.
 
 ### Persistence model
@@ -124,11 +134,15 @@ A board is `{ title, nodes[], edges[] }` in React Flow shape. Every change is re
 
 ## Quick start
 
+Node 22 (`.nvmrc`) - run `nvm use` first if you use nvm.
+
 ```bash
 git clone https://github.com/bunlongheng/forensic.git
 cd forensic
+nvm use                   # Node 22, from .nvmrc
 npm install
-cp .env.example .env      # fill in DATABASE_URL etc. (LOCAL_DEV=true bypasses auth on localhost)
+cp .env.example .env      # fill in DATABASE_URL etc., and set LOCAL_DEV=true - it must be
+                           # set explicitly to bypass auth on localhost, it is not on by default
 npm run migrate           # create the boards table
 npm run dev               # Vite dev server on http://localhost:3036
 npm run api               # (separate shell) the API server the dev proxy targets
@@ -146,17 +160,18 @@ npm run prod              # vite build + Express server serving dist/ + the API
 |----------|----------|---------|
 | `DATABASE_URL` | yes | Postgres connection string |
 | `DATABASE_SSL` | no | `"true"` for a remote Postgres |
-| `DATABASE_CA` | no | PEM CA certificate; when set, Postgres TLS is verified instead of skipped |
+| `DATABASE_CA` | no, recommended in prod | PEM CA certificate for the self-signed Postgres cert; when set, Postgres TLS is verified instead of skipped. Without it a production boot logs a warning (`lib/db.js`) - the connection is encrypted but the server is not authenticated |
 | `FORENSIC_API_SECRET` | yes | Bearer token for `POST /api/ai/boards` (the only Bearer-auth route) |
 | `OWNER_USER_ID` | yes | `boards.user_id` for API-created boards |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth web client |
 | `AUTH_SECRET` | yes | Session-cookie signing secret |
 | `OWNER_EMAIL` | yes | The only Google account allowed to sign in |
 | `SESSION_MIN_IAT` | no | Unix seconds; sessions issued before this are rejected (rotate after a suspected leak) |
-| `LOCAL_DEV` | no | Dev-only auth bypass on localhost / LAN. Never set in prod |
+| `LOCAL_DEV` | yes, for local dev | Must be set to `"true"` explicitly to get the dev-only auth bypass on localhost / LAN - it is opt-in in every environment, nothing defaults it on. Never set on Vercel (prod or preview) - `lib/env.js` fails the build if it is |
 | `PORT` | no | Server port, default `4336` |
+| `NODE_ENV` / `VERCEL_ENV` | no | `"production"` on either is the switch that turns on the required-var validation below |
 
-`lib/env.js` fails the build and the server fast when a required variable is missing - imported by both the Vite build and the server (`serve.mjs`). See `.env.example`.
+`lib/env.js` fails the build and the server fast when a required variable is missing, but only in production (`NODE_ENV` or `VERCEL_ENV` set to `"production"`) - imported by both the Vite build and the server (`serve.mjs`). Local dev and CI are lenient. See `.env.example` and [`docs/api.md`](docs/api.md) for rate limits.
 
 ## Testing
 

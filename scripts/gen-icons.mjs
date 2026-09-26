@@ -4,27 +4,10 @@
 // the 1200x630 OG/Twitter share card with the icon as its tile.
 //
 // Run: node scripts/gen-icons.mjs
-// sharp is not a repo dependency (dev-only tooling): prefer a local install,
-// falling back to the shared ~/Sites/bheng copy.
-import { createRequire } from "node:module";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-
-async function loadSharp() {
-  try {
-    return (await import("sharp")).default;
-  } catch {
-    // not installed in this repo - fall through to the shared copy
-  }
-  try {
-    const require = createRequire(import.meta.url);
-    return require(process.env.HOME + "/Sites/bheng/node_modules/sharp");
-  } catch {
-    console.error("sharp not found: run `npm i -D sharp` in this repo, or install it in ~/Sites/bheng.");
-    process.exit(1);
-  }
-}
+import { loadSharp } from "./_sharp.mjs";
 
 const sharp = await loadSharp();
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");

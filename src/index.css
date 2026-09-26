@@ -14,12 +14,24 @@
   --font-mono: 'Space Mono', ui-monospace, 'SF Mono', Menlo, monospace;
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, sans-serif;
   --font-ransom: 'Crimes Times Six', 'Times New Roman', Georgia, serif;
+
+  /* z-index scale: every fixed/absolute overlay sits on this ladder instead of a
+     guessed number. Board canvas content stays below all of it. */
+  --z-chrome: 10; /* topbar, inspector, multi-select bar */
+  --z-ring: 20;   /* cursor tools tool ring */
+  --z-badge: 30;  /* version badge */
+  --z-toast: 40;  /* transient status pill */
+  --z-modal: 50;  /* report dialog + its scrim, always on top */
 }
 
 /* Chrome (panels/buttons/gallery) themed via CSS vars; the canvas is themed in JS. */
 [data-theme='dark'] {
   --bg: #0e1013; --panel: #161a20; --panel-2: #1c212a; --border: #252b34;
   --text: #e7e9ec; --muted: #8b929c; --accent: #ff4438; --accent-ink: #fff;
+  /* --accent is kept for edges/glow/thread; small filled-button TEXT needs its own,
+     darker pair - white on #ff4438 is only 3.42:1. #d92b1f (the light theme's own
+     accent) on white gives 4.87:1, so AA-filled buttons reuse it here. */
+  --accent-fill: #d92b1f;
   --shadow: 0 18px 50px rgba(0,0,0,0.5); --shadow-sm: 0 2px 10px rgba(0,0,0,0.35);
   --node-bg: #191d25; --node-border: #2b323d; --node-cap: #cfd4db; --node-cap-bg: rgba(0,0,0,0.58);
   --fx-ink: #f2ead8; /* default ink for floating board text - readable on the dark cork */
@@ -28,6 +40,7 @@
 :root, [data-theme='light'] {
   --bg: #f3f0e8; --panel: #ffffff; --panel-2: #faf8f2; --border: #e6e1d5;
   --text: #1a1d21; --muted: #5f646c; --accent: #d92b1f; --accent-ink: #fff;
+  --accent-fill: var(--accent); /* already 4.87:1 with white - no separate pair needed */
   --shadow: 0 18px 50px rgba(60,50,30,0.16); --shadow-sm: 0 2px 10px rgba(60,50,30,0.1);
   --node-bg: #ffffff; --node-border: #e2ddce; --node-cap: #eef0f2; --node-cap-bg: rgba(0,0,0,0.5);
   --fx-ink: #111111; /* default ink for floating board text */
@@ -64,6 +77,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   background: var(--accent); border: 2px solid var(--panel);
   box-shadow: 0 1px 3px rgba(0,0,0,.35);
   opacity: 0; transition: opacity .12s ease, transform .12s ease;
+  /* The paper is a transformed sibling painted after the handles; without a
+     z-index its rotated edge covers the handle pixel and a drag moves the node. */
+  z-index: 1;
 }
 /* Big invisible grab ring so pulling a thread is easy and repeatable - you rarely
    have to be precise. Pointer events on the ::before bubble to the handle. */
@@ -108,9 +124,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .fx-fab-item { transition: transform .12s ease, background .12s ease, color .12s ease, border-color .12s ease, box-shadow .12s ease; }
 .fx-fab-item:hover {
   transform: scale(1.14);
-  background: var(--accent) !important;
+  background: var(--accent-fill) !important;
   color: var(--accent-ink) !important;
-  border-color: var(--accent) !important;
+  border-color: var(--accent-fill) !important;
   box-shadow: 0 10px 22px rgba(0,0,0,.4) !important;
 }
 

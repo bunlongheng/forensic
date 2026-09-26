@@ -6,6 +6,12 @@
 // element together with an OVERRIDE transform computed to fit every node in the
 // frame. The override only applies inside the capture, so the owner's real zoom
 // and pan are never touched and nothing on screen jumps.
+//
+// React Flow is imported statically: this module is only ever reached from the
+// lazy Board chunk, which already pulls @xyflow/react in, so a dynamic import
+// here bought nothing and rolldown flagged it as INEFFECTIVE_DYNAMIC_IMPORT.
+// html-to-image stays dynamic - it is a real extra chunk, fetched on first save.
+import { getNodesBounds, getViewportForBounds } from '@xyflow/react'
 
 // Matches the gallery strip's aspect (roughly 390x150). The card paints the image
 // with object-fit:cover, so capturing at the SAME shape means the crop takes
@@ -22,10 +28,7 @@ export async function makeThumbnail(nodes = [], canvasColor = '#e0cfa6') {
   const el = document.querySelector('.react-flow__viewport')
   if (!el) return null
 
-  const [{ toCanvas }, { getNodesBounds, getViewportForBounds }] = await Promise.all([
-    import('html-to-image'),
-    import('@xyflow/react'),
-  ])
+  const { toCanvas } = await import('html-to-image')
 
   const w = W * SCALE
   const h = H * SCALE
