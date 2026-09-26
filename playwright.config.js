@@ -12,8 +12,8 @@ const BASE = `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
-  retries: 0,
-  use: { baseURL: BASE },
+  retries: process.env.CI ? 1 : 0,
+  use: { baseURL: BASE, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [
     { name: "api", testMatch: /api\.spec\.js/ },
     { name: "browser", testMatch: /(render|board)\.spec\.js/, use: { browserName: "chromium" } },

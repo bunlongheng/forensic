@@ -1,19 +1,14 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo } from 'react'
 import { useReactFlow } from '@xyflow/react'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 
 // A person on the board: a colored circle with initials (no photo) and an
 // editable name under it. Double-click the name to rename.
 function ProfileNode({ id, data }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.name || '')
-  const ref = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
-  function startEdit() { setDraft(data.name || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { name: draft.trim() || data.name || 'Name' }); restore() }
+  const { editing, draft, setDraft, ref, rootRef, startEdit, commit, cancel } =
+    useInlineEdit(id, data.name, (name) => updateNodeData(id, { name: name.trim() || data.name || 'Name' }), { editable })
 
   const name = data.name || 'Name'
   const initials = name.split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?'
@@ -21,7 +16,7 @@ function ProfileNode({ id, data }) {
   const color = outline ? '#1c1a17' : (data.color || '#2f6fed')
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
       <div style={{
         width: 60, height: 60, borderRadius: '50%',
         background: outline ? '#fbfaf6' : color, color: outline ? color : '#fff',
@@ -33,7 +28,7 @@ function ProfileNode({ id, data }) {
         <input
           ref={ref} className="nodrag" value={draft}
           onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-          onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); restore() } }}
+          onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel() }}
           style={{ width: 92, textAlign: 'center', border: 'none', outline: 'none', borderRadius: 6, background: 'var(--panel)', fontSize: 12.5, fontWeight: 700, color: 'var(--text)', padding: '2px 4px' }}
         />
       ) : (

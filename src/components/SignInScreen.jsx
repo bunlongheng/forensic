@@ -24,7 +24,7 @@ function GoogleG() {
   )
 }
 
-export default function SignInScreen({ devBypass, loading }) {
+export default function SignInScreen({ devBypass, loading, error, probeError, onRetry }) {
   const W = 1200, H = 760
   return (
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'radial-gradient(130% 130% at 50% -10%, #1b1f27 0%, #12151b 55%, #0a0c10 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -73,7 +73,20 @@ export default function SignInScreen({ devBypass, loading }) {
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', boxSizing: 'border-box', padding: '12px 0', fontSize: 14, fontWeight: 600, borderRadius: 12, background: '#1f242d', color: '#e7e9ec', border: '1px solid #2b313d', cursor: 'pointer', textDecoration: 'none' }}>
             <GoogleG /> Continue with Google
           </a>
-          <p style={{ fontSize: 11.5, color: '#6b727d', margin: '18px 0 0' }}>Owner access only. Shared boards stay public to view.</p>
+          {/* Persistent (not a 2.4s toast) so a rejected or failed Google sign-in
+              still explains itself after the redirect lands back here. */}
+          {error && <p role="alert" style={{ fontSize: 12.5, color: '#ff6b61', margin: '16px 0 0', lineHeight: 1.5 }}>{error}</p>}
+          {probeError && (
+            <div role="alert" style={{ marginTop: 16, padding: '10px 12px', borderRadius: 10, background: 'rgba(255,68,56,0.12)', border: '1px solid rgba(255,68,56,0.3)' }}>
+              <p style={{ fontSize: 12.5, color: '#ff8a80', margin: 0, lineHeight: 1.5 }}>Couldn't check your sign-in status - this may be a network or server issue, not a real sign-out.</p>
+              {onRetry && (
+                <button onClick={onRetry} style={{ marginTop: 8, background: 'none', border: '1px solid #3a4150', borderRadius: 8, padding: '5px 12px', color: '#e7e9ec', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  Retry
+                </button>
+              )}
+            </div>
+          )}
+          <p style={{ fontSize: 12, color: '#8b929c', margin: '18px 0 0' }}>Owner access only. Shared boards stay public to view.</p>
           {import.meta.env.DEV && (
             <button onClick={devBypass} style={{ marginTop: 14, background: 'none', border: 'none', color: '#ff6b61', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
               Continue without signing in (dev)

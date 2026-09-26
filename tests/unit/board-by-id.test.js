@@ -49,15 +49,21 @@ const ROW = {
 };
 
 describe("/api/boards/:id (boardById)", () => {
-  const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV };
+  const orig = {
+    NODE_ENV: process.env.NODE_ENV,
+    LOCAL_DEV: process.env.LOCAL_DEV,
+    OWNER_USER_ID: process.env.OWNER_USER_ID,
+  };
   beforeEach(() => {
     delete process.env.NODE_ENV;
-    delete process.env.LOCAL_DEV;
+    process.env.LOCAL_DEV = "true"; // the dev bypass is opt-in in every environment
+    process.env.OWNER_USER_ID = "owner-1";
     query.mockReset();
   });
   afterEach(() => {
     process.env.NODE_ENV = orig.NODE_ENV;
     process.env.LOCAL_DEV = orig.LOCAL_DEV;
+    process.env.OWNER_USER_ID = orig.OWNER_USER_ID;
   });
 
   it("400 when id is missing", async () => {
@@ -114,13 +120,24 @@ describe("/api/boards/:id (boardById)", () => {
     });
 
     it("updates and returns the row", async () => {
-      const updated = { ...ROW, title: "New Title" };
+      const updated = { id: ID, title: "New Title", slug: "my-board", updated_at: ROW.updated_at };
       query.mockResolvedValueOnce({ rows: [updated] });
       const res = mockRes();
       await boardById(localReq("PUT", ID, { title: "New Title" }), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual(updated);
       expect(query).toHaveBeenCalledWith(expect.stringMatching(/AND trashed_at IS NULL/), expect.any(Array));
+    });
+
+    // Autosave fires this every 1100ms while editing. Echoing the whole board
+    // back doubled the cost of every save; the client reads none of it.
+    it("does NOT echo nodes/edges back - only what the client reads", async () => {
+      query.mockResolvedValueOnce({ rows: [{ id: ID }] });
+      await boardById(localReq("PUT", ID, { nodes: [], edges: [] }), mockRes());
+      const [sql] = query.mock.calls[0];
+      expect(sql).toContain("RETURNING id, title, slug, updated_at");
+      expect(sql).not.toMatch(/RETURNING[^`]*\bnodes\b/);
+      expect(sql).not.toMatch(/RETURNING[^`]*\bedges\b/);
     });
 
     it("404 when the row does not exist", async () => {
@@ -246,6 +263,62 @@ describe("/api/boards/:id (boardById)", () => {
       await boardById(localReq("DELETE", ID, undefined, { query: { id: ID, purge: "1" } }), res);
       expect(res.statusCode).toBe(200);
       expect(res.body).toEqual({ deleted: true });
+    });
+
+    // board_images has no board_id and no cascade, so a purge that only removed
+    // the boards row left every photo fetchable at /api/images/<uuid> forever,
+    // cached immutable for a year by anyone who had opened the shared link.
+    it("purge deletes the board's images too, scoped to the owner", async () => {
+      const IMG_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+      const IMG_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+      query.mockResolvedValueOnce({
+        rows: [{
+          n: 4,
+          trashed_at: null,
+          nodes: [
+            { id: "1", data: { src: `/api/images/${IMG_A}` } },
+            { id: "2", data: { src: `/api/images/${IMG_B}` } },
+            { id: "3", data: { src: `/api/images/${IMG_A}` } }, // same photo twice
+            { id: "4", data: { src: "data:image/png;base64,AAAA" } }, // legacy inline
+            { id: "5", data: {} },
+          ],
+        }],
+      });
+      query.mockResolvedValueOnce({ rowCount: 2 }); // DELETE FROM board_images
+      query.mockResolvedValueOnce({ rowCount: 1 }); // DELETE FROM boards
+      const res = mockRes();
+      await boardById(localReq("DELETE", ID, undefined, { query: { id: ID, purge: "1" } }), res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ deleted: true });
+      const [imgSql, imgParams] = query.mock.calls[1];
+      expect(imgSql).toContain("DELETE FROM board_images bi WHERE bi.user_id = $1");
+      expect(imgSql).toContain("bi.id = ANY($2::uuid[])");
+      expect(imgSql).toContain("NOT EXISTS"); // a photo another board still shows survives
+      expect(imgParams[0]).toBe("owner-1");
+      expect(imgParams[1]).toEqual([IMG_A, IMG_B]); // deduped, inline src ignored
+      expect(imgParams[2]).toBe(ID);
+      expect(query.mock.calls[2][0]).toBe("DELETE FROM boards WHERE id = $1");
+    });
+
+    it("skips the image delete when the board references none", async () => {
+      query.mockResolvedValueOnce({ rows: [{ n: 1, trashed_at: null, nodes: [{ id: "1", data: {} }] }] });
+      query.mockResolvedValueOnce({ rowCount: 1 });
+      const res = mockRes();
+      await boardById(localReq("DELETE", ID), res);
+      expect(res.body).toEqual({ deleted: true });
+      expect(query).toHaveBeenCalledTimes(2);
+    });
+
+    it("a soft delete to Trash leaves the images alone (the board can come back)", async () => {
+      query.mockResolvedValueOnce({
+        rows: [{ n: 5, trashed_at: null, nodes: [{ id: "1", data: { src: "/api/images/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" } }] }],
+      });
+      query.mockResolvedValueOnce({ rowCount: 1 }); // UPDATE trashed_at
+      const res = mockRes();
+      await boardById(localReq("DELETE", ID), res);
+      expect(res.body).toEqual({ trashed: true });
+      expect(query.mock.calls[1][0]).toContain("UPDATE boards SET trashed_at");
     });
 
     it("returns { deleted: false } when nothing matched", async () => {

@@ -16,13 +16,11 @@ export default defineConfig({
     },
   },
   build: {
+    // No manualChunks for @xyflow/react: it is only ever imported by the lazy
+    // Board view, so the default splitter already keeps it out of the entry
+    // chunk. A named manual chunk here used to force it into a chunk that
+    // rolldown then statically modulepreloaded from index.html, defeating
+    // the lazy Board split (198 kB fetched on sign-in/gallery for nothing).
     modulePreload: { polyfill: false },
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          if (id.includes('@xyflow/react')) return 'reactflow'
-        },
-      },
-    },
   },
 })

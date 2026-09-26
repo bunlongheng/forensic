@@ -10,9 +10,13 @@ import Trash from './views/Trash.jsx'
 const Board = lazy(() => import('./views/Board.jsx'))
 
 // Normalize an API row into the single board shape the whole UI speaks.
+// node_count/edge_count ride along verbatim: a thumbnailed list row sends
+// `nodes: null` and carries its sizes in those two fields instead of two whole
+// graphs per card, so dropping them is how every card came to read "0 nodes".
 const normalize = (r) => ({
   id: r.id, title: r.title || 'Untitled Board',
   nodes: r.nodes || [], edges: r.edges || [], thumbnail: r.thumbnail || null,
+  node_count: r.node_count, edge_count: r.edge_count,
   updatedAt: r.updated_at || r.created_at,
 })
 
@@ -73,6 +77,11 @@ export default function App() {
   const [loadingId, setLoadingId] = useState(() => Boolean(new URLSearchParams(window.location.search).get('id')))
   const [loadError, setLoadError] = useState(false)
   const [toast, setToast] = useState({ message: '', visible: false })
+  // Persistent (not a toast) feedback for the sign-in screen: a denied/failed OAuth
+  // redirect, and whether the /api/auth/me probe itself failed (network or 5xx) so
+  // that case can be told apart from a genuine, quiet signed-out state.
+  const [authMessage, setAuthMessage] = useState('')
+  const [authProbeError, setAuthProbeError] = useState(false)
 
   const toastTimer = useRef(null)
   const showToast = useCallback((message) => {
@@ -81,28 +90,47 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast((x) => ({ ...x, visible: false })), 2400)
   }, [])
 
-  const loadBoards = useCallback(() => {
+  // Load the gallery. `background` is the stale-while-revalidate path taken on
+  // every RETURN to the gallery: the boards already on screen stay there while
+  // the new list loads and are swapped when it lands, so coming back from a
+  // board no longer blanks the grid into a skeleton. Only a first load (boards
+  // === null) shows it. The Trash list is fetched for its badge on the first
+  // load and whenever the Trash view is opened - not on every bounce back.
+  const loadBoards = useCallback((background = false) => {
     // Deferred so a loadBoards() call from inside an effect (initial mount) never
     // sets state synchronously within that effect's body.
-    queueMicrotask(() => { setBoards(null); setBoardsError('') })
+    queueMicrotask(() => { if (!background) setBoards(null); setBoardsError('') })
     listBoards().then((rows) => setBoards(rows.map(normalize)))
-      .catch(() => { setBoardsError('Could not load boards'); showToast('Could not load boards') })
-    listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => {}) // keeps the Trash badge count fresh
+      .catch(() => { setBoards((bs) => bs ?? []); setBoardsError('Could not load boards'); showToast('Could not load boards') })
+    if (!background) listTrash().then((rows) => setTrash(rows.map(normalize))).catch(() => {}) // keeps the Trash badge count fresh
   }, [showToast])
 
-  // Auth check + one-time OAuth redirect feedback. Toasts are deferred to a
-  // microtask so no setState runs synchronously inside the effect body.
+  // Auth check + one-time OAuth redirect feedback. A non-2xx or a network failure
+  // means the probe itself is broken, not that the owner is really signed out - so
+  // it gets its own flag instead of silently falling through to the sign-in screen.
+  const checkAuth = useCallback(() => {
+    fetch('/api/auth/me')
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((d) => { setAuthProbeError(false); if (d.authenticated) setUser(d) })
+      .catch(() => setAuthProbeError(true))
+      .finally(() => setAuthChecked(true))
+  }, [])
+
   useEffect(() => {
-    fetch('/api/auth/me').then((r) => r.json()).then((d) => { if (d.authenticated) setUser(d) }).catch(() => {}).finally(() => setAuthChecked(true))
+    checkAuth()
     const p = new URLSearchParams(window.location.search).get('auth')
     if (p) {
+      // Deferred to a microtask so no setState runs synchronously inside the effect body.
       queueMicrotask(() => {
-        if (p === 'denied') showToast('That Google account is not authorized')
-        else if (p === 'error') showToast('Sign-in failed, try again')
+        if (p === 'denied') setAuthMessage('That Google account is not authorized')
+        else if (p === 'error') setAuthMessage('Sign-in failed, try again')
       })
       const u = new URL(window.location.href); u.searchParams.delete('auth'); window.history.replaceState({}, '', u)
     }
-  }, [showToast])
+  }, [checkAuth])
 
   useEffect(() => { if (user || devBypass) loadBoards() }, [user, devBypass, loadBoards])
 
@@ -141,7 +169,8 @@ export default function App() {
   // Delete: a board with real work (3+ nodes) goes to Trash first (recoverable);
   // a small/scratch board is removed for good so Trash never fills with junk.
   function removeBoard(b) {
-    const n = (b.nodes || []).length
+    // A thumbnailed list row has no nodes array - its size rides in node_count.
+    const n = b.node_count ?? b.nodes?.length ?? 0
     const msg = n >= 3
       ? `Move "${b.title}" to Trash? You can restore it later.`
       : `Delete "${b.title}"? It has ${n} item${n === 1 ? '' : 's'}, so it won't go to Trash.`
@@ -159,7 +188,7 @@ export default function App() {
   }, [showToast])
   function openTrash() { loadTrash(); setView('trash') }
   function restoreOne(b) {
-    restoreBoard(b.id).then(() => { setTrash((t) => (t || []).filter((x) => x.id !== b.id)); showToast('Restored'); loadBoards() })
+    restoreBoard(b.id).then(() => { setTrash((t) => (t || []).filter((x) => x.id !== b.id)); showToast('Restored'); loadBoards(true) })
       .catch(() => showToast('Restore failed'))
   }
   function purgeOne(b) {
@@ -188,7 +217,7 @@ export default function App() {
   }
 
   function backToGallery() {
-    setActive(null); setLoadError(false); setUrlId(null); setView('gallery'); loadBoards()
+    setActive(null); setLoadError(false); setUrlId(null); setView('gallery'); loadBoards(true)
   }
 
   function signOut() {
@@ -224,7 +253,7 @@ export default function App() {
   // ── Sign-in gate (gallery only; shared boards above stay public) ────────────
   if (!hasIdParam && !devBypass) {
     if (!authChecked) return <SignInScreen loading />
-    if (!user) return <SignInScreen devBypass={() => setDevBypass(true)} />
+    if (!user) return <SignInScreen devBypass={() => setDevBypass(true)} error={authMessage} probeError={authProbeError} onRetry={checkAuth} />
   }
 
   // ── Trash ───────────────────────────────────────────────────────────────────
@@ -233,7 +262,7 @@ export default function App() {
       <>
         <Trash boards={trash || []} loading={trash === null} error={trashError} onRetry={loadTrash} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
           onCreate={createNew} onSignOut={signOut} creating={creating}
-          onBack={() => { setView('gallery'); loadBoards() }}
+          onBack={() => { setView('gallery'); loadBoards(true) }}
           onRestore={restoreOne} onPurge={purgeOne} onEmpty={emptyTrash} emptying={emptying} narrow={narrow} />
         <Toast {...toast} />
       </>
@@ -247,7 +276,7 @@ export default function App() {
         boards={boards || []} accent={t.accent} themeName={themeMode} onToggleTheme={toggle}
         onOpen={openBoard} onCreate={createNew} onDelete={removeBoard} onSignOut={signOut}
         onOpenTrash={openTrash} trashCount={(trash || []).length} creating={creating}
-        loading={boards === null} error={boardsError} onRetry={loadBoards} narrow={narrow}
+        loading={boards === null} error={boardsError} onRetry={() => loadBoards()} narrow={narrow}
       />
       <Toast {...toast} />
     </>
@@ -260,7 +289,7 @@ function Splash({ label, sub, action }) {
       {!action && <div style={{ width: 38, height: 38, border: '3px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'fx-spin .8s linear infinite' }} />}
       <div className="mono" style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{label}</div>
       {sub && <div style={{ fontSize: 13, color: 'var(--muted)' }}>{sub}</div>}
-      {action && <button onClick={action} style={{ marginTop: 6, padding: '10px 20px', background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Back to boards</button>}
+      {action && <button onClick={action} style={{ marginTop: 6, padding: '10px 20px', background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Back to boards</button>}
     </div>
   )
 }

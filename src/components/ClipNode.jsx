@@ -1,7 +1,7 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 import { Paperclip } from './Paperclip.jsx'
 import { tornTopBottom } from '../lib/torn.js'
 
@@ -15,20 +15,17 @@ const REST = 'drop-shadow(0 6px 12px rgba(0,0,0,.3))'
 function ClipNode({ id, data }) {
   const { updateNodeData, deleteElements } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.text || '')
-  const ref = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-
-  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select(); autoGrow(ref.current) } }, [editing])
-  function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
-  function commit() {
-    setEditing(false)
+  const { editing, draft, setDraft, ref, rootRef, startEdit, commit } = useInlineEdit(
+    id, data.text,
     // Nothing written -> auto-cancel: drop the empty note instead of keeping a blank.
-    if (draft.trim() === '') { restore(); deleteElements({ nodes: [{ id }] }); return }
-    updateNodeData(id, { text: draft, autoEdit: undefined })
-    restore()
-  }
+    (text) => {
+      if (text.trim() === '') { deleteElements({ nodes: [{ id }] }); return }
+      updateNodeData(id, { text, autoEdit: undefined })
+    },
+    { editable },
+  )
+
+  useEffect(() => { if (editing) autoGrow(ref.current) }, [editing, ref])
   // Freshly dropped (double-click on the board) notes open straight into edit mode.
   // Deferred so we don't setState synchronously inside the mount effect - and, on
   // a DOUBLE-click, so focus lands after the gesture is over. Focusing on the next
@@ -48,7 +45,7 @@ function ClipNode({ id, data }) {
   const rip = tornTopBottom(id)
 
   return (
-    <div style={{ position: 'relative', width: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%' }}>
       <NodeHandles className="fx-handle-hidden" />
       <div
         // Double-click to write; single click just selects (so it can be deleted).

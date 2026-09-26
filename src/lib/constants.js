@@ -51,3 +51,18 @@ export const PROFILE_COLORS = ['#2f6fed', '#e5231b', '#22c55e', '#a45cff', '#f5a
 export const STICKER_EMOJIS = ['⭐', '🔥', '❗', '✅', '❓', '💡', '📌', '🚩', '👀', '💰', '⚠️', '🎯']
 // Soft tints for grouping containers (translucent panels behind other objects).
 export const CONTAINER_TINTS = ['#e5231b', '#2f6fed', '#22c55e', '#f5a623', '#a45cff', '#6b7280']
+
+// Board.jsx interaction tuning (named here so Board.jsx can adopt them without
+// this file owning any Board.jsx behavior itself).
+// Debounce window after a drop before another drop is accepted.
+export const DROP_DEBOUNCE_MS = 500
+// Window a pane click has to land in a prior one to count as part of a multi-tap.
+export const DOUBLE_TAP_MS = 450
+// Pixel offset a cascade of dropped/pasted items steps by, item to item.
+export const CASCADE_PX = 28
+// Default width for a newly dropped file/image card (height follows aspect ratio).
+export const FILE_CARD_W = 240
+// Fallback board-viewport size used to center something when the real
+// bounding rect isn't available yet (e.g. before the canvas has laid out).
+export const VIEWPORT_FALLBACK_W = 800
+export const VIEWPORT_FALLBACK_H = 600

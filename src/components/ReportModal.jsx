@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { buildReport, detectLinks } from '../lib/report.js'
+import { isSafeUrl } from '../lib/attach.js'
 import { ocrImage } from '../lib/ocr.js'
 
 function Section({ label, count, children }) {
@@ -42,13 +43,24 @@ export function ReportModal({ title, nodes, edges, onClose }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const closeBtnRef = useRef(null)
+  const panelRef = useRef(null)
 
-  // Dialog semantics: focus the Close button on mount, Escape closes, and focus
-  // returns to whatever had it before the modal opened.
+  // Dialog semantics: focus the Close button on mount, Escape closes, Tab/Shift+Tab
+  // cycle within the panel instead of walking out onto the board chrome behind the
+  // scrim, and focus returns to whatever had it before the modal opened.
   useEffect(() => {
     const previouslyFocused = document.activeElement
     closeBtnRef.current?.focus()
-    const onKeyDown = (e) => { if (e.key === 'Escape') onClose() }
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') { onClose(); return }
+      if (e.key !== 'Tab') return
+      const focusable = panelRef.current?.querySelectorAll('a[href], button:not([disabled]), input, textarea, [tabindex]:not([tabindex="-1"])')
+      if (!focusable || focusable.length === 0) return
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+    }
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
@@ -68,8 +80,9 @@ export function ReportModal({ title, nodes, edges, onClose }) {
   )
 
   return (
-    <div className="fx-report-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 24 }}>
+    <div className="fx-report-overlay" onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-modal)', background: 'rgba(0,0,0,0.55)', display: 'grid', placeItems: 'center', padding: 24 }}>
       <div
+        ref={panelRef}
         className="fx-report-panel"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -105,7 +118,7 @@ export function ReportModal({ title, nodes, edges, onClose }) {
         {allLinks.length > 0 && (
           <Section label="Detected links" count={allLinks.length}>
             <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.7 }}>
-              {allLinks.map((u) => <li key={u}><a href={u} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{u}</a></li>)}
+              {allLinks.filter(isSafeUrl).map((u) => <li key={u}><a href={u} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{u}</a></li>)}
             </ul>
           </Section>
         )}
@@ -116,6 +129,28 @@ export function ReportModal({ title, nodes, edges, onClose }) {
             {r.notes.map((n) => <li key={n.id} style={{ whiteSpace: 'pre-wrap' }}>{n.text || <em style={{ color: 'var(--muted)' }}>empty note</em>}</li>)}
           </ul>
         </Section>
+
+        {r.files.length > 0 && (
+          <Section label="Exhibits" count={r.files.length}>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.6 }}>
+              {r.files.map((f) => (
+                <li key={f.id}>
+                  {f.url && isSafeUrl(f.url)
+                    ? <a href={f.url} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', wordBreak: 'break-all' }}>{f.label}</a>
+                    : f.label}
+                </li>
+              ))}
+            </ul>
+          </Section>
+        )}
+
+        {r.people.length > 0 && (
+          <Section label="People" count={r.people.length}>
+            <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, lineHeight: 1.6 }}>
+              {r.people.map((p) => <li key={p.id}>{p.name}</li>)}
+            </ul>
+          </Section>
+        )}
 
         {ocrHits.length > 0 && (
           <Section label="Text found in images (OCR)" count={ocrHits.length}>

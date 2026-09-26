@@ -46,7 +46,7 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
         {!loading && error && (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 14 }}>{error}</p>
-            <button onClick={onRetry} style={{ padding: '9px 20px', background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Retry</button>
+            <button onClick={onRetry} style={{ padding: '9px 20px', background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>Retry</button>
           </div>
         )}
         {!loading && !error && boards.length === 0 && (
@@ -56,7 +56,7 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 18 }}>
             {filtered.map((b) => (
               <div key={b.id} style={{ position: 'relative' }}>
-                <div style={{ opacity: 0.85, pointerEvents: 'none' }}>
+                <div inert style={{ opacity: 0.85, pointerEvents: 'none' }}>
                   <BoardCard board={b} accent={accent} onOpen={() => {}} />
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
@@ -74,7 +74,7 @@ export default function Trash({ boards, accent, themeName, onToggleTheme, onCrea
 
 const action = (danger) => ({
   flex: 1, padding: '8px 10px', fontSize: 12.5, fontWeight: 600, borderRadius: 9, cursor: 'pointer',
-  background: danger ? 'transparent' : 'var(--accent)',
+  background: danger ? 'transparent' : 'var(--accent-fill)',
   color: danger ? 'var(--accent)' : 'var(--accent-ink)',
   border: `1px solid ${danger ? 'var(--border)' : 'transparent'}`,
 })

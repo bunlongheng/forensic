@@ -1,7 +1,8 @@
 // Pure board-graph helpers shared by the Board view and its hooks. No React and
 // no DOM: every function takes plain nodes/edges and returns new values, so the
 // canvas logic is unit-testable without a canvas.
-import { PROFILE_NAMES, PROFILE_COLORS, STICKER_EMOJIS, CONTAINER_TINTS, NOTE_TINTS } from './constants.js'
+import { CONTAINER_TINTS } from './constants.js'
+import { nodeSpec } from './nodeRegistry.js'
 
 // Written to the system clipboard on Cmd/Ctrl+C of a node, so a following Cmd/Ctrl+V
 // reliably fires a 'paste' event (which we use to duplicate the node) without ever
@@ -113,39 +114,18 @@ export function boardSnapshot({ title, nodes, edges }) {
 export const nodeW = (n) => (typeof n.style?.width === 'number' ? n.style.width : (n.measured?.width || n.width || 150))
 export const nodeH = (n) => (typeof n.style?.height === 'number' ? n.style.height : (n.measured?.height || n.height || 90))
 
-// Default size + data for each object type. Named types (
-// profile, container, sticker) pick their next value from what's already on the board.
-export function newNodeSpec(type, nds) {
-  const count = (t) => nds.filter((n) => n.type === t).length
-  switch (type) {
-    case 'note': return { style: { width: 200, height: 140 }, data: { text: '', color: NOTE_TINTS[0], editable: true } }
-    case 'text': return { style: { width: 180, height: 90 }, data: { text: '', editable: true } }
-    // An exhibit card (link / PDF / audio / video / doc). No height - it fits its
-    // own two lines; the caller fills in kind/name/url or src.
-    case 'file': return { style: { width: 240 }, data: { kind: 'link', name: 'Link', editable: true } }
-    case 'clip': return { style: { width: 210 }, data: { text: '', color: '#fbfaf6', editable: true } } // no height - auto-fits
-    case 'callout': return { style: { width: 240, height: 120 }, data: { text: 'Important!!!', color: '#fff3bf', editable: true } }
-    case 'stamp': return { style: { width: 220, height: 60 }, data: { label: 'APPROVED', color: '#d0342c', editable: true } }
-    case 'redaction': return { style: { width: 170, height: 26 }, data: { color: '#111111', editable: true } }
-    case 'wax': return { style: { width: 84, height: 84 }, data: { symbol: '★', color: '#8b1e3f', editable: true } }
-    case 'crosshair': return { style: { width: 90, height: 90 }, data: { color: '#e5231b', editable: true } }
-    case 'annotation': return { style: { width: 190, height: 130 }, data: { color: '#e5231b', editable: true } }
-    case 'drawing': return { style: { width: 220, height: 160 }, data: { paths: [], editable: true } }
-    case 'sticker': return { style: { width: 76, height: 76 }, data: { emoji: STICKER_EMOJIS[nds.length % STICKER_EMOJIS.length], editable: true } }
-    case 'profile': {
-      const i = count('profile')
-      return { style: { width: 96, height: 96 }, data: { name: PROFILE_NAMES[i % PROFILE_NAMES.length], color: PROFILE_COLORS[i % PROFILE_COLORS.length], editable: true } }
-    }
-    case 'container': return { style: { width: 320, height: 240 }, data: { title: 'Section', color: CONTAINER_TINTS[count('container') % CONTAINER_TINTS.length], editable: true } }
-    default: return null
-  }
-}
+// Default size + data for each object type - looked up in the node registry, the
+// single source of truth for what a new object of a given type is. Named types
+// (profile, container, sticker) pick their next value from what's already on the
+// board, so the current nodes go in. Re-exported under the board layer's older
+// name rather than wrapped, so there is no second function to keep in step.
+export { nodeSpec as newNodeSpec }
 
 // Drop one of the FAB object types at `at`. Containers slide to the BACK of the
 // stack (they group visually and must sit under the evidence); everything else
 // lands on top where you added it.
 export function addNode(nds, type, at, extra, exact = false) {
-  const spec = newNodeSpec(type, nds)
+  const spec = nodeSpec(type, nds)
   if (!spec) return nds
   // Cascade each new object so they never land in one stack (which buries them).
   // `exact` turns that off: when the owner picked the spot (the CMD cursor ring)

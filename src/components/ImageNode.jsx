@@ -1,9 +1,9 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo, useEffect, useRef } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
 import { tornBottom, hash, rng } from '../lib/torn.js'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 
 // An "evidence" node styled as a pinned photo print: a white frame, the image, an
 // OPTIONAL caption strip, a red pushpin, an optional torn ("rip") edge, and a photo
@@ -49,14 +49,8 @@ function puzzle(id) {
 function ImageNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.label || '')
-  const inputRef = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-
-  useEffect(() => { if (editing) inputRef.current?.focus() }, [editing])
-  function startEdit() { setDraft(data.label || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { label: draft }); restore() }
+  const { editing, draft, setDraft, ref: inputRef, rootRef, startEdit, commit, cancel } =
+    useInlineEdit(id, data.label, (label) => updateNodeData(id, { label }), { editable, select: false })
 
   const showCap = data.showCaption === true   // off unless the owner enables it
 
@@ -85,7 +79,7 @@ function ImageNode({ id, data, selected }) {
   const puz = style === 'puzzle' ? puzzle(id) : null
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <NodeResizer isVisible={selected && editable} keepAspectRatio minWidth={90} minHeight={80} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       {data.pin === true && <Pin size={27} color={data.pinColor || '#ff3b30'} />}
@@ -136,7 +130,7 @@ function ImageNode({ id, data, selected }) {
               <input
                 ref={inputRef} value={draft}
                 onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-                onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setEditing(false); restore() } }}
+                onKeyDown={(e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel() }}
                 placeholder="Caption"
                 style={{ width: '100%', textAlign: 'center', border: 'none', outline: 'none', background: 'transparent', fontSize: 11, fontWeight: 700, color: '#16130f' }}
               />

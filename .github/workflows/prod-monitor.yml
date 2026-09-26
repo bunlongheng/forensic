@@ -1,9 +1,10 @@
 name: Prod monitor
 
-# Uptime + auth monitor. Hits prod every 15 min and asserts the artifact API is
-# healthy and auth-gated. A failed run emails the repo owner (GitHub's default
-# scheduled-job notification). Also runs on every push to main as a post-deploy
-# smoke test.
+# Uptime + auth monitor. Best-effort every 15 min (GitHub throttles scheduled
+# workflows on low-activity repos, so actual runs land every 2-5 hours) and
+# asserts the artifact API is healthy and auth-gated. A failed run emails the
+# repo owner (GitHub's default scheduled-job notification). Also runs on every
+# push to main as a post-deploy smoke test.
 on:
   schedule:
     - cron: "*/15 * * * *"
@@ -35,7 +36,8 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          want=$(grep -oE "VERSION = '[^']+'" src/version.js | sed -E "s/VERSION = '([^']+)'/\1/")
+          want=$(grep -oE "VERSION = '[^']+'" version.js | sed -E "s/VERSION = '([^']+)'/\1/")
+          [ -n "$want" ] || { echo "::error::could not read VERSION from version.js"; exit 1; }
           echo "waiting for /api/health version to reach $want"
           for i in $(seq 1 12); do
             got=$(curl -sS --max-time 20 "$BASE_URL/api/health" | grep -oE '"version":"[^"]+"' | sed -E 's/"version":"([^"]+)"/\1/' || true)

@@ -403,6 +403,59 @@ test("a pasted image is stored by reference, and old inline boards still render"
   }
 });
 
+// Every other spec seeds its edges through the API - the actual drag-a-thread
+// gesture (onConnect in Board.jsx) never ran end to end. Drag from one node's
+// handle to another's and confirm a real edge comes out the other side, not
+// just in the DOM but in what gets saved and survives a reload.
+test("dragging from one node's handle to another wires a real edge", async ({ page, request }) => {
+  const create = await request.post("/api/boards", { data: { title: TITLE,
+    nodes: [
+      // variant: "torn" pins the tilted paper style on purpose: its rotated card
+      // used to paint over its own edge handle, so a drag at the handle pixel
+      // moved the node instead of starting a thread. The handle now sits above
+      // the paper (z-index in index.css), and this fixture keeps that covered.
+      { id: "n1", type: "note", position: { x: 80, y: 200 }, data: { text: "Source", variant: "torn" } },
+      { id: "n2", type: "note", position: { x: 420, y: 200 }, data: { text: "Target", variant: "torn" } },
+    ],
+    edges: [],
+  } });
+  expect(create.status()).toBe(201);
+  const id = (await create.json()).id;
+
+  try {
+    await page.goto(`/?id=${id}`);
+    const nodes = page.locator(".react-flow__node");
+    const edges = page.locator(".react-flow__edge");
+    await expect(nodes).toHaveCount(2);
+    await expect(edges).toHaveCount(0);
+
+    // The right handle on the source note, the left handle on the target - the
+    // natural thread between two cards side by side.
+    const startHandle = page.locator('[data-testid="rf__node-n1"] .react-flow__handle-right');
+    const endHandle = page.locator('[data-testid="rf__node-n2"] .react-flow__handle-left');
+    const startBox = await startHandle.boundingBox();
+    const endBox = await endHandle.boundingBox();
+
+    await page.mouse.move(startBox.x + startBox.width / 2, startBox.y + startBox.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(endBox.x + endBox.width / 2, endBox.y + endBox.height / 2, { steps: 10 });
+    await page.mouse.up();
+
+    await expect(edges).toHaveCount(1);
+    await expect(page.getByText("Saved")).toBeVisible({ timeout: 10_000 });
+
+    await page.reload();
+    await expect(nodes).toHaveCount(2);
+    await expect(edges).toHaveCount(1);
+
+    const saved = await (await request.get(`/api/boards/${id}`)).json();
+    expect(saved.edges).toHaveLength(1);
+    expect(saved.edges[0]).toMatchObject({ source: "n1", target: "n2" });
+  } finally {
+    await purge(id);
+  }
+});
+
 // The bottom-left summon: one of the two ways into the tool ring, alongside the
 // toolbar + (holding Cmd used to be a third and was removed - its dwell timer
 // raced every other Cmd gesture). Also guards the wax seal, which boards in the
@@ -424,11 +477,11 @@ test("the bottom-left summon opens the tool ring and drops a wax seal", async ({
     await page.mouse.move(600, 400);
     await page.keyboard.down("ControlOrMeta");
     await page.waitForTimeout(700); // well past the old 260ms dwell
-    await expect(page.getByRole("button", { name: "Wax seal" })).toHaveCount(0);
+    await expect(page.getByRole("menuitem", { name: "Wax seal" })).toHaveCount(0);
     await page.keyboard.up("ControlOrMeta");
 
     await fab.click();
-    await page.getByRole("button", { name: "Wax seal" }).click();
+    await page.getByRole("menuitem", { name: "Wax seal" }).click();
     await expect(page.locator(".react-flow__node-wax")).toHaveCount(1);
   } finally {
     await purge(id);

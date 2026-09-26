@@ -22,6 +22,7 @@
 import "dotenv/config";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { parseDataUrl } from "../lib/handlers/images.js";
 import { sslConfig, connectionString } from "../lib/db.js";
@@ -30,9 +31,10 @@ const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
 const val = (f) => (has(f) ? args[args.indexOf(f) + 1] : null);
 const WRITE = has("--write");
-const BACKUPS = path.join(process.cwd(), "backups");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const BACKUPS = path.join(ROOT, "backups");
 
-const pool = new pg.Pool({ connectionString: connectionString(), ssl: sslConfig() });
+const pool = new pg.Pool({ connectionString: connectionString(), ssl: process.env.DATABASE_SSL === "true" ? sslConfig() : false });
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 
 async function restore(file) {

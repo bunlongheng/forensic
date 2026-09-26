@@ -8,8 +8,9 @@ describe("isLocal", () => {
   const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV, VERCEL: process.env.VERCEL };
   beforeEach(() => {
     delete process.env.NODE_ENV;
-    delete process.env.LOCAL_DEV;
     delete process.env.VERCEL;
+    // The bypass is opt-in everywhere now, so the "dev" baseline has to say so.
+    process.env.LOCAL_DEV = "true";
   });
   afterEach(() => {
     process.env.NODE_ENV = orig.NODE_ENV;
@@ -34,8 +35,23 @@ describe("isLocal", () => {
     expect(isLocal({ headers: { host: "localhost" }, socket: { remoteAddress: "203.0.113.7" } })).toBe(false);
   });
 
-  it("is GATED OFF in production even for a loopback peer (unless LOCAL_DEV=true)", () => {
+  // `node serve.mjs` behind a reverse proxy sees every internet request arrive
+  // from 127.0.0.1. Without an explicit opt-in that handed the whole internet
+  // owner rights, and NODE_ENV is not set by `npm run api`.
+  it("is OFF without LOCAL_DEV=true, in every environment", () => {
+    delete process.env.LOCAL_DEV;
+    expect(isLocal(req("127.0.0.1"))).toBe(false);
+    expect(isLocal(req("192.168.1.20"))).toBe(false);
+    process.env.LOCAL_DEV = "1"; // only the exact string counts
+    expect(isLocal(req("127.0.0.1"))).toBe(false);
     process.env.NODE_ENV = "production";
+    delete process.env.LOCAL_DEV;
+    expect(isLocal(req("127.0.0.1"))).toBe(false);
+  });
+
+  it("is GATED OFF in production unless LOCAL_DEV=true", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.LOCAL_DEV;
     expect(isLocal(req("127.0.0.1"))).toBe(false);
     process.env.LOCAL_DEV = "true";
     expect(isLocal(req("127.0.0.1"))).toBe(true);

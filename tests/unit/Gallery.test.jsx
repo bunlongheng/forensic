@@ -90,4 +90,12 @@ describe("Gallery", () => {
     render(<Gallery {...base} boards={[]} />);
     expect(screen.getByText(/No boards yet/)).toBeInTheDocument();
   });
+
+  it("renders a board whose nodes/edges are absent (thumbnail-only payload) without crashing", () => {
+    const thumbBoards = [
+      { id: "b3", title: "Case Gamma", updatedAt: Date.now(), thumbnail: "data:image/webp;base64,xyz" },
+    ];
+    render(<Gallery {...base} boards={thumbBoards} />);
+    expect(screen.getByText("Case Gamma")).toBeInTheDocument();
+  });
 });

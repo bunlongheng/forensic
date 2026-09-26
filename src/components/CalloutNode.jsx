@@ -1,7 +1,7 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 
 // A loud call-out: a colored paper taped to the board at both top corners, with
 // big marker text you type ("Important!!!", "Watch out!", "Missing??"). Double-
@@ -23,13 +23,8 @@ function Tape({ side }) {
 function CalloutNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.text || '')
-  const ref = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
-  function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
+  const { editing, draft, setDraft, ref, rootRef, startEdit, commit, cancel } =
+    useInlineEdit(id, data.text, (text) => updateNodeData(id, { text }), { editable })
 
   const bg = data.color || '#fff3bf'
   const textStyle = {
@@ -38,7 +33,7 @@ function CalloutNode({ id, data, selected }) {
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <NodeResizer isVisible={selected && editable} minWidth={150} minHeight={84} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       <div
@@ -53,7 +48,7 @@ function CalloutNode({ id, data, selected }) {
           <textarea
             ref={ref} className="nodrag nowheel" value={draft}
             onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); restore() } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel() }}
             style={{ ...textStyle, width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent' }}
           />
         ) : (

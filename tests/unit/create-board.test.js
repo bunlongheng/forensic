@@ -52,7 +52,7 @@ describe("POST /api/boards (createBoard)", () => {
   const orig = { NODE_ENV: process.env.NODE_ENV, LOCAL_DEV: process.env.LOCAL_DEV, OWNER_USER_ID: process.env.OWNER_USER_ID };
   beforeEach(() => {
     delete process.env.NODE_ENV;
-    delete process.env.LOCAL_DEV;
+    process.env.LOCAL_DEV = "true"; // the dev bypass is opt-in in every environment
     process.env.OWNER_USER_ID = "00000000-0000-0000-0000-000000000001";
     query.mockReset();
   });
@@ -73,6 +73,25 @@ describe("POST /api/boards (createBoard)", () => {
     const res = mockRes();
     await createBoard(remoteReq({ title: "X" }), res);
     expect(res.statusCode).toBe(401);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  // guard() runs the limiter BEFORE the auth check, so an unauthenticated flood
+  // burns its own budget instead of buying a free 401 on every request. Its own
+  // client IP, so the bucket it fills is not shared with the tests around it.
+  it("429s an unauthenticated flood once the limit is spent, before the auth check", async () => {
+    const socket = { remoteAddress: "198.51.100.9" };
+    let res;
+    for (let i = 0; i < 60; i++) {
+      res = mockRes();
+      await createBoard(remoteReq({ title: "X" }, { socket }), res);
+      expect(res.statusCode).toBe(401);
+    }
+    res = mockRes();
+    await createBoard(remoteReq({ title: "X" }, { socket }), res);
+    expect(res.statusCode).toBe(429);
+    expect(res.body).toEqual({ error: "Rate limit exceeded" });
+    expect(res.headers["Retry-After"]).toBeTruthy();
     expect(query).not.toHaveBeenCalled();
   });
 

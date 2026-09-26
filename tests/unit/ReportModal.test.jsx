@@ -71,4 +71,29 @@ describe("ReportModal", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
   });
+
+  it("renders Exhibits and People sections for file and profile nodes", () => {
+    const withExtras = [
+      ...nodes,
+      { id: "f1", type: "file", data: { url: "https://example.com/report", name: "example.com/report" } },
+      { id: "p1", type: "profile", data: { name: "Jane Doe" } },
+    ];
+    render(<ReportModal title="Case Alpha" nodes={withExtras} edges={edges} onClose={vi.fn()} />);
+    expect(screen.getByText("Exhibits")).toBeInTheDocument();
+    expect(screen.getByText("example.com/report")).toBeInTheDocument();
+    expect(screen.getByText("People")).toBeInTheDocument();
+    expect(screen.getByText("Jane Doe")).toBeInTheDocument();
+  });
+
+  it("never renders a javascript: link, but does render a real https link", () => {
+    const hostileNodes = [
+      { id: "n1", type: "note", data: { text: "click here: javascript:alert(1)" } },
+      { id: "f1", type: "file", data: { url: "javascript:alert(1)", name: "evil" } },
+      { id: "f2", type: "file", data: { url: "https://example.com/safe", name: "safe" } },
+    ];
+    const { container } = render(<ReportModal title="Case Alpha" nodes={hostileNodes} edges={[]} onClose={vi.fn()} />);
+    const hrefs = [...container.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
+    expect(hrefs.some((h) => h.startsWith("javascript:"))).toBe(false);
+    expect(hrefs).toContain("https://example.com/safe");
+  });
 });

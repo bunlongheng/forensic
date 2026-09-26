@@ -111,8 +111,19 @@ function Preview({ nodes = [], edges = [], accent }) {
 }
 
 function BoardCard({ board, accent, onOpen, onDelete }) {
+  // The list API may skip nodes/edges entirely once a board has a thumbnail
+  // (finding: gallery payload trims the heavy fields when a flat image can
+  // stand in for them). Only draw the vector Preview when that data actually
+  // came down - an absent field is not the same as a genuinely empty board.
+  const hasNodeData = Array.isArray(board.nodes)
   const nodes = board.nodes || []
   const edges = board.edges || []
+  // The counts are their own thing: a thumbnailed row ships node_count /
+  // edge_count instead of the graphs, so the label reads those first and only
+  // falls back to measuring the arrays.
+  const hasCounts = board.node_count != null || hasNodeData
+  const nodeCount = board.node_count ?? nodes.length
+  const edgeCount = board.edge_count ?? edges.length
   return (
     <div
       className="fx-card"
@@ -134,20 +145,25 @@ function BoardCard({ board, accent, onOpen, onDelete }) {
               can only ever draw placeholders where the photos are. */}
           {board.thumbnail
             ? <img src={board.thumbnail} alt="" loading="lazy" style={{ width: '100%', height: 150, objectFit: 'cover', display: 'block', background: 'var(--panel-2)' }} />
-            : <Preview nodes={nodes} edges={edges} accent={accent} />}
+            : hasNodeData
+              ? <Preview nodes={nodes} edges={edges} accent={accent} />
+              : <div style={{ height: 150, background: 'var(--panel-2)', display: 'grid', placeItems: 'center', color: 'var(--muted)' }}><Icon name="note" size={26} /></div>}
         </div>
         <div style={{ padding: '11px 46px 11px 13px' }}>
           <div className="mono" style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{board.title}</div>
           <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
-            {nodes.length} node{nodes.length === 1 ? '' : 's'} · {edges.length} link{edges.length === 1 ? '' : 's'} · {relativeTime(board.updatedAt)}
+            {hasCounts ? `${nodeCount} node${nodeCount === 1 ? '' : 's'} · ${edgeCount} link${edgeCount === 1 ? '' : 's'} · ` : ''}
+            {relativeTime(board.updatedAt)}
           </div>
         </div>
       </button>
-      <button
-        title="Delete board"
-        onClick={() => onDelete(board)}
-        style={{ position: 'absolute', right: 13, bottom: 11, display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
-      ><Icon name="trash" size={15} /></button>
+      {onDelete && (
+        <button
+          title="Delete board"
+          onClick={() => onDelete(board)}
+          style={{ position: 'absolute', right: 13, bottom: 11, display: 'grid', placeItems: 'center', width: 30, height: 30, borderRadius: 8, background: 'var(--panel)', border: '1px solid var(--border)', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
+        ><Icon name="trash" size={15} /></button>
+      )}
     </div>
   )
 }

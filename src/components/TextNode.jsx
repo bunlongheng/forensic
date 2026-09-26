@@ -1,7 +1,7 @@
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo } from 'react'
 import { NodeResizer, useReactFlow } from '@xyflow/react'
 import { NodeHandles } from './nodeHandles.jsx'
-import { useEditZoom } from '../lib/useEditZoom.js'
+import { useInlineEdit } from '../hooks/useInlineEdit.js'
 import { tornBottom } from '../lib/torn.js'
 
 // Two looks, switched in the inspector. Double-click to write either way.
@@ -14,13 +14,8 @@ import { tornBottom } from '../lib/torn.js'
 function TextNode({ id, data, selected }) {
   const { updateNodeData } = useReactFlow()
   const editable = data.editable !== false
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(data.text || '')
-  const ref = useRef(null)
-  const { focus, restore } = useEditZoom(id)
-  useEffect(() => { if (editing) { ref.current?.focus(); ref.current?.select() } }, [editing])
-  function startEdit() { setDraft(data.text || ''); setEditing(true); focus() }
-  function commit() { setEditing(false); updateNodeData(id, { text: draft }); restore() }
+  const { editing, draft, setDraft, ref, rootRef, startEdit, commit, cancel } =
+    useInlineEdit(id, data.text, (text) => updateNodeData(id, { text }), { editable })
 
   const ink = data.variant === 'ink'
   const rip = ink ? 'none' : tornBottom(id)
@@ -38,7 +33,7 @@ function TextNode({ id, data, selected }) {
       }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       <NodeResizer isVisible={selected && editable} minWidth={90} minHeight={44} lineClassName="line" handleClassName="handle" />
       <NodeHandles />
       <div
@@ -49,7 +44,7 @@ function TextNode({ id, data, selected }) {
           <textarea
             ref={ref} className="nodrag nowheel" value={draft}
             onChange={(e) => setDraft(e.target.value)} onBlur={commit}
-            onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); restore() } }}
+            onKeyDown={(e) => { if (e.key === 'Escape') cancel() }}
             style={{ width: '100%', height: '100%', resize: 'none', border: 'none', outline: 'none', background: 'transparent', fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 'inherit', letterSpacing: 'inherit', lineHeight: 'inherit', color: 'inherit' }}
           />
         ) : (

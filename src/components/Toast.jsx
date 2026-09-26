@@ -6,7 +6,7 @@ export function Toast({ message, visible }) {
       transform: `translateX(-50%) translateY(${visible ? 0 : -60}px)`,
       background: 'var(--panel)', color: 'var(--text)',
       padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)',
-      fontSize: 13, fontWeight: 600, zIndex: 9999, pointerEvents: 'none',
+      fontSize: 13, fontWeight: 600, zIndex: 'var(--z-toast)', pointerEvents: 'none',
       boxShadow: 'var(--shadow)', opacity: visible ? 1 : 0,
       transition: 'transform .3s ease, opacity .3s ease',
       display: 'flex', alignItems: 'center', gap: 9,

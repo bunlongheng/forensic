@@ -37,7 +37,7 @@ export function GalleryHeader({ themeName, onToggleTheme, onCreate, onSignOut, o
             <span style={{ position: 'absolute', left: 10, color: 'var(--muted)', pointerEvents: 'none', display: 'grid' }}><Icon name="search" size={15} /></span>
             <input
               autoFocus={searching}
-              value={q} onChange={(e) => setQ(e.target.value)} placeholder={trashActive ? 'Search trash' : 'Search boards'}
+              value={q} onChange={(e) => setQ(e.target.value)} placeholder={trashActive ? 'Search trash' : 'Search boards'} aria-label={trashActive ? 'Search trash' : 'Search boards'}
               style={{ padding: '9px 12px 9px 32px', width: searching ? '100%' : 200, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 16, outline: 'none' }}
             />
           </div>
@@ -48,14 +48,14 @@ export function GalleryHeader({ themeName, onToggleTheme, onCreate, onSignOut, o
         ) : (
           <>
             <button onClick={onCreate} disabled={creating} title="New board"
-              style={{ ...ghost, background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none', cursor: creating ? 'wait' : 'pointer' }}>
+              style={{ ...ghost, background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none', cursor: creating ? 'wait' : 'pointer' }}>
               <Icon name="plus" size={20} />
             </button>
             <button onClick={onTrash} title={trashActive ? 'Back to boards' : 'Trash'}
-              style={{ ...ghost, position: 'relative', ...(trashActive ? { background: 'var(--accent)', color: 'var(--accent-ink)', border: 'none' } : {}) }}>
+              style={{ ...ghost, position: 'relative', ...(trashActive ? { background: 'var(--accent-fill)', color: 'var(--accent-ink)', border: 'none' } : {}) }}>
               <Icon name="trash" />
               {!trashActive && trashCount > 0 && (
-                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9, background: '#e5231b', color: '#fff', fontSize: 10.5, fontWeight: 800, display: 'grid', placeItems: 'center', border: '2px solid var(--bg)', lineHeight: 1 }}>{trashCount > 9 ? '9+' : trashCount}</span>
+                <span style={{ position: 'absolute', top: -6, right: -6, minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9, background: 'var(--accent-fill)', color: 'var(--accent-ink)', fontSize: 10.5, fontWeight: 800, display: 'grid', placeItems: 'center', border: '2px solid var(--bg)', lineHeight: 1 }}>{trashCount > 9 ? '9+' : trashCount}</span>
               )}
             </button>
             <button onClick={onToggleTheme} title="Toggle theme" style={ghost}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} /></button>

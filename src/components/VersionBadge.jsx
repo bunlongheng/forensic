@@ -13,7 +13,7 @@ export function VersionBadge() {
         position: 'fixed',
         right: 'calc(16px + env(safe-area-inset-right))',
         bottom: 'calc(10px + env(safe-area-inset-bottom))',
-        zIndex: 2147483000, pointerEvents: 'none',
+        zIndex: 'var(--z-badge)', pointerEvents: 'none',
         fontSize: 9, fontWeight: 700, letterSpacing: '.06em',
         color: 'var(--muted)',
         opacity: 0.85,

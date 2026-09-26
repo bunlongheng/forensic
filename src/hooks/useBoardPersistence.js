@@ -8,6 +8,11 @@ import { boardSnapshot } from '../lib/boardGraph.js'
 // spinning on a save that can never land.
 const MAX_NODES_BYTES = 4_000_000 // mirrors lib/validate.js
 
+// How often autosave is allowed to also refresh the gallery thumbnail.
+// Keeps the capture off the hot path (never on every keystroke's save) while
+// still making the gallery card reliable without waiting for a Cmd/Ctrl+S.
+const THUMB_THROTTLE_MS = 30_000
+
 // Byte size of a draft's nodes, using the same measure as the save guard.
 // A corrupt draft counts as infinite so it is never preferred.
 function draftNodesBytes(snapshot) {
@@ -26,6 +31,7 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
   const savedSnap = useRef(null)
   const restoreReady = useRef(false)
   const thumbBusy = useRef(false)
+  const lastThumbAt = useRef(0)
   const snapRef = useRef(snapshot)   // the latest snapshot, for the clearDraft guard
   const queued = useRef(null)        // the next save to run once the current one lands
   const running = useRef(false)
@@ -48,10 +54,21 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     finally { thumbBusy.current = false }
   }, [makeThumb, board.id])
 
+  // Fire-and-forget thumbnail refresh for autosave: throttled to at most once
+  // per THUMB_THROTTLE_MS and skipped while the tab is hidden, so it never
+  // piles up work on a background tab or on every debounced save.
+  const maybeThumb = useCallback(() => {
+    if (document.visibilityState !== 'visible') return
+    const now = Date.now()
+    if (now - lastThumbAt.current < THUMB_THROTTLE_MS) return
+    lastThumbAt.current = now
+    pushThumb()
+  }, [pushThumb])
+
   // Single place that actually pushes a snapshot to the server: the size guard,
   // the PUT, and the bookkeeping (savedSnap / local draft / save state) that the
   // debounced save, the online retry and Cmd+S all used to duplicate.
-  const sendOne = useCallback(async (snap, { toast } = {}) => {
+  const sendOne = useCallback(async (snap, { toast, autosave } = {}) => {
     const body = JSON.parse(snap)
     // Same measure as lib/validate.js (nodes only, 4 MB) so the pill and the 400 agree.
     if (JSON.stringify(body.nodes).length > MAX_NODES_BYTES) { setSave('toolarge'); return }
@@ -66,6 +83,7 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
       if (snap === snapRef.current) clearDraft(board.id)
       setSave('saved')
       if (toast) showToast(toast)
+      if (autosave) maybeThumb()
     } catch (e) {
       // No HTTP status (or the browser says so) = offline. Anything else is the
       // server refusing the save - say that, not 'offline'.
@@ -74,7 +92,7 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
       else if (!e?.status || navigator.onLine === false) setSave('error')
       else setSave('failed')
     }
-  }, [board.id, showToast])
+  }, [board.id, showToast, maybeThumb])
 
   // Saves are SERIALIZED, never fired in parallel. Two overlapping PUTs have no
   // ordering guarantee: a slow save of an older snapshot could land after a newer
@@ -103,7 +121,7 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     if (savedSnap.current === null) { savedSnap.current = snapshot; return } // initial load - never save
     if (snapshot === savedSnap.current) return                              // no real change
     setSave('saving')
-    const h = setTimeout(() => { push(snapshot) }, 1100)
+    const h = setTimeout(() => { push(snapshot, { autosave: true }) }, 1100)
     return () => clearTimeout(h)
   }, [snapshot, canEdit, board.id, push])
 

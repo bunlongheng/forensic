@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Icon } from './Icon.jsx'
+import { STAMP_COLORS } from '../lib/constants.js'
 
 // The tool ring: hit + in the toolbar or the + in the corner and the
 // add-tools bloom around the pointer, so a note lands where you are looking
@@ -61,6 +62,23 @@ export function CursorTools({ at, items, closing, onPick, onClose }) {
     return () => clearTimeout(t)
   }, [away])
 
+  // Keyboard support: focus the first ring button as soon as it blooms (so Tab
+  // reaches it instead of needing a pointer), Escape dismisses like the backdrop
+  // click, and focus returns to whatever opened the ring once it's gone.
+  const firstBtnRef = useRef(null)
+  useEffect(() => {
+    if (!at) return
+    const previouslyFocused = document.activeElement
+    const raf = requestAnimationFrame(() => firstBtnRef.current?.focus())
+    const onKeyDown = (e) => { if (e.key === 'Escape') setSelfClosing(true) }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('keydown', onKeyDown)
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') previouslyFocused.focus()
+    }
+  }, [at, chooser])
+
   // Let the counter-clockwise sweep finish, then actually unmount.
   const exitingNow = closing === true || selfClosing
   const count = (chooser ? chooser.choices : items).length
@@ -86,9 +104,9 @@ export function CursorTools({ at, items, closing, onPick, onClose }) {
   return (
     <>
       {/* Catches the click that dismisses the ring. Sits UNDER the buttons. */}
-      <div onPointerDown={close} style={{ position: 'fixed', inset: 0, zIndex: 14 }} />
-      <div className="fx-noexport" style={{
-        position: 'fixed', left: at.x, top: at.y, width: 0, height: 0, zIndex: 15,
+      <div onPointerDown={close} style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-ring)' }} />
+      <div className="fx-noexport" role="menu" aria-label={chooser ? chooser.label : 'Add to board'} style={{
+        position: 'fixed', left: at.x, top: at.y, width: 0, height: 0, zIndex: 'calc(var(--z-ring) + 1)',
         pointerEvents: exiting ? 'none' : undefined, // never click a tool that is on its way out
       }}>
         {/* Marks the exact spot the node will land on. */}
@@ -107,7 +125,8 @@ export function CursorTools({ at, items, closing, onPick, onClose }) {
           const isStamp = chooser?.key === 'stamp'
           return (
             <button
-              key={it.key ? `${it.key}-${it.label}` : it.label} className="fx-fab-item" title={it.label}
+              key={it.key ? `${it.key}-${it.label}` : it.label} ref={i === 0 ? firstBtnRef : undefined}
+              className="fx-fab-item" title={it.label} role="menuitem"
               onPointerDown={(e) => e.stopPropagation()}
               onClick={() => pick(it)}
               style={{
@@ -120,7 +139,7 @@ export function CursorTools({ at, items, closing, onPick, onClose }) {
                       fontSize: isStamp ? 9 : 10.5, fontWeight: 700,
                       letterSpacing: isStamp ? '.05em' : 0,
                       fontFamily: isStamp ? "'Space Mono', ui-monospace, monospace" : undefined,
-                      color: isStamp ? '#d0342c' : 'var(--text)',
+                      color: isStamp ? STAMP_COLORS[0] : 'var(--text)',
                     }
                   : { left: x - 19, top: y - 19, width: 38, height: 38, borderRadius: '50%' }),
                 ...bloom(x, y, i, list.length, exiting),

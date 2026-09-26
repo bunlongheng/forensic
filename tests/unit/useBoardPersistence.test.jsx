@@ -15,12 +15,12 @@ const snap0 = boardSnapshot(board);
 const snap1 = boardSnapshot({ ...board, title: "Case 2" });
 
 function setup(props = {}) {
-  const restore = vi.fn(), fitView = vi.fn(), showToast = vi.fn();
+  const restore = vi.fn(), fitView = vi.fn(), showToast = vi.fn(), makeThumb = vi.fn().mockResolvedValue("thumb-data");
   const hook = renderHook(
-    ({ snapshot, canEdit }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast }),
-    { initialProps: { snapshot: snap0, canEdit: true, ...props } },
+    ({ snapshot, canEdit, makeThumb: mt }) => useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb: mt }),
+    { initialProps: { snapshot: snap0, canEdit: true, makeThumb, ...props } },
   );
-  return { restore, fitView, showToast, ...hook };
+  return { restore, fitView, showToast, makeThumb, ...hook };
 }
 
 beforeEach(() => {
@@ -137,6 +137,67 @@ describe("useBoardPersistence", () => {
     rerender({ snapshot: snap1, canEdit: true });
     await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
     expect(result.current.save).toBe("unauth");
+  });
+
+  it("maps a 500 rejection to the failed save state", async () => {
+    const err = new Error("HTTP 500");
+    err.status = 500;
+    updateBoard.mockRejectedValueOnce(err);
+    const { result, rerender } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb: vi.fn() });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(result.current.save).toBe("failed");
+  });
+
+  it("maps a 403 rejection to the failed save state", async () => {
+    const err = new Error("HTTP 403");
+    err.status = 403;
+    updateBoard.mockRejectedValueOnce(err);
+    const { result, rerender } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb: vi.fn() });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(result.current.save).toBe("failed");
+  });
+
+  it("maps a 429 rejection to the failed save state", async () => {
+    const err = new Error("HTTP 429");
+    err.status = 429;
+    updateBoard.mockRejectedValueOnce(err);
+    const { result, rerender } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb: vi.fn() });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(result.current.save).toBe("failed");
+  });
+
+  it("also refreshes the gallery thumbnail on autosave (not just Cmd+S)", async () => {
+    const { rerender, makeThumb } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(updateBoard).toHaveBeenCalledWith("b1", JSON.parse(snap1));
+    expect(makeThumb).toHaveBeenCalledTimes(1);
+    expect(updateBoard).toHaveBeenCalledWith("b1", { thumbnail: "thumb-data" });
+  });
+
+  it("throttles the autosave thumbnail refresh to at most once per 30s", async () => {
+    const { rerender, makeThumb } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(makeThumb).toHaveBeenCalledTimes(1);
+
+    const snap2 = boardSnapshot({ ...board, title: "Case 3" });
+    rerender({ snapshot: snap2, canEdit: true, makeThumb });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    // Still inside the 30s window - no second capture.
+    expect(makeThumb).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips the autosave thumbnail refresh while the tab is hidden", async () => {
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    const { rerender, makeThumb } = setup();
+    rerender({ snapshot: snap1, canEdit: true, makeThumb });
+    await act(async () => { await vi.advanceTimersByTimeAsync(1100); });
+    expect(updateBoard).toHaveBeenCalledWith("b1", JSON.parse(snap1));
+    expect(makeThumb).not.toHaveBeenCalled();
   });
 
   it("frames the whole board on open, every time", async () => {

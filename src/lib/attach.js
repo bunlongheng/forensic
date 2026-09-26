@@ -105,19 +105,51 @@ export function dataUrlToBlob(dataUrl) {
   return new Blob([bytes], { type: mime })
 }
 
-// Open an exhibit in a new tab. A link opens its URL; an embedded file is handed
-// over as a blob - browsers refuse to navigate a tab to a data: URL, and a blob
-// gets the real viewer (PDF reader, media player) instead of a download prompt.
+// The only schemes a link node may be opened with or rendered as an href. A board
+// can arrive from the agent API or a paste, so node.data.url is untrusted input -
+// javascript: and data: URLs never get handed to window.open.
+const SAFE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:'])
+
+export function isSafeUrl(url) {
+  try { return SAFE_PROTOCOLS.has(new URL(url).protocol) } catch { return false }
+}
+
+// The mime types that may be OPENED as a blob: document. A blob: URL is
+// same-origin, so anything the browser renders as markup there runs under the
+// app's own origin - and node.data.src is untrusted (an agent-written board can
+// carry `data:text/html,<script>...`). These types all render as inert content
+// in the browser's own viewer; svg is excluded even though it is an image,
+// because an SVG document scripts exactly like HTML. Everything else downloads.
+const VIEWABLE_MIME = /^(application\/pdf|image\/(?!svg\b)|audio\/|video\/|text\/plain)/i
+
+// Open an exhibit. A link opens its URL; an embedded file is handed over as a
+// blob - browsers refuse to navigate a tab to a data: URL, and a blob gets the
+// real viewer (PDF reader, media player) instead of a download prompt. A type
+// that is not on the viewable list is downloaded instead of opened, so it never
+// gets a document under this origin.
 export function openAttachment(data) {
   if (data?.url) {
+    if (!isSafeUrl(data.url)) return false
     window.open(data.url, '_blank', 'noopener,noreferrer')
     return true
   }
   if (!data?.src) return false
   try {
-    const url = URL.createObjectURL(dataUrlToBlob(data.src))
-    window.open(url, '_blank', 'noopener,noreferrer')
-    // The new tab has its own reference by now; hold ours briefly for slow loads.
+    const blob = dataUrlToBlob(data.src)
+    const url = URL.createObjectURL(blob)
+    if (VIEWABLE_MIME.test(blob.type)) {
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } else {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = data.name || 'attachment'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    }
+    // The new tab / download has its own reference by now; hold ours briefly
+    // for slow loads.
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
     return true
   } catch { return false }
