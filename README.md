@@ -170,26 +170,6 @@ CI (`.github/workflows/ci.yml`) runs lint, unit tests, migrations, and the e2e s
 a throwaway Postgres on every push and pull request. `prod-monitor.yml` probes the live
 health endpoint on a schedule.
 
-## API
-
-| Method | Route | Auth | Purpose |
-|--------|-------|------|---------|
-| `GET` | `/api/boards` | owner | list the owner's boards |
-| `GET` | `/api/boards?trash=1` | owner | list the owner's trashed boards |
-| `POST` | `/api/boards` | owner | create a board |
-| `GET` | `/api/boards/:id` | public | read a board (for shared links); 404 if trashed |
-| `PUT` | `/api/boards/:id` | owner | update a board |
-| `PUT` | `/api/boards/:id` `{restore:true}` | owner | restore a board out of trash |
-| `DELETE` | `/api/boards/:id` | owner | trash the board (3+ nodes), else hard-delete |
-| `DELETE` | `/api/boards/:id?purge=1` | owner | force a hard delete |
-| `POST` | `/api/ai/boards` | Bearer | the only Bearer-auth route - create for programmatic callers |
-| `GET` | `/api/auth/login` `/callback` `/me` | public | Google OAuth flow + session probe |
-| `POST` | `/api/auth/logout` | public | clear the session |
-| `GET` | `/api/health` | public | liveness + readiness probe |
-
-All SQL is parameterized. Writes are gated on the signed owner session, the localhost dev
-bypass, or (for `POST /api/ai/boards` only) the Bearer secret - and rate limited.
-
 ## Deploy
 
 Every push to `main` deploys to Vercel. Production builds run `db/migrate.mjs` first, so a new
