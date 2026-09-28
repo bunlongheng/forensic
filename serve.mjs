@@ -15,6 +15,9 @@ import listBoards from "./lib/handlers/list-boards.js";
 import health from "./lib/handlers/health.js";
 import { createImage, getImage } from "./lib/handlers/images.js";
 import boardById from "./lib/handlers/board-by-id.js";
+import og from "./lib/handlers/og.js";
+import ogImage from "./lib/handlers/og-image.js";
+import { shareBoardId } from "./lib/share.js";
 import authLogin from "./lib/handlers/auth-login.js";
 import authCallback from "./lib/handlers/auth-callback.js";
 import authMe from "./lib/handlers/auth-me.js";
@@ -47,6 +50,12 @@ app.get("/api/health", withErrors(health));
 app.post("/api/images", withErrors(createImage));
 app.get("/api/images/:id", withErrors(getImage));
 app.all("/api/boards/:id", withErrors(boardById));
+app.get("/api/og", withErrors(og));
+app.get("/api/og-image", withErrors(ogImage));
+
+// A link-preview crawler on a share link gets the OG shell, the same call
+// middleware.js makes on Vercel; a person falls through to the SPA below.
+app.get("/", (req, res, next) => (shareBoardId(req.originalUrl, req.headers["user-agent"]) ? withErrors(og)(req, res) : next()));
 
 // Static SPA + client-side routing fallback.
 const dist = path.join(__dirname, "dist");

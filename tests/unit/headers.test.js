@@ -40,6 +40,13 @@ describe("headersFor (the vercel.json header list serve.mjs shares)", () => {
     expect(headersFor("/api/images/11111111-1111-1111-1111-111111111111")["X-Robots-Tag"]).toBe("noindex, nofollow");
   });
 
+  // The share card is fetched and re-served by other origins' unfurlers, which
+  // the blanket same-origin CORP would refuse.
+  it("lets other origins embed the share card, and only the share card", () => {
+    expect(headersFor("/api/og-image")["Cross-Origin-Resource-Policy"]).toBe("cross-origin");
+    expect(headersFor("/api/og")["Cross-Origin-Resource-Policy"]).toBe("same-origin");
+  });
+
   it("caches the hashed build output for a year and nothing else", () => {
     expect(headersFor("/assets/index-abc123.js")["Cache-Control"]).toBe("public, max-age=31536000, immutable");
     expect(headersFor("/")["Cache-Control"]).toBeUndefined();
@@ -47,6 +54,6 @@ describe("headersFor (the vercel.json header list serve.mjs shares)", () => {
   });
 
   it("covers every rule in vercel.json (nothing declared but unreachable)", () => {
-    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)"]);
+    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)", "/api/og-image"]);
   });
 });

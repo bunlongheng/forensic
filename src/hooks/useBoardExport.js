@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 
 // The two ways a board leaves the app: a PNG of the whole corkboard, and a link
 // to it on the clipboard.
-export function useBoardExport({ boardId, title, wrapRef, canvasColor, showToast, fitView, getViewport, setViewport }) {
+export function useBoardExport({ boardId, title, wrapRef, canvasColor, showToast, fitView, getViewport, setViewport, onShared }) {
   const exportPng = useCallback(() => {
     // Capture the whole board window - frame, lamps and all - minus the UI chrome.
     const el = wrapRef.current
@@ -28,7 +28,12 @@ export function useBoardExport({ boardId, title, wrapRef, canvasColor, showToast
   const share = useCallback(() => {
     const url = `${window.location.origin}/?id=${boardId}`
     navigator.clipboard.writeText(url).then(() => showToast('Share link copied')).catch(() => showToast('Copy failed'))
-  }, [boardId, showToast])
+    // The link's preview card is the board's saved snapshot, so refresh it now:
+    // what the owner sees while copying is what the recipient's unfurl shows.
+    // After the copy, not before - the clipboard write has to stay inside the
+    // click gesture or Safari refuses it.
+    onShared?.()
+  }, [boardId, showToast, onShared])
 
   return { exportPng, share }
 }

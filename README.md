@@ -32,7 +32,7 @@ Pin unlimited images, links, PDFs and notes, zoom without limits, and wire the c
 - **Undo / redo** - 100 steps of durable history, `Cmd/Ctrl+Z`, `Cmd/Ctrl+Shift+Z`, or `Cmd/Ctrl+Y`.
 - **Autosave + crash safety** - debounced saves to Postgres, a fast local draft on this device, and a retry the moment the connection returns.
 - **Boards** - a searchable gallery of saved boards with live vector previews and a trash with restore (or empty it for good).
-- **Share** - copy a public read-only link to any board. Phones and touch devices always open read-only.
+- **Share** - copy a public read-only link to any board. Pasted into Slack, iMessage, X or LinkedIn, the link unfurls with a live snapshot of the board itself - the same idea as the Sequences, Flows and Mindmaps cards. Phones and touch devices always open read-only.
 - **Light & dark** - the whole canvas + chrome theme together; your choice is remembered.
 
 ### Evidence types

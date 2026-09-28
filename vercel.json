@@ -27,6 +27,10 @@
     {
       "source": "/api/(.*)",
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
+      "source": "/api/og-image",
+      "headers": [{ "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }]
     }
   ]
 }

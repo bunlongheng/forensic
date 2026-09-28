@@ -9,12 +9,12 @@ import { useBoardExport } from "../../src/hooks/useBoardExport.js";
 
 const VP = { x: 12, y: 34, zoom: 1.5 };
 
-function setup({ el = document.createElement("div"), title = "Case: Alpha!" } = {}) {
+function setup({ el = document.createElement("div"), title = "Case: Alpha!", onShared } = {}) {
   const showToast = vi.fn(), fitView = vi.fn(), setViewport = vi.fn();
   const getViewport = vi.fn(() => VP);
   const { result } = renderHook(() => useBoardExport({
     boardId: "b1", title, wrapRef: { current: el }, canvasColor: "#e0cfa6",
-    showToast, fitView, getViewport, setViewport,
+    showToast, fitView, getViewport, setViewport, onShared,
   }));
   return { result, showToast, fitView, setViewport };
 }
@@ -35,6 +35,17 @@ describe("useBoardExport", () => {
     await act(async () => { await result.current.share(); });
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/?id=b1`);
     expect(showToast).toHaveBeenCalledWith("Share link copied");
+  });
+
+  // The link's card is the saved snapshot, so sharing refreshes it - after the
+  // copy, so the clipboard write stays inside the click gesture.
+  it("refreshes the snapshot the share card shows, after copying", async () => {
+    const calls = [];
+    const writeText = vi.fn(() => { calls.push("copy"); return Promise.resolve(); });
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const { result } = setup({ onShared: () => calls.push("thumb") });
+    await act(async () => { await result.current.share(); });
+    expect(calls).toEqual(["copy", "thumb"]);
   });
 
   it("says so when the clipboard refuses", async () => {

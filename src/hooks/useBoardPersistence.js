@@ -224,5 +224,5 @@ export function useBoardPersistence({ board, canEdit, snapshot, restore, fitView
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  return { save }
+  return { save, pushThumb }
 }
