@@ -197,6 +197,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
         deleteKeyCode={canEdit ? ['Backspace', 'Delete'] : null}
         selectionOnDrag={canEdit}
         panOnScroll
+        panOnScrollSpeed={1}
         proOptions={{ hideAttribution: true }}
       >
         <SnapGuides guides={guides} color={theme.accent} />
