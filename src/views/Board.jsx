@@ -86,7 +86,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
     [theme.canvas],
   )
 
-  const { save } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb })
+  const { save, pushThumb } = useBoardPersistence({ board, canEdit, snapshot, restore, fitView, showToast, makeThumb })
   const { undo, redo, canUndo, canRedo } = useUndoRedo({ snapshot, canEdit, restore })
 
   // Keep the inspector the same width as the top-right toolbar so they line up.
@@ -156,6 +156,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
 
   const { exportPng, share } = useBoardExport({
     boardId: board.id, title, wrapRef, canvasColor: theme.canvas, showToast, fitView, getViewport, setViewport,
+    onShared: canEdit ? pushThumb : undefined,
   })
 
   return (

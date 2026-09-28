@@ -152,6 +152,28 @@ rewritten, so it can be cached forever - plus a sandboxed
 nosniff`, so an `image/svg+xml` row navigated to directly (not rendered inside an
 `<img>`) renders inert instead of as a scriptable same-origin document.
 
+### GET /api/og?id=<uuid> - share card for a board
+
+Public. The HTML shell a link unfurler (Slack, iMessage, X, LinkedIn, Discord)
+reads when a share link (`/?id=<uuid>`) is pasted: `og:title` is the board's
+title, `og:description` says how many exhibits and threads are on it, and
+`og:image` points at `/api/og-image` for a board that has a saved snapshot (the
+site card `/og.png` otherwise). On Vercel the root `middleware.js` rewrites a
+crawler's hit on `/?id=<uuid>` here; `serve.mjs` does the same locally. A
+person never lands here - the page refreshes to the app anyway. `400` on a
+non-uuid id; an unknown board gets the generic site card.
+
+### GET /api/og-image?id=<uuid> - the board's snapshot as a 1200x630 card
+
+Public, rate-limited 120/min per IP. The board's own saved snapshot (the same
+real capture of the canvas the gallery card shows) fitted into the 1200x630
+frame every unfurler crops to, as JPEG, with the bars around it in the canvas
+colour. `302` to `/og.png` when the board has no snapshot yet. The URL `og.js`
+emits carries `&v=<hash of the snapshot>`, so a new capture is a new URL and
+the card can be cached for a day (`Cache-Control: public, max-age=3600,
+s-maxage=86400`). Served with `Cross-Origin-Resource-Policy: cross-origin` so
+other origins' unfurlers may embed it.
+
 ### GET /api/health - liveness/readiness
 
 Public. Checks the API secret, owner id, Google OAuth vars, auth secret, owner
