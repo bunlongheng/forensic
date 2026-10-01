@@ -186,9 +186,10 @@ describe("share-alert", () => {
       process.env.OWNER_EMAIL = "owner@example.com";
       process.env.STICKIES_API_KEY = "sk_test";
       dbOk(2);
-      const fetch = stubFetch({ ok: false, status: 500 });
+      const fetch = stubFetch({ ok: false, status: 500, text: async () => '{"message":"boom"}' });
       await notifyShareView(visit());
       expect(fetch.mock.calls.some(([u]) => u === "http://localhost:4444/api/stickies/ext")).toBe(true);
+      expect(console.error).toHaveBeenCalledWith("[share-alert] resend", 500, '{"message":"boom"}');
       expect(console.error).toHaveBeenCalledWith("[share-alert] failed:", "stickies 500");
     });
 
