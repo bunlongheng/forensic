@@ -31,6 +31,10 @@
     {
       "source": "/api/og-image",
       "headers": [{ "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }]
+    },
+    {
+      "source": "/icon-(\\d+).png",
+      "headers": [{ "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }]
     }
   ]
 }
