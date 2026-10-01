@@ -145,6 +145,19 @@ describe("share-alert", () => {
       expect(query.mock.calls[2]).toEqual([expect.stringMatching(/SET emailed = true WHERE id = \$1/), ["log-1"]]);
     });
 
+    it("delivers to both channels when both keys are set", async () => {
+      process.env.RESEND_API_KEY = "re_test";
+      process.env.OWNER_EMAIL = "owner@example.com";
+      process.env.STICKIES_API_KEY = "sk_test";
+      dbOk(2);
+      const fetch = stubFetch({ ok: true });
+      await notifyShareView(visit());
+      expect(fetch.mock.calls.filter(([u]) => u === "https://api.resend.com/emails")).toHaveLength(1);
+      expect(fetch.mock.calls.filter(([u]) => u === "http://localhost:4444/api/stickies/ext")).toHaveLength(1);
+      expect(query.mock.calls.some(([q]) => /SET emailed = true/.test(q))).toBe(true);
+      expect(console.warn).not.toHaveBeenCalled();
+    });
+
     it("posts a Stickies note when no email key is set, with the Opened prefix never stacked", async () => {
       process.env.STICKIES_API_KEY = "sk_test";
       dbOk(1);
@@ -168,7 +181,7 @@ describe("share-alert", () => {
       expect(console.warn).toHaveBeenCalledWith(expect.stringMatching(/nobody alerted/));
     });
 
-    it("falls back to the note when Resend answers with an error", async () => {
+    it("still posts the note when Resend answers with an error", async () => {
       process.env.RESEND_API_KEY = "re_test";
       process.env.OWNER_EMAIL = "owner@example.com";
       process.env.STICKIES_API_KEY = "sk_test";
