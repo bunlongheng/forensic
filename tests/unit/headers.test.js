@@ -57,6 +57,6 @@ describe("headersFor (the vercel.json header list serve.mjs shares)", () => {
   });
 
   it("covers every rule in vercel.json (nothing declared but unreachable)", () => {
-    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)", "/api/og-image"]);
+    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)", "/api/og-image", "/icon-(\\d+).png"]);
   });
 });
