@@ -5,6 +5,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 const query = vi.fn();
 vi.mock("../../lib/db.js", () => ({ default: { query: (...a) => query(...a) } }));
 
+// The share alert is fire-and-forget off the public GET; stub the delivery and
+// keep the real isBot / readVisit so the handler's skip rules are what is tested.
+const notifyShareView = vi.fn(() => Promise.resolve());
+vi.mock("../../lib/share-alert.js", async (orig) => ({ ...(await orig()), notifyShareView: (...a) => notifyShareView(...a) }));
+
 const { default: boardById } = await import("../../lib/handlers/board-by-id.js");
 
 function mockRes() {
@@ -59,6 +64,7 @@ describe("/api/boards/:id (boardById)", () => {
     process.env.LOCAL_DEV = "true"; // the dev bypass is opt-in in every environment
     process.env.OWNER_USER_ID = "owner-1";
     query.mockReset();
+    notifyShareView.mockClear();
   });
   afterEach(() => {
     process.env.NODE_ENV = orig.NODE_ENV;
@@ -108,6 +114,39 @@ describe("/api/boards/:id (boardById)", () => {
       const res = mockRes();
       await boardById(remoteReq("GET", ID), res);
       expect(res.statusCode).toBe(200);
+    });
+
+    it("alerts the owner once when a visitor opens the shared link", async () => {
+      query.mockResolvedValueOnce({ rows: [ROW] });
+      const res = mockRes();
+      await boardById(remoteReq("GET", ID, undefined, { headers: { "x-forwarded-for": "73.159.109.147", "user-agent": "Mozilla/5.0 (iPhone) Safari/604.1" } }), res);
+      expect(res.statusCode).toBe(200);
+      expect(notifyShareView).toHaveBeenCalledTimes(1);
+      expect(notifyShareView.mock.calls[0][0]).toMatchObject({ id: ID, title: "My Board", kind: "view", ip: "73.159.109.147", link: `https://forensic-bheng.vercel.app/?id=${ID}` });
+    });
+
+    it("does not alert for a link-preview crawler", async () => {
+      query.mockResolvedValueOnce({ rows: [ROW] });
+      const res = mockRes();
+      await boardById(remoteReq("GET", ID, undefined, { headers: { "user-agent": "Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)" } }), res);
+      expect(res.statusCode).toBe(200);
+      expect(notifyShareView).not.toHaveBeenCalled();
+    });
+
+    it("does not alert when the owner opens their own board", async () => {
+      query.mockResolvedValueOnce({ rows: [ROW] });
+      const res = mockRes();
+      await boardById(localReq("GET", ID, undefined, { headers: { "user-agent": "Mozilla/5.0 (Macintosh) Safari/605.1.15" } }), res);
+      expect(res.statusCode).toBe(200);
+      expect(notifyShareView).not.toHaveBeenCalled();
+    });
+
+    it("does not alert on a 404", async () => {
+      query.mockResolvedValueOnce({ rows: [] });
+      const res = mockRes();
+      await boardById(remoteReq("GET", ID, undefined, { headers: { "user-agent": "Mozilla/5.0 (iPhone) Safari/604.1" } }), res);
+      expect(res.statusCode).toBe(404);
+      expect(notifyShareView).not.toHaveBeenCalled();
     });
   });
 

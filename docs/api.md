@@ -103,6 +103,10 @@ the Trash instead (soft-deleted boards, ordered by `trashed_at` descending).
 
 Public (this is what makes a share link work). `404` if not found or trashed.
 Response: `{ id, title, slug, nodes, edges, type, tags, thumbnail, created_at, updated_at }`.
+A read by someone who is not the owner (and not a link-preview crawler) is
+posted to Notify after the response goes out, which logs it and emails the
+owner - see `lib/share-alert.js` and the `NOTIFY_*` variables in the README.
+The visitor never waits on it.
 
 ### PUT /api/boards/:id - update a board (autosave)
 

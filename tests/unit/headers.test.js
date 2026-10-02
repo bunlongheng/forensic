@@ -42,9 +42,12 @@ describe("headersFor (the vercel.json header list serve.mjs shares)", () => {
 
   // The share card is fetched and re-served by other origins' unfurlers, which
   // the blanket same-origin CORP would refuse.
-  it("lets other origins embed the share card, and only the share card", () => {
+  it("lets other origins embed the share card and the app icons, nothing else", () => {
     expect(headersFor("/api/og-image")["Cross-Origin-Resource-Policy"]).toBe("cross-origin");
+    // The share-view alert posted into Stickies shows our icon from this origin.
+    expect(headersFor("/icon-96.png")["Cross-Origin-Resource-Policy"]).toBe("cross-origin");
     expect(headersFor("/api/og")["Cross-Origin-Resource-Policy"]).toBe("same-origin");
+    expect(headersFor("/favicon.png")["Cross-Origin-Resource-Policy"]).toBe("same-origin");
   });
 
   it("caches the hashed build output for a year and nothing else", () => {
@@ -54,6 +57,6 @@ describe("headersFor (the vercel.json header list serve.mjs shares)", () => {
   });
 
   it("covers every rule in vercel.json (nothing declared but unreachable)", () => {
-    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)", "/api/og-image"]);
+    expect(vercel.headers.map((r) => r.source)).toEqual(["/(.*)", "/assets/(.*)", "/api/(.*)", "/api/og-image", "/icon-(\\d+).png"]);
   });
 });

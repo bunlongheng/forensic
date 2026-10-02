@@ -166,6 +166,7 @@ npm run prod              # vite build + Express server serving dist/ + the API
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth web client |
 | `AUTH_SECRET` | yes | Session-cookie signing secret |
 | `OWNER_EMAIL` | yes | The only Google account allowed to sign in |
+| `NOTIFY_APP` / `NOTIFY_URL` / `NOTIFY_SECRET` | no | Report a shared-board open to Notify, which emails the owner (`lib/share-alert.js`, the same file every app ships) |
 | `SESSION_MIN_IAT` | no | Unix seconds; sessions issued before this are rejected (rotate after a suspected leak) |
 | `LOCAL_DEV` | yes, for local dev | Must be set to `"true"` explicitly to get the dev-only auth bypass on localhost / LAN - it is opt-in in every environment, nothing defaults it on. Never set on Vercel (prod or preview) - `lib/env.js` fails the build if it is |
 | `PORT` | no | Server port, default `4336` |
