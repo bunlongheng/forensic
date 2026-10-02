@@ -122,7 +122,7 @@ describe("/api/boards/:id (boardById)", () => {
       await boardById(remoteReq("GET", ID, undefined, { headers: { "x-forwarded-for": "73.159.109.147", "user-agent": "Mozilla/5.0 (iPhone) Safari/604.1" } }), res);
       expect(res.statusCode).toBe(200);
       expect(notifyShareView).toHaveBeenCalledTimes(1);
-      expect(notifyShareView.mock.calls[0][0]).toMatchObject({ boardId: ID, title: "My Board", kind: "view", ip: "73.159.109.147" });
+      expect(notifyShareView.mock.calls[0][0]).toMatchObject({ id: ID, title: "My Board", kind: "view", ip: "73.159.109.147", link: `https://forensic-bheng.vercel.app/?id=${ID}` });
     });
 
     it("does not alert for a link-preview crawler", async () => {

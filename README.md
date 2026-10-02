@@ -166,9 +166,7 @@ npm run prod              # vite build + Express server serving dist/ + the API
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes | Google OAuth web client |
 | `AUTH_SECRET` | yes | Session-cookie signing secret |
 | `OWNER_EMAIL` | yes | The only Google account allowed to sign in |
-| `RESEND_API_KEY` / `SHARE_ALERT_FROM` | no | Email the owner when someone opens a shared board (`lib/share-alert.js`); the sender defaults to `Forensic <onboarding@resend.dev>` |
-| `STICKIES_API_KEY` | no | Also posts the same alert as a note to Stickies on `localhost:4444`; each configured channel is used |
-| `IPINFO_TOKEN` | no | Lifts the keyless ipinfo.io rate limit on the visitor geo lookup in share alerts |
+| `NOTIFY_APP` / `NOTIFY_URL` / `NOTIFY_SECRET` | no | Report a shared-board open to Notify, which emails the owner (`lib/share-alert.js`, the same file every app ships) |
 | `SESSION_MIN_IAT` | no | Unix seconds; sessions issued before this are rejected (rotate after a suspected leak) |
 | `LOCAL_DEV` | yes, for local dev | Must be set to `"true"` explicitly to get the dev-only auth bypass on localhost / LAN - it is opt-in in every environment, nothing defaults it on. Never set on Vercel (prod or preview) - `lib/env.js` fails the build if it is |
 | `PORT` | no | Server port, default `4336` |
