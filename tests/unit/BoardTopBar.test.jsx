@@ -22,12 +22,17 @@ const base = {
 };
 
 describe("BoardTopBar", () => {
-  // A signed-out deep link used to look exactly like an editable board, so every
-  // edit died in silence. The bar has to say which kind of read-only this is.
-  it("a signed-out viewer gets a READ-ONLY pill and a way back in", () => {
+  // A shared-link viewer came to read, not to edit: no pill, no sign-in nag,
+  // and none of the owner's share / report / theme buttons.
+  it("a shared-link viewer gets no READ-ONLY pill and only the reading tools", () => {
     render(<TopBar {...base} canEdit={false} readOnly="auth" />);
-    expect(screen.getByText("READ-ONLY")).toBeInTheDocument();
-    expect(screen.getByText("SIGN IN TO EDIT")).toHaveAttribute("href", "/api/auth/login");
+    expect(screen.queryByText("READ-ONLY")).toBeNull();
+    expect(screen.queryByText("SIGN IN TO EDIT")).toBeNull();
+    expect(screen.queryByTitle("Copy share link")).toBeNull();
+    expect(screen.queryByTitle("Case report")).toBeNull();
+    expect(screen.queryByTitle("Toggle theme")).toBeNull();
+    expect(screen.getByTitle("Fit to view")).toBeInTheDocument();
+    expect(screen.getByTitle("Export PNG")).toBeInTheDocument();
   });
 
   it("a read-only device says desktop only, with no sign-in link", () => {
@@ -78,9 +83,9 @@ describe("BoardTopBar", () => {
     expect(screen.getByText("Case 1")).toBeInTheDocument();
     expect(screen.queryByTitle("Undo (Cmd/Ctrl+Z)")).not.toBeInTheDocument();
     expect(screen.queryByTitle("Copy share link")).not.toBeInTheDocument();
-    expect(screen.getByTitle("Case report")).toBeInTheDocument(); // viewers can read the report too
+    expect(screen.queryByTitle("Case report")).not.toBeInTheDocument();
     expect(screen.getByTitle("Fit to view")).toBeInTheDocument();
-    expect(screen.getByTitle("Toggle theme")).toBeInTheDocument();
+    expect(screen.queryByTitle("Toggle theme")).not.toBeInTheDocument();
   });
 });
 

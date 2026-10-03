@@ -54,7 +54,7 @@ test("a real hostname, signed out, renders the sign-in screen", async ({ page, b
 // The bug this guards: a ?id= link skips the sign-in gate, so an expired session
 // used to land on a board that LOOKED editable and swallowed every edit -
 // paste included - with no pill, no banner and no toast.
-test("a signed-out ?id= link says READ-ONLY and refuses a paste out loud", async ({ page, baseURL, request }) => {
+test("a signed-out ?id= link shows a clean read view and refuses a paste out loud", async ({ page, baseURL, request }) => {
   const create = await request.post("/api/boards", { data: { title: "E2E readonly", nodes: [], edges: [] } });
   const id = (await create.json()).id;
   await spoofHost(page, baseURL);
@@ -63,11 +63,14 @@ test("a signed-out ?id= link says READ-ONLY and refuses a paste out loud", async
   try {
     await page.goto(`http://forensic.test/?id=${id}`);
 
-    await expect(page.getByText("READ-ONLY")).toBeVisible();
-    const signIn = page.getByRole("link", { name: "SIGN IN TO EDIT" });
-    await expect(signIn).toHaveAttribute("href", "/api/auth/login");
-    // The edit chrome is gone, so there is nothing to click that quietly fails.
-    await expect(page.getByRole("button", { name: "Open add tools" })).toHaveCount(0);
+    // Viewers get the reading tools only: no pill, no sign-in nag, no share,
+    // report or theme buttons, and no edit chrome to click that quietly fails.
+    await expect(page.getByTitle("Fit to view")).toBeVisible();
+    await expect(page.getByText("READ-ONLY")).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "SIGN IN TO EDIT" })).toHaveCount(0);
+    for (const name of ["Copy share link", "Case report", "Toggle theme", "Open add tools"]) {
+      await expect(page.getByRole("button", { name })).toHaveCount(0);
+    }
 
     // A paste carrying real evidence gets an answer instead of silence.
     await page.evaluate(() => {

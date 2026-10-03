@@ -68,15 +68,12 @@ export function BoardTopBar({
           )
         )}
       </div>
-      {/* A read-only board is otherwise indistinguishable from an editable one -
-          the session just expired, or you are on a phone - and every edit dies
-          silently. Say which, and offer the way back in. */}
-      {readOnly && (
+      {/* The owner on a phone needs to know WHY they cannot edit. A shared-link
+          viewer does not: they only came to read, so no pill, no sign-in nag. */}
+      {readOnly === 'device' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '4px 10px', boxShadow: 'var(--shadow-sm)', pointerEvents: 'auto' }}>
           <span className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--muted)' }}>READ-ONLY</span>
-          {readOnly === 'auth'
-            ? <a href="/api/auth/login" className="mono" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', color: 'var(--accent)' }}>SIGN IN TO EDIT</a>
-            : <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)' }}>desktop only</span>}
+          <span className="mono fx-mobile-hide" style={{ fontSize: 10.5, color: 'var(--muted)' }}>desktop only</span>
         </div>
       )}
       <div style={{ flex: 1 }} />
@@ -92,11 +89,13 @@ export function BoardTopBar({
         {canEdit && <button onClick={redo} disabled={!canRedo} title="Redo (Cmd/Ctrl+Shift+Z)" style={dim(canRedo)}><Icon name="redo" size={16} /></button>}
         <button onClick={onFit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>
         <button onClick={onExport} title="Export PNG" style={iconBtn}><Icon name="download" size={16} /></button>
-        {onShare && <button onClick={onShare} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}
-        <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>
+        {/* Viewers get the reading tools only: zoom, fit, export. No re-share,
+            no report, no theme toggle on a shared link. */}
+        {canEdit && onShare && <button onClick={onShare} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}
+        {canEdit && <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>}
         {canEdit && <button onClick={onAddImage} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
         {canEdit && <button onClick={onAddSticker} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
-        <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>
+        {canEdit && <button onClick={onToggleTheme} title="Toggle theme" style={iconBtn}><Icon name={themeName === 'dark' ? 'sun' : 'moon'} size={16} /></button>}
       </div>
     </div>
   )
