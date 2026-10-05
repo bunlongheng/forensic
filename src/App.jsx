@@ -3,6 +3,7 @@ import { useTheme, PHONE_MAX } from './theme.js'
 import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
 import { Toast } from './components/Toast.jsx'
+import { SocialFooter } from './components/SocialFooter.jsx'
 import Gallery from './views/Gallery.jsx'
 import Trash from './views/Trash.jsx'
 // The canvas (React Flow + every node type) is by far the heaviest chunk - load it
@@ -245,6 +246,10 @@ export default function App() {
           <Board key={active.id} board={active} canEdit={canEdit} readOnly={readOnly} theme={t} themeName={themeMode}
             onToggleTheme={toggle} onBack={backToGallery} showToast={showToast} />
         </Suspense>
+        {/* A shared link is someone else's board being read, so it ends the way
+            every shared link in the family ends: the signature and the socials.
+            Signed in means working, and work needs the whole canvas. */}
+        {!signedIn && <SocialFooter t={t} />}
         <Toast {...toast} />
       </>
     )
