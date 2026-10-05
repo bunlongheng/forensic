@@ -88,7 +88,10 @@ export function SocialFooter({ t }) {
         @media (prefers-reduced-motion:reduce){
           .sf-liquid,.sf-ico:hover .sf-liquid{transition:none}
         }
-        .sf-sig{display:block;height:26px;width:auto;object-fit:contain;user-select:none}
+        /* The signature is ink on white with no alpha, so it is multiplied into
+           whatever it sits on: the white chip on the dark theme leaves it exactly as
+           drawn, and a tinted panel keeps the ink instead of a white box. */
+        .sf-sig{display:block;height:26px;width:auto;object-fit:contain;user-select:none;mix-blend-mode:multiply}
         @media (max-width: 560px){ .sf-built{display:none} }
       `}</style>
       <span className="sf-built" style={{ fontSize: 12, color: t.muted, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
