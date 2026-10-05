@@ -4,8 +4,10 @@
 // shared board instead of a bar across the page, because a board is a canvas,
 // not a document: the bar would cross the minimap and the version stamp, and
 // the board's own chrome (the add button, the minimap) already floats in panels
-// exactly like this one. Visitors only - the owner is working, not reading a
-// portfolio - and fx-noexport keeps it out of PNG and report exports.
+// exactly like this one: same radius, same border, same small shadow, so the
+// bottom left of a shared board reads as the top left of it. Visitors only -
+// the owner is working, not reading a portfolio - and fx-noexport keeps it out
+// of PNG and report exports.
 //
 // The signature is drawn on white with no alpha, so on the dark theme it sits in
 // a white chip; on the light theme the panel is already white and the chip
@@ -64,8 +66,8 @@ export function SocialFooter({ t }) {
       position: 'fixed', zIndex: 9,
       left: 'calc(20px + env(safe-area-inset-left))', bottom: 'calc(20px + env(safe-area-inset-bottom))',
       display: 'flex', alignItems: 'center', gap: 14,
-      padding: '7px 12px', borderRadius: 12,
-      background: t.panel, border: `1px solid ${t.panelBorder}`, boxShadow: 'var(--shadow)',
+      padding: '5px 10px', borderRadius: 10,
+      background: t.panel, border: `1px solid ${t.panelBorder}`, boxShadow: 'var(--shadow-sm)',
       ['--sf-tile']: t.panel, ['--sf-border']: t.panelBorder, ['--sf-ink']: t.muted,
     }}>
       <style>{`
