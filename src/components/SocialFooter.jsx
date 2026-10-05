@@ -64,7 +64,9 @@ export function SocialFooter({ t }) {
   return (
     <div className="fx-noexport" style={{
       position: 'fixed', zIndex: 9,
-      left: 'calc(20px + env(safe-area-inset-left))', bottom: 'calc(20px + env(safe-area-inset-bottom))',
+      // 42px, the gutter the board's own top bar sits in, so the panel at the
+      // bottom left mirrors the panels at the top instead of hugging the corner.
+      left: 'calc(42px + env(safe-area-inset-left))', bottom: 'calc(42px + env(safe-area-inset-bottom))',
       display: 'flex', alignItems: 'center', gap: 14,
       padding: '5px 10px', borderRadius: 10,
       background: t.panel, border: `1px solid ${t.panelBorder}`, boxShadow: 'var(--shadow-sm)',
@@ -93,7 +95,7 @@ export function SocialFooter({ t }) {
         /* The signature is ink on white with no alpha, so it is multiplied into
            whatever it sits on: the white chip on the dark theme leaves it exactly as
            drawn, and a tinted panel keeps the ink instead of a white box. */
-        .sf-sig{display:block;height:26px;width:auto;object-fit:contain;user-select:none;mix-blend-mode:multiply}
+        .sf-sig{display:block;height:28px;width:auto;object-fit:contain;user-select:none;mix-blend-mode:multiply}
         @media (max-width: 560px){ .sf-built{display:none} }
       `}</style>
       <span className="sf-built" style={{ fontSize: 12, color: t.muted, display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
