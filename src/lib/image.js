@@ -14,8 +14,12 @@
 import { IMAGE_MAX } from './constants.js'
 import { shrinkGif, canShrinkGifs, HARD_MAX_BYTES } from './gifShrink.js'
 
-const MAX = 1800 // long-edge cap - balance zoom sharpness vs Vercel's 4.5MB save limit
-const QUALITY = 0.82
+// Long-edge cap and WebP quality. These used to be 1800 / 0.82 to keep a board's
+// inline base64 under Vercel's 4.5 MB save limit; images now live in their own
+// rows (3 MB each), so a full-size 2856x3504 report export stays at native
+// pixels and lands around 1 MB. Dense table text does not survive 1800 / 0.82.
+const MAX = 4000
+const QUALITY = 0.92
 
 // What counts as a photo. The browser's MIME is authoritative when it has one, but
 // files arrive typeless or as application/octet-stream often enough (a .webp saved
