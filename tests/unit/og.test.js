@@ -43,6 +43,15 @@ describe("GET /api/og", () => {
     expect(r.sent).toContain('content="An evidence board on Forensic."');
   });
 
+  it("never puts a passcode-locked board's snapshot or counts in the card", async () => {
+    query.mockResolvedValue({ rows: [{ title: "Locked", thumbnail: THUMB, passcode_hash: "a$b", node_count: 4, edge_count: 2 }] });
+    const r = res();
+    await og(req(ID), r);
+    expect(r.sent).toContain('content="https://forensic-bheng.vercel.app/og.png"');
+    expect(r.sent).not.toContain("/api/og-image");
+    expect(r.sent).toContain('content="A passcode-locked evidence board on Forensic."');
+  });
+
   it("still answers with the generic card when the board is unknown or the DB is down", async () => {
     query.mockResolvedValueOnce({ rows: [] });
     let r = res();

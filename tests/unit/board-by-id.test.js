@@ -11,6 +11,7 @@ const notifyShareView = vi.fn(() => Promise.resolve());
 vi.mock("../../lib/share-alert.js", async (orig) => ({ ...(await orig()), notifyShareView: (...a) => notifyShareView(...a) }));
 
 const { default: boardById } = await import("../../lib/handlers/board-by-id.js");
+const { hashPasscode, sealPasscode, unlockCookieName, unlockToken } = await import("../../lib/passcode.js");
 
 function mockRes() {
   return {
@@ -91,7 +92,7 @@ describe("/api/boards/:id (boardById)", () => {
       const res = mockRes();
       await boardById(remoteReq("GET", ID), res);
       expect(res.statusCode).toBe(200);
-      expect(res.body).toEqual(ROW);
+      expect(res.body).toEqual({ ...ROW, has_passcode: false });
       expect(query).toHaveBeenCalledWith(expect.stringMatching(/AND trashed_at IS NULL/), [ID]);
     });
 
@@ -373,5 +374,72 @@ describe("/api/boards/:id (boardById)", () => {
     const res = mockRes();
     await boardById(localReq("PATCH", ID), res);
     expect(res.statusCode).toBe(405);
+  });
+
+  describe("passcode", () => {
+    const LOCKED = async () => {
+      const hash = await hashPasscode("secret 1");
+      return { hash, row: { ...ROW, passcode_hash: hash, passcode_enc: sealPasscode("secret 1") } };
+    };
+
+    it("401 passcode_required for a visitor without the cookie", async () => {
+      const { row } = await LOCKED();
+      query.mockResolvedValueOnce({ rows: [row] });
+      const res = mockRes();
+      await boardById(remoteReq("GET", ID), res);
+      expect(res.statusCode).toBe(401);
+      expect(res.body).toEqual({ error: "Passcode required", passcode_required: true, id: ID });
+      expect(res.headers["Cache-Control"]).toBe("private, no-store");
+    });
+
+    it("200 with a valid unlock cookie, never leaking the hash", async () => {
+      const { hash, row } = await LOCKED();
+      query.mockResolvedValueOnce({ rows: [row] });
+      const res = mockRes();
+      const cookie = `${unlockCookieName(ID)}=${unlockToken(ID, hash)}`;
+      await boardById(remoteReq("GET", ID, undefined, { headers: { cookie } }), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.has_passcode).toBe(true);
+      expect(res.body).not.toHaveProperty("passcode_hash");
+      expect(res.body).not.toHaveProperty("passcode_enc");
+      expect(res.body).not.toHaveProperty("passcode");
+    });
+
+    it("the owner reads the plain passcode back", async () => {
+      const { row } = await LOCKED();
+      query.mockResolvedValueOnce({ rows: [row] });
+      const res = mockRes();
+      await boardById(localReq("GET", ID), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body.passcode).toBe("secret 1");
+    });
+
+    it("PUT sets a passcode: hashed, sealed, echoed normalised", async () => {
+      query.mockResolvedValueOnce({ rows: [{ id: ID, has_passcode: true }] });
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { passcode: "Secret 1" }), res);
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toEqual({ id: ID, has_passcode: true, passcode: "secret 1" });
+      const [sql, vals] = query.mock.calls[0];
+      expect(sql).toMatch(/SET passcode_hash/);
+      expect(vals[0]).toMatch(/^[0-9a-f]+\$[0-9a-f]+$/);
+      expect(vals[1]).toMatch(/\./);
+      expect(vals[2]).toBe(ID);
+    });
+
+    it("PUT with an empty passcode clears both columns", async () => {
+      query.mockResolvedValueOnce({ rows: [{ id: ID, has_passcode: false }] });
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { passcode: "" }), res);
+      expect(query.mock.calls[0][1]).toEqual([null, null, ID]);
+      expect(res.body).toEqual({ id: ID, has_passcode: false, passcode: "" });
+    });
+
+    it("400 for a passcode over 200 characters", async () => {
+      const res = mockRes();
+      await boardById(localReq("PUT", ID, { passcode: "x".repeat(201) }), res);
+      expect(res.statusCode).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    });
   });
 });

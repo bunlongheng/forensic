@@ -1,5 +1,6 @@
 import { useStore } from '@xyflow/react'
 import { Icon } from './Icon.jsx'
+import { PasscodeControl } from './PasscodeControl.jsx'
 
 const SAVE_LABEL = {
   saving: 'Saving…', saved: 'Saved', error: 'Offline · safe on this device', idle: '',
@@ -36,7 +37,7 @@ function ZoomPct() {
 export function BoardTopBar({
   canEdit, readOnly, title, onTitle, save, onBack, toolbarRef,
   undo, redo, canUndo, canRedo, onFit, onExport, onShare, onReport,
-  onAddTool, onAddImage, onAddSticker, onToggleTheme, themeName,
+  onAddTool, onAddImage, onAddSticker, onToggleTheme, themeName, hasPasscode, passcode, onSetPasscode,
 }) {
   const saveLabel = SAVE_LABEL[save]
   const dim = (on) => ({ ...iconBtn, opacity: on ? 1 : 0.35, cursor: on ? 'pointer' : 'default' })
@@ -93,6 +94,7 @@ export function BoardTopBar({
         <button onClick={onFit} title="Fit to view" style={iconBtn}><Icon name="fit" size={16} /></button>
         <button onClick={onExport} title="Export PNG" style={iconBtn}><Icon name="download" size={16} /></button>
         {onShare && <button onClick={onShare} title="Copy share link" style={iconBtn}><Icon name="share" size={16} /></button>}
+        {onSetPasscode && <PasscodeControl hasPasscode={hasPasscode} passcode={passcode} onSave={onSetPasscode} />}
         <button onClick={onReport} title="Case report" style={iconBtn}><Icon name="report" size={16} /></button>
         {canEdit && <button onClick={onAddImage} title="Add image" style={iconBtn}><Icon name="image" size={16} /></button>}
         {canEdit && <button onClick={onAddSticker} title="Add sticker" style={iconBtn}><Icon name="sticker" size={16} /></button>}
