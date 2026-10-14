@@ -4,6 +4,8 @@ async function j(res) {
   if (!res.ok) {
     const err = new Error(`HTTP ${res.status}`)
     err.status = res.status
+    // The 401 passcode gate carries passcode_required + id.
+    err.body = await res.json().catch(() => null)
     throw err
   }
   return res.json()
@@ -29,3 +31,5 @@ export const restoreBoard = (id) =>
   fetch(`/api/boards/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ restore: true }) }).then(j)
 export const purgeBoard = (id) =>
   fetch(`/api/boards/${id}?purge=1`, { method: 'DELETE' }).then(j)
+export const setBoardPasscode = (id, passcode) =>
+  fetch(`/api/boards/${id}`, { method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify({ passcode }) }).then(j)

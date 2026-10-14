@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useTheme, PHONE_MAX } from './theme.js'
-import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard } from './lib/api.js'
+import { listBoards, getBoard, createBoard, deleteBoard as apiDelete, listTrash, restoreBoard, purgeBoard, setBoardPasscode } from './lib/api.js'
 import SignInScreen from './components/SignInScreen.jsx'
 import { Toast } from './components/Toast.jsx'
+import { UnlockReveal } from './components/UnlockReveal.jsx'
 import { SocialFooter } from './components/SocialFooter.jsx'
 import Gallery from './views/Gallery.jsx'
 import Trash from './views/Trash.jsx'
@@ -19,6 +20,7 @@ const normalize = (r) => ({
   nodes: r.nodes || [], edges: r.edges || [], thumbnail: r.thumbnail || null,
   node_count: r.node_count, edge_count: r.edge_count,
   updatedAt: r.updated_at || r.created_at,
+  hasPasscode: !!r.has_passcode, passcode: r.passcode || '',
 })
 
 function setUrlId(id) {
@@ -135,13 +137,23 @@ export default function App() {
 
   useEffect(() => { if (user || devBypass) loadBoards() }, [user, devBypass, loadBoards])
 
+  // A passcode-locked board answers 401 passcode_required and the visitor goes
+  // to its lock screen.
+  function onLoadError(e) {
+    if (e?.status === 401 && e.body?.passcode_required) {
+      window.location.replace(`/api/boards/${e.body.id}/unlock`)
+      return
+    }
+    setLoadError(true); setLoadingId(false)
+  }
+
   // Deep link: ?id=<board> loads a single board (public read). loadingId already
   // starts true when ?id is present, so the effect only resolves it.
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('id')
     if (!id) return
     getBoard(id).then((r) => { setActive(normalize(r)); setView('board'); setLoadingId(false) })
-      .catch(() => { setLoadError(true); setLoadingId(false) })
+      .catch(onLoadError)
   }, [])
 
   // Gallery rows are a preview projection (no image bytes), so opening a board
@@ -149,7 +161,18 @@ export default function App() {
   function openBoard(b) {
     setLoadingId(true); setUrlId(b.id)
     getBoard(b.id).then((r) => { setActive(normalize(r)); setView('board'); setLoadingId(false) })
-      .catch(() => { setLoadError(true); setLoadingId(false) })
+      .catch(onLoadError)
+  }
+
+  async function setPasscode(passcode) {
+    try {
+      const { has_passcode, passcode: saved } = await setBoardPasscode(active.id, passcode)
+      const patch = { hasPasscode: has_passcode, passcode: saved || '' }
+      setActive((a) => ({ ...a, ...patch }))
+      setBoards((bs) => bs && bs.map((x) => (x.id === active.id ? { ...x, ...patch } : x)))
+      showToast(has_passcode ? 'Passcode set - the link opens to a lock screen' : 'Passcode removed')
+      return true
+    } catch { showToast('Could not change the passcode'); return false }
   }
 
   async function createNew() {
@@ -244,8 +267,10 @@ export default function App() {
       <>
         <Suspense fallback={<Splash label="Loading board…" />}>
           <Board key={active.id} board={active} canEdit={canEdit} readOnly={readOnly} theme={t} themeName={themeMode}
-            onToggleTheme={toggle} onBack={backToGallery} showToast={showToast} />
+            onToggleTheme={toggle} onBack={backToGallery} showToast={showToast}
+            hasPasscode={active.hasPasscode} passcode={active.passcode} onSetPasscode={canEdit ? setPasscode : undefined} />
         </Suspense>
+        <UnlockReveal ready={Boolean(active)} />
         {/* A shared link is someone else's board being read, so it ends the way
             every shared link in the family ends: the signature and the socials.
             Signed in means working, and work needs the whole canvas. */}

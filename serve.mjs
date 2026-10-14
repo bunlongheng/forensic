@@ -15,6 +15,7 @@ import listBoards from "./lib/handlers/list-boards.js";
 import health from "./lib/handlers/health.js";
 import { createImage, getImage } from "./lib/handlers/images.js";
 import boardById from "./lib/handlers/board-by-id.js";
+import unlock from "./lib/handlers/unlock.js";
 import og from "./lib/handlers/og.js";
 import ogImage from "./lib/handlers/og-image.js";
 import { shareBoardId } from "./lib/share.js";
@@ -49,6 +50,8 @@ app.post("/api/boards", withErrors((req, res) => createBoard(req, res, { allowBe
 app.get("/api/health", withErrors(health));
 app.post("/api/images", withErrors(createImage));
 app.get("/api/images/:id", withErrors(getImage));
+// The lock screen posts a classic form, not JSON.
+app.all("/api/boards/:id/unlock", express.urlencoded({ extended: false }), withErrors(unlock));
 app.all("/api/boards/:id", withErrors(boardById));
 app.get("/api/og", withErrors(og));
 app.get("/api/og-image", withErrors(ogImage));

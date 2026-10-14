@@ -62,4 +62,9 @@ describe("api.js", () => {
     mockFetch(500, { error: "boom" });
     await expect(listBoards()).rejects.toThrow("HTTP 500");
   });
+
+  it("carries the parsed body on a rejection (the 401 passcode gate)", async () => {
+    mockFetch(401, { passcode_required: true, id: "abc" });
+    await expect(getBoard("abc")).rejects.toMatchObject({ status: 401, body: { passcode_required: true, id: "abc" } });
+  });
 });

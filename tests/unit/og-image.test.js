@@ -80,6 +80,13 @@ describe("GET /api/og-image", () => {
     expect(r.statusCode).toBe(302);
   });
 
+  it("falls back to the site card for a passcode-locked board", async () => {
+    query.mockResolvedValue({ rows: [{ thumbnail: await fakeThumb(200, 100), passcode_hash: "a$b" }] });
+    const r = res();
+    await ogImage(req(ID), r);
+    expect([r.statusCode, r.headers.Location]).toEqual([302, "/og.png"]);
+  });
+
   it("refuses a non-uuid id before touching the DB", async () => {
     const r = res();
     await ogImage(req("nope"), r);

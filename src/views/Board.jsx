@@ -33,7 +33,7 @@ import { useBoardExport } from '../hooks/useBoardExport.js'
 
 const EDGE_TYPES = { floating: FloatingEdge }
 
-function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme, onBack, showToast }) {
+function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme, onBack, showToast, hasPasscode, passcode, onSetPasscode }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(withEditable(board.nodes || [], canEdit))
   const [edges, setEdges, onEdgesChange] = useEdgesState(board.edges || [])
   const [title, setTitle] = useState(board.title || 'Untitled Board')
@@ -282,6 +282,7 @@ function BoardInner({ board, canEdit, readOnly, theme, themeName, onToggleTheme,
         onAddTool={openRingAtCenter}
         onAddImage={() => fileRef.current?.click()} onAddSticker={() => addNodeOfType('sticker', centerPos())}
         onToggleTheme={onToggleTheme} themeName={themeName}
+        hasPasscode={hasPasscode} passcode={passcode} onSetPasscode={onSetPasscode}
       />
       {canEdit && <input ref={fileRef} type="file" accept="image/*,application/pdf,audio/*,video/*,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.md" multiple hidden
         onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files, centerPos()); e.target.value = '' }} />}
