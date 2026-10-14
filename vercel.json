@@ -1,6 +1,9 @@
 {
   "ignoreCommand": "git log -1 --format=%s | grep -qE '^(chore|ci|test|docs):'",
   "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then node db/migrate.mjs; fi && vite build",
+  "rewrites": [
+    { "source": "/api/boards/:id/unlock", "destination": "/api/boards/:id?unlock=1" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
