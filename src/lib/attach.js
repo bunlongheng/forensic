@@ -30,6 +30,45 @@ export const KIND_LABEL = { pdf: 'PDF', audio: 'Audio', video: 'Video', doc: 'Do
 export const KIND_COLOR = { pdf: '#c0392b', audio: '#1f7a6b', video: '#5b3fa8', doc: '#2f6690', file: '#6b5844', link: '#1d6fd1' }
 export const KIND_ICON = { pdf: 'pdf', audio: 'audio', video: 'video', doc: 'doc', file: 'file', link: 'link' }
 
+// The icons and inks an exhibit card can be switched to from the inspector.
+export const CARD_ICONS = ['link', 'globe', 'code', 'video', 'audio', 'chat', 'mail', 'map', 'sheet', 'doc', 'pdf', 'design', 'ticket', 'cloud', 'cart', 'person']
+export const CARD_COLORS = ['#1d6fd1', '#c0392b', '#1f7a6b', '#5b3fa8', '#2f6690', '#6b5844', '#d97706', '#be185d', '#15803d', '#111827']
+
+// Host (plus path, for the hosts that serve many things) -> the icon a link to it
+// should wear, so a board of links reads at a glance. First match wins.
+const LINK_ICON_RULES = [
+  [/^mailto:/, 'mail'],
+  [/^(maps\.google\.|maps\.apple\.com|(www\.)?google\.[a-z.]+\/maps|(www\.)?openstreetmap\.org)/, 'map'],
+  [/^docs\.google\.com\/spreadsheets|^(www\.)?airtable\.com/, 'sheet'],
+  [/^docs\.google\.com\/presentation/, 'doc'],
+  [/^(docs\.google\.com|(www\.)?notion\.(so|site)|[\w-]+\.atlassian\.net\/wiki|(www\.)?medium\.com|[\w-]+\.substack\.com)/, 'doc'],
+  [/^(drive\.google\.com|(www\.)?dropbox\.com|onedrive\.live\.com|[\w-]+\.sharepoint\.com|(www\.)?box\.com|(app\.)?box\.com)/, 'cloud'],
+  [/^((www\.|gist\.)?github\.com|(www\.)?gitlab\.com|(www\.)?bitbucket\.org|(www\.)?stackoverflow\.com|codepen\.io|(www\.)?npmjs\.com|codesandbox\.io)/, 'code'],
+  [/^([\w-]+\.atlassian\.net|linear\.app|(www\.)?trello\.com|app\.asana\.com)/, 'ticket'],
+  [/^((www\.)?figma\.com|(www\.)?canva\.com|(www\.)?dribbble\.com|(www\.)?behance\.net|(www\.)?miro\.com)/, 'design'],
+  [/^((www\.|m\.)?youtube\.com|youtu\.be|(www\.)?vimeo\.com|(www\.)?loom\.com|(www\.)?twitch\.tv|(www\.)?tiktok\.com)/, 'video'],
+  [/^(open\.spotify\.com|(www\.)?soundcloud\.com|podcasts\.apple\.com|music\.apple\.com)/, 'audio'],
+  [/^([\w-]+\.slack\.com|app\.slack\.com|(www\.)?discord(app)?\.com|discord\.gg|teams\.microsoft\.com|(www\.)?(twitter|x)\.com|(www\.)?reddit\.com|(www\.)?facebook\.com|(www\.)?threads\.net|bsky\.app)/, 'chat'],
+  [/^((www\.)?linkedin\.com\/in\/|(www\.)?instagram\.com\/)/, 'person'],
+  [/^((www\.)?amazon\.[a-z.]+|(www\.)?ebay\.[a-z.]+|[\w-]+\.myshopify\.com|(www\.)?etsy\.com)/, 'cart'],
+]
+
+// The icon a link should wear: its document type when it points AT a document
+// (a .pdf stays a PDF), else what its host is known for, else the plain link.
+export function linkIcon(url) {
+  let u
+  try { u = new URL(url) } catch { return 'link' }
+  const k = kindOf('', u.pathname)
+  if (k !== 'file') return KIND_ICON[k]
+  const key = u.protocol === 'mailto:' ? url : `${u.hostname.toLowerCase()}${u.pathname}`
+  for (const [re, icon] of LINK_ICON_RULES) if (re.test(key)) return icon
+  return 'link'
+}
+
+// What a card actually wears: the owner's pick, else the smart guess.
+export const cardIcon = (data) => data?.icon || (data?.url ? linkIcon(data.url) : KIND_ICON[data?.kind] || 'file')
+export const cardColor = (data) => data?.color || KIND_COLOR[data?.kind] || KIND_COLOR.file
+
 export function prettySize(bytes) {
   if (!bytes && bytes !== 0) return ''
   if (bytes < 1024) return `${bytes} B`
