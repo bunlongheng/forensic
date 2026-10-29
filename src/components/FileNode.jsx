@@ -2,7 +2,7 @@ import { memo, useState } from 'react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
 import { Icon } from './Icon.jsx'
-import { KIND_COLOR, KIND_ICON, KIND_LABEL, prettySize, openAttachment } from '../lib/attach.js'
+import { KIND_LABEL, cardColor, cardIcon, prettySize, openAttachment } from '../lib/attach.js'
 
 // A non-photo exhibit: a pasted link, a PDF, an audio or video file, a document.
 // Drawn as a manila case-file docket pinned to the board - kraft paper, a coloured
@@ -12,7 +12,7 @@ import { KIND_COLOR, KIND_ICON, KIND_LABEL, prettySize, openAttachment } from '.
 function FileNode({ data }) {
   const [hover, setHover] = useState(false)
   const kind = data.kind || 'file'
-  const ink = KIND_COLOR[kind] || KIND_COLOR.file
+  const ink = cardColor(data)
   const name = data.label || data.name || KIND_LABEL[kind]
   const open = () => openAttachment(data)
 
@@ -61,7 +61,7 @@ function FileNode({ data }) {
               transition: 'background .13s ease, color .13s ease',
             }}
           >
-            <Icon name={hover ? 'external' : (KIND_ICON[kind] || 'file')} size={23} />
+            <Icon name={hover ? 'external' : cardIcon(data)} size={23} />
           </button>
 
           <div style={{ minWidth: 0, color: '#2a2113' }}>

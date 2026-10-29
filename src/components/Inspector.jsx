@@ -1,6 +1,7 @@
-import { openAttachment, KIND_LABEL, prettySize } from '../lib/attach.js'
+import { openAttachment, KIND_LABEL, prettySize, CARD_COLORS, CARD_ICONS, cardColor, cardIcon } from '../lib/attach.js'
 import { WAX_COLORS, NOTE_TINTS, BRIGHT_TINTS, TEXT_STYLES, INK_COLORS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, CROSSHAIR_COLORS } from '../lib/constants.js'
 import { NODE_REGISTRY } from '../lib/nodeRegistry.js'
+import { Icon } from './Icon.jsx'
 
 // Human names for the hex swatches above, so a screen reader hears "Butter
 // yellow" instead of "Color #fef3c7". Keyed by lowercase hex; falls back to the
@@ -310,6 +311,19 @@ function filePanel({ data, onNode, pin }) {
     <>
       <PinControl data={data} onNode={onNode} pin={pin} />
       <TextField label="Label" value={data?.label ?? data?.name ?? ''} onChange={(v) => onNode({ label: v })} placeholder="Exhibit name" maxLength={120} />
+      <Row label="Color">
+        {CARD_COLORS.map((c) => <Swatch key={c} color={c} active={cardColor(data) === c} onClick={() => onNode({ color: c })} />)}
+      </Row>
+      <Row label="Icon">
+        <button onClick={() => onNode({ icon: undefined })} aria-pressed={!data?.icon} title="Pick from the link" style={{ ...segBtn(!data?.icon), padding: '0 9px', height: 30 }}>Auto</button>
+        {CARD_ICONS.map((ic) => (
+          <button key={ic} onClick={() => onNode({ icon: ic })} title={ic} aria-label={`${ic} icon`} aria-pressed={data?.icon === ic}
+            style={{ ...segBtn(data?.icon === ic), padding: 0, width: 30, height: 30, display: 'grid', placeItems: 'center',
+              outline: !data?.icon && cardIcon(data) === ic ? '1px dashed var(--accent)' : 'none' }}>
+            <Icon name={ic} size={16} />
+          </button>
+        ))}
+      </Row>
       <div style={{ marginTop: 10 }}>
         <button onClick={() => openAttachment(data)} style={{ ...segBtn(false), width: '100%', padding: '8px 15px' }}>Open in new tab</button>
       </div>
