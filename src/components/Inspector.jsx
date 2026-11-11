@@ -17,7 +17,7 @@ const COLOR_NAMES = {
   '#0ea5e9': 'Cyan', '#6b7280': 'Slate gray', '#8b1e3f': 'Wine', '#7a1220': 'Dark maroon',
   '#a02c2c': 'Brick red', '#5b3a1a': 'Umber', '#1f3a5c': 'Navy', '#2f5d3f': 'Pine green',
   '#f5c518': 'Gold', '#1a1a1a': 'Black', '#2563eb': 'Royal blue', '#3a2a1a': 'Brown',
-  '#fbfaf6': 'Off white',
+  '#fbfaf6': 'Off white', '#fed7aa': 'Apricot orange', '#ccfbf1': 'Seafoam', '#ede9fe': 'Lavender', '#ecfccb': 'Lime', '#e5e7eb': 'Fog gray',
 }
 const nameFor = (hex) => COLOR_NAMES[hex.toLowerCase()] || hex
 

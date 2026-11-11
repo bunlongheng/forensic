@@ -6,7 +6,7 @@
 export const IMAGE_MAX = 3_000_000
 
 // Note card tints (warm paper, a danger red, then soft pastels).
-export const NOTE_TINTS = ['#fef3c7', '#fca5a5', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff', '#f3f0e8']
+export const NOTE_TINTS = ['#fef3c7', '#fed7aa', '#fca5a5', '#dbeafe', '#dcfce7', '#fce7f3', '#e0e7ff', '#f3f0e8', '#ccfbf1', '#ede9fe', '#ecfccb', '#e5e7eb']
 
 // Bright, distinct paper colors for the text quick-note - white + saturated hues
 // (no washed-out pastels), a proper vivid yellow. Dark ink stays readable on all.

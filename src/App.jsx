@@ -72,7 +72,7 @@ export default function App() {
   // you'd re-enable the bypass, is skipped). Treat localhost as always-editable dev
   // mode. Production (a real hostname) still requires signing in.
   const [devBypass, setDevBypass] = useState(
-    () => ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname),
+    () => ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname) || window.location.hostname.endsWith('.localhost'),
   )
   const [creating, setCreating] = useState(false)
   // Start in the loading state if the URL already targets a board, so we never
