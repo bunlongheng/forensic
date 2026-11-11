@@ -17,6 +17,7 @@ import { createImage, getImage } from "./lib/handlers/images.js";
 import boardById from "./lib/handlers/board-by-id.js";
 import unlock from "./lib/handlers/unlock.js";
 import og from "./lib/handlers/og.js";
+import linkTitle from "./lib/handlers/link-title.js";
 import ogImage from "./lib/handlers/og-image.js";
 import { shareBoardId } from "./lib/share.js";
 import authLogin from "./lib/handlers/auth-login.js";
@@ -54,6 +55,7 @@ app.get("/api/images/:id", withErrors(getImage));
 app.all("/api/boards/:id/unlock", express.urlencoded({ extended: false }), withErrors(unlock));
 app.all("/api/boards/:id", withErrors(boardById));
 app.get("/api/og", withErrors(og));
+app.get("/api/link-title", withErrors(linkTitle));
 app.get("/api/og-image", withErrors(ogImage));
 
 // A link-preview crawler on a share link gets the OG shell, the same call

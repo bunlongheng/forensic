@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { fileToImage, isImageFile } from '../lib/image.js'
 import { uploadImage } from '../lib/api.js'
-import { fileToAttachment, parseLink, ATTACH_MAX, prettySize } from '../lib/attach.js'
+import { fileToAttachment, parseLink, isStickies, ATTACH_MAX, prettySize } from '../lib/attach.js'
 import { addNode, uid } from '../lib/boardGraph.js'
 import { RING_SAFE } from '../components/CursorTools.jsx'
 import {
@@ -109,11 +109,24 @@ export function useAddContent({ canEdit, readOnly, setNodes, showToast, screenTo
 
   // A pasted (or dragged) URL lands as a link card - click its icon to open it.
   const addLink = useCallback((link, at) => {
+    const id = uid('file')
     setNodes((nds) => nds.concat({
-      id: uid('file'), type: 'file', position: freeSpot(at, nds), style: { width: FILE_CARD_W },
+      id, type: 'file', position: freeSpot(at, nds), style: { width: FILE_CARD_W },
       data: { ...link, editable: true },
     }))
     showToast('Pinned a link')
+    // A Stickies note link reads as the note's title in its folder color. The title
+    // swaps in only while the card still shows the URL label, so a rename wins.
+    if (isStickies(link.url)) {
+      fetch(`/api/link-title?url=${encodeURIComponent(link.url)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (j?.title || j?.color) && setNodes((nds) => nds.map((n) => (n.id !== id ? n : { ...n, data: {
+          ...n.data,
+          ...(j.title && n.data.name === link.name ? { name: j.title } : {}),
+          ...(j.color ? { color: j.color } : {}),
+        } }))))
+        .catch(() => {})
+    }
   }, [setNodes, showToast])
 
   const addNodeOfType = useCallback((type, at, extra, exact) => setNodes((nds) => addNode(nds, type, at, extra, exact)), [setNodes])

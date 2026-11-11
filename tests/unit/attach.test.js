@@ -2,9 +2,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   ATTACH_MAX, kindOf, prettySize, parseLink, fileToAttachment, dataUrlToBlob, openAttachment, isSafeUrl,
+  linkIcon, cardIcon, cardColor,
 } from "../../src/lib/attach.js";
 
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("kindOf", () => {
   it("reads the MIME type first", () => {
@@ -165,5 +166,38 @@ describe("openAttachment", () => {
     vi.stubGlobal("open", open);
     expect(openAttachment({ kind: "file" })).toBe(false);
     expect(open).not.toHaveBeenCalled();
+  });
+});
+
+describe("linkIcon", () => {
+  it("picks the icon from what the host is known for", () => {
+    expect(linkIcon("https://github.com/a/b")).toBe("code");
+    expect(linkIcon("https://www.youtube.com/watch?v=1")).toBe("video");
+    expect(linkIcon("https://youtu.be/x")).toBe("video");
+    expect(linkIcon("https://docs.google.com/spreadsheets/d/1")).toBe("sheet");
+    expect(linkIcon("https://docs.google.com/document/d/1")).toBe("doc");
+    expect(linkIcon("https://www.google.com/maps/place/x")).toBe("map");
+    expect(linkIcon("https://acme.atlassian.net/browse/X-1")).toBe("ticket");
+    expect(linkIcon("https://www.figma.com/design/k/n")).toBe("design");
+    expect(linkIcon("https://x.com/someone")).toBe("chat");
+    expect(linkIcon("https://www.linkedin.com/in/someone")).toBe("person");
+    expect(linkIcon("mailto:a@b.co")).toBe("mail");
+  });
+
+  it("keeps a document link's own type and falls back to the plain link", () => {
+    expect(linkIcon("https://github.com/a/b/raw/report.pdf")).toBe("pdf");
+    expect(linkIcon("https://example.com/x")).toBe("link");
+    expect(linkIcon("not a url")).toBe("link");
+  });
+});
+
+describe("cardIcon / cardColor", () => {
+  it("honours the owner's pick over the smart guess", () => {
+    const data = { kind: "link", url: "https://github.com/a" };
+    expect(cardIcon(data)).toBe("code");
+    expect(cardIcon({ ...data, icon: "globe" })).toBe("globe");
+    expect(cardColor(data)).toBe("#1d6fd1");
+    expect(cardColor({ ...data, color: "#be185d" })).toBe("#be185d");
+    expect(cardIcon({ kind: "pdf" })).toBe("pdf");
   });
 });

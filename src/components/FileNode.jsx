@@ -2,7 +2,7 @@ import { memo, useState } from 'react'
 import { NodeHandles } from './nodeHandles.jsx'
 import { Pin } from './Pin.jsx'
 import { Icon } from './Icon.jsx'
-import { KIND_COLOR, KIND_ICON, KIND_LABEL, prettySize, openAttachment } from '../lib/attach.js'
+import { KIND_LABEL, cardColor, cardIcon, prettySize, openAttachment } from '../lib/attach.js'
 
 // A non-photo exhibit: a pasted link, a PDF, an audio or video file, a document.
 // Drawn as a manila case-file docket pinned to the board - kraft paper, a coloured
@@ -12,7 +12,10 @@ import { KIND_COLOR, KIND_ICON, KIND_LABEL, prettySize, openAttachment } from '.
 function FileNode({ data }) {
   const [hover, setHover] = useState(false)
   const kind = data.kind || 'file'
-  const ink = KIND_COLOR[kind] || KIND_COLOR.file
+  const ink = cardColor(data)
+  // Text on the ink: cream on dark inks, dark on light ones (a yellow Stickies folder).
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(ink.slice(i, i + 2), 16) || 0)
+  const onInk = 0.299 * r + 0.587 * g + 0.114 * b > 170 ? '#2a2113' : '#fff7e8'
   const name = data.label || data.name || KIND_LABEL[kind]
   const open = () => openAttachment(data)
 
@@ -40,7 +43,7 @@ function FileNode({ data }) {
       >
         {/* Head tab - the kind of exhibit, typed on the folder. */}
         <div className="mono" style={{
-          background: ink, color: '#fff7e8', padding: '4px 9px 3.5px',
+          background: ink, color: onInk, padding: '4px 9px 3.5px',
           fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase',
           display: 'flex', justifyContent: 'space-between', gap: 8,
         }}>
@@ -55,13 +58,13 @@ function FileNode({ data }) {
             style={{
               flexShrink: 0, width: 44, height: 44, display: 'grid', placeItems: 'center', cursor: 'pointer',
               background: hover ? ink : 'rgba(255,253,246,.72)',
-              color: hover ? '#fff7e8' : ink,
+              color: hover ? onInk : ink,
               border: `1.5px solid ${ink}`, borderRadius: 2, padding: 0,
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,.5)',
               transition: 'background .13s ease, color .13s ease',
             }}
           >
-            <Icon name={hover ? 'external' : (KIND_ICON[kind] || 'file')} size={23} />
+            <Icon name={hover ? 'external' : cardIcon(data)} size={23} />
           </button>
 
           <div style={{ minWidth: 0, color: '#2a2113' }}>
