@@ -1,4 +1,4 @@
-import { openAttachment, KIND_LABEL, prettySize, CARD_COLORS, CARD_ICONS, cardColor, cardIcon } from '../lib/attach.js'
+import { openAttachment, KIND_LABEL, prettySize, CARD_COLORS, CARD_ICONS, cardColor, cardIcon, isStickies } from '../lib/attach.js'
 import { WAX_COLORS, NOTE_TINTS, BRIGHT_TINTS, TEXT_STYLES, INK_COLORS, PIN_COLORS, THREAD_COLORS, PAPER_TYPES, PROFILE_COLORS, CONTAINER_TINTS, STICKER_EMOJIS, STAMP_COLORS, STAMP_LABELS, CROSSHAIR_COLORS } from '../lib/constants.js'
 import { NODE_REGISTRY } from '../lib/nodeRegistry.js'
 import { Icon } from './Icon.jsx'
@@ -311,6 +311,8 @@ function filePanel({ data, onNode, pin }) {
     <>
       <PinControl data={data} onNode={onNode} pin={pin} />
       <TextField label="Label" value={data?.label ?? data?.name ?? ''} onChange={(v) => onNode({ label: v })} placeholder="Exhibit name" maxLength={120} />
+      {/* A Stickies link keeps the note's own folder color and icon. */}
+      {!isStickies(data?.url) && <>
       <Row label="Color">
         {CARD_COLORS.map((c) => <Swatch key={c} color={c} active={cardColor(data) === c} onClick={() => onNode({ color: c })} />)}
       </Row>
@@ -324,6 +326,7 @@ function filePanel({ data, onNode, pin }) {
           </button>
         ))}
       </Row>
+      </>}
       <div style={{ marginTop: 10 }}>
         <button onClick={() => openAttachment(data)} style={{ ...segBtn(false), width: '100%', padding: '8px 15px' }}>Open in new tab</button>
       </div>

@@ -37,6 +37,7 @@ export const CARD_COLORS = ['#1d6fd1', '#c0392b', '#1f7a6b', '#5b3fa8', '#2f6690
 // Host (plus path, for the hosts that serve many things) -> the icon a link to it
 // should wear, so a board of links reads at a glance. First match wins.
 const LINK_ICON_RULES = [
+  [/^stickies-bheng\.vercel\.app\//, 'note'],
   [/^mailto:/, 'mail'],
   [/^(maps\.google\.|maps\.apple\.com|(www\.)?google\.[a-z.]+\/maps|(www\.)?openstreetmap\.org)/, 'map'],
   [/^docs\.google\.com\/spreadsheets|^(www\.)?airtable\.com/, 'sheet'],
@@ -64,6 +65,9 @@ export function linkIcon(url) {
   for (const [re, icon] of LINK_ICON_RULES) if (re.test(key)) return icon
   return 'link'
 }
+
+// A Stickies note link wears the note's own name and folder color, fixed.
+export const isStickies = (url) => /^https:\/\/stickies-bheng\.vercel\.app\//.test(url || '')
 
 // What a card actually wears: the owner's pick, else the smart guess.
 export const cardIcon = (data) => data?.icon || (data?.url ? linkIcon(data.url) : KIND_ICON[data?.kind] || 'file')
