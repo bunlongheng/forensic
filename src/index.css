@@ -135,6 +135,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .fx-fab { opacity: .2; transition: opacity .16s ease, transform .16s ease; }
 .fx-fab:hover, .fx-fab:focus-visible { opacity: 1; transform: scale(1.06); }
 
+/* Wide / landscape (foldable open screen): keep the board chrome clear of the
+   status pill and side sensor housing too. Phone widths override below. */
+.fx-topbar {
+  top: max(42px, calc(12px + env(safe-area-inset-top))) !important;
+  left: max(42px, calc(12px + env(safe-area-inset-left))) !important;
+  right: max(42px, calc(12px + env(safe-area-inset-right))) !important;
+}
+
 /* ── Phone view: reclaim every pixel ──────────────────────────────────────────
    Hide the minimap, zoom % and board title (keep just the back button), thin the
    wooden frame, and pull the toolbar / add-button in tight to the edges. */
